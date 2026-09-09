@@ -17,7 +17,8 @@
     "tg:webhook": "node --env-file-if-exists=.env src/jobs/tg-webhook.js",
     "raids:sync": "node --env-file-if-exists=.env src/jobs/raids-sync.js",
     "bases:importar": "node --env-file-if-exists=.env src/jobs/importar-bases.js",
-    "sql:unir": "node --env-file-if-exists=.env src/jobs/unir-sql.js"
+    "sql:unir": "node --env-file-if-exists=.env src/jobs/unir-sql.js",
+    "cierre": "node --env-file-if-exists=.env src/jobs/cierre-mensual.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

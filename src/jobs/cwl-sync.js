@@ -23,7 +23,13 @@ await correrJob('sync_cwl', async () => {
       continue;
     }
 
-    const temporada = grupo.season; // 'YYYY-MM'
+    // La API devuelve `season` en formato variable: a veces 'YYYY-MM' y a
+    // veces 'YYYY-MM-DD' con el dia en que arranco la temporada. Todo lo
+    // demas del sistema -alineaciones, premios_plan, monthly_stats, bonos y
+    // el propio panel- usa 'YYYY-MM'. Guardar el valor crudo dejaba la CWL
+    // bajo una clave que ninguna otra tabla encontraba: 286 ataques
+    // guardados y la pestana CWL en blanco.
+    const temporada = String(grupo.season).slice(0, 7);
     const clan = await opcional(getClan(clan_tag));
 
     const season = chk(
