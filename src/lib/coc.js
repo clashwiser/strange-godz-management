@@ -5,7 +5,7 @@
 // y se apunta la base URL al proxy. Asi funciona desde GitHub Actions, que
 // no tiene IP fija.
 
-const BASE = process.env.COC_BASE_URL || 'https://proxy.royaleapi.dev/v1';
+const BASE = process.env.COC_BASE_URL || 'https://cocproxy.royaleapi.dev/v1';
 const TOKEN = process.env.COC_TOKEN;
 
 if (!TOKEN) throw new Error('Falta COC_TOKEN en el entorno');

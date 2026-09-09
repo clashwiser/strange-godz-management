@@ -22,7 +22,7 @@ async function probar(fn) {
   }
 }
 
-console.log(`Base URL: ${process.env.COC_BASE_URL || 'https://proxy.royaleapi.dev/v1'}`);
+console.log(`Base URL: ${process.env.COC_BASE_URL || 'https://cocproxy.royaleapi.dev/v1'}`);
 console.log(`Clanes configurados: ${CLANES.map((c) => `${c.clan_tag} (${c.escuadra})`).join(', ')}\n`);
 
 let fatal = false;
