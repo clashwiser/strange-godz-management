@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase, configurado } from '../lib/supabase';
+import { supabase, configurado, hayHuella } from '../lib/supabase';
 import Alineacion from './alineacion';
 import SelectorTema, { Mascota } from './temas';
 import Clanes from './clanes';
 import Bots from './bots';
 import Bases from './bases';
 import GrupoCWL from './grupo-cwl';
+import { AvisoHuella, GestorHuellas } from './huella';
 import Bonos from './bonos';
 import Heraldo from './heraldo';
 import Instalar from './instalar';
@@ -190,6 +191,11 @@ export default function Panel() {
           <SelectorIdioma />
           <span className="correo">{sesion.user.email}</span>
           <SelectorTema />
+          {/* Solo aparece mientras la cuenta no tenga ninguna huella. En
+              cuanto hay una, desaparece: si esto viviera escondido en una
+              pestana no lo activaria nadie y se seguiria escribiendo la
+              contrasena todos los dias. */}
+          <AvisoHuella />
           <button className="fantasma" onClick={() => supabase.auth.signOut()}>
             {t('Salir')}
           </button>
@@ -227,7 +233,14 @@ export default function Panel() {
         {d && tab === 'mensajes' && <Mensajes d={d} recargar={cargar} />}
         {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
-        {d && tab === 'bots' && <Bots d={d} recargar={cargar} />}
+        {d && tab === 'bots' && (
+          <>
+            {/* La gestion completa vive aca; el empujon de la cabecera solo
+                sirve para el primer registro. */}
+            <GestorHuellas />
+            <Bots d={d} recargar={cargar} />
+          </>
+        )}
       </div>
 
       {/* Flotante sobre todo el panel: la pregunta llega cuando llega, no
@@ -243,7 +256,15 @@ function Login() {
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
+  const [aviso, setAviso] = useState('');
   const [cargando, setCargando] = useState(false);
+  // Con contrasena solo si hace falta. La entrada normal es la huella.
+  const [conClave, setConClave] = useState(false);
+  const [puedeHuella, setPuedeHuella] = useState(false);
+
+  // En un efecto y no directo: hayHuella() mira window, y en el render del
+  // servidor no existe. Calcularlo ahi rompe la hidratacion.
+  useEffect(() => setPuedeHuella(hayHuella()), []);
 
   async function entrar(e) {
     e.preventDefault();
@@ -252,6 +273,56 @@ function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) setErr(error.message);
     setCargando(false);
+  }
+
+  /** Huella o PIN del aparato. El telefono decide cual pide. */
+  async function entrarConHuella() {
+    setCargando(true);
+    setErr('');
+    setAviso('');
+    try {
+      const { error } = await supabase.auth.signInWithPasskey();
+      if (error) throw error;
+    } catch (e) {
+      // Cancelar el dialogo del sistema no es un fallo que haya que gritar.
+      const m = String(e?.message ?? e);
+      if (/abort|cancel|NotAllowed/i.test(m)) setErr('');
+      else setErr(`${t('No se pudo entrar con la huella: ')}${m}`);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  /**
+   * Enlace por correo. Es la primera entrada de un lider nuevo y la salida
+   * cuando se pierde el telefono con el passkey: se entra sin escribir
+   * ninguna contrasena y desde dentro se registra la huella del aparato
+   * nuevo.
+   */
+  async function mandarEnlace() {
+    if (!email) return setErr(t('Escribe tu correo primero.'));
+    setCargando(true);
+    setErr('');
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin,
+          // CLAVE. Por defecto signInWithOtp CREA la cuenta si el correo no
+          // existe: cualquiera que llegue a la direccion del panel se daria
+          // de alta solo. RLS lo dejaria sin ver una sola fila, pero tendria
+          // sesion, y eso no es una puerta que haya que dejar abierta. Los
+          // lideres se dan de alta a mano, que son tres.
+          shouldCreateUser: false,
+        },
+      });
+      if (error) throw error;
+      setAviso(t('Te mandamos un enlace al correo. Ábrelo desde este mismo teléfono.'));
+    } catch (e) {
+      setErr(e.message ?? String(e));
+    } finally {
+      setCargando(false);
+    }
   }
 
   return (
@@ -264,25 +335,69 @@ function Login() {
           <SelectorTema />
           <SelectorIdioma />
         </div>
+        {/* La huella va PRIMERA y sola: es un boton, no un formulario, y no
+            hace falta ni escribir el correo — el telefono ya sabe de quien
+            es la llave. La contrasena queda detras de un enlace porque una
+            vez registrada la huella no se vuelve a usar. */}
+        {puedeHuella && (
+          <button
+            type="button"
+            className="accion boton-huella"
+            onClick={entrarConHuella}
+            disabled={cargando}
+          >
+            👆 {cargando ? t('Entrando…') : t('Entrar con huella o PIN')}
+          </button>
+        )}
+
         <input
           type="email"
           placeholder={t('correo')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
-          required
+          required={conClave}
         />
-        <input
-          type="password"
-          placeholder={t('contraseña')}
-          value={pass}
-          onChange={(e) => setPass(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
-        <button className="accion" style={{ width: '100%', marginTop: 8 }} disabled={cargando}>
-          {cargando ? t('Entrando…') : t('Entrar')}
+        {conClave && (
+          <input
+            type="password"
+            placeholder={t('contraseña')}
+            value={pass}
+            onChange={(e) => setPass(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        )}
+
+        {conClave ? (
+          <button className="accion" style={{ width: '100%', marginTop: 8 }} disabled={cargando}>
+            {cargando ? t('Entrando…') : t('Entrar')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="fantasma"
+            style={{ width: '100%', marginTop: 8 }}
+            onClick={mandarEnlace}
+            disabled={cargando}
+          >
+            {cargando ? t('Mandando…') : t('Mándame un enlace al correo')}
+          </button>
+        )}
+
+        <button
+          type="button"
+          className="fantasma enlace-clave"
+          onClick={() => {
+            setConClave((v) => !v);
+            setErr('');
+            setAviso('');
+          }}
+        >
+          {conClave ? t('Volver') : t('Entrar con contraseña')}
         </button>
+
+        {aviso && <p className="sub" style={{ textAlign: 'center' }}>{aviso}</p>}
         {err && <p className="error">{err}</p>}
         {/* Tambien aca, no solo en la cabecera: en el telefono esta es la
             primera pantalla, y es el momento en que uno decide dejarla a mano.
