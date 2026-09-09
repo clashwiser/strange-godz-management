@@ -92,10 +92,10 @@ const d = {
     { id: 3, nombre: 'RH CWL Sept (solo texto)', mes: '2026-09' },
   ],
   bases: [
-    { id: 1, pack_id: 1, th: 18, tipo: 'WB', preview: '/bases/clash-champ1-sept/00.webp', url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AWB%3Aaaa', asignada_a: null },
-    { id: 2, pack_id: 1, th: 18, tipo: 'HV', preview: '/bases/clash-champ1-sept/01.webp', url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AHV%3Abbb', asignada_a: '#P1' },
-    { id: 3, pack_id: 2, th: 18, tipo: 'WB', preview: '/bases/rh-champs1-sept/00.webp', url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AWB%3Accc', asignada_a: null },
-    { id: 4, pack_id: 3, th: 18, tipo: 'HV', preview: null, url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AHV%3Addd', asignada_a: null },
+    { id: 1, pack_id: 1, th: 18, tipo: 'WB', etiqueta: null, nota: 'Builder: Aquiles · Recommendation 1: Ice Golem x2, Furnace x1, Headhunter x1, Goblin x1', preview: '/bases/clash-champ1-sept/00.webp', url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AWB%3Aaaa', asignada_a: null },
+    { id: 2, pack_id: 1, th: 18, tipo: 'HV', etiqueta: null, nota: 'Builder: Bernaul · Recommendation 1: Ice Golem x1, Archer x22, Furnace x1', preview: '/bases/clash-champ1-sept/01.webp', url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AHV%3Abbb', asignada_a: '#P1' },
+    { id: 3, pack_id: 2, th: 18, tipo: 'WB', etiqueta: 'Base 1', nota: 'RH September C1 | Vibes | 2 IG, 2 witches & archer', preview: '/bases/rh-champs1-sept/00.webp', url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AWB%3Accc', asignada_a: null },
+    { id: 4, pack_id: 3, th: 18, tipo: 'HV', etiqueta: 'Base 9', nota: 'RH September CWL | Gaku | furnace, 6 HH & archer', preview: null, url: 'https://link.clashofclans.com/en?action=OpenLayout&id=TH18%3AHV%3Addd', asignada_a: null },
   ],
   bonos: [{ temporada: '2026-09', clan_tag: '#2GC', player_tag: '#P1', tipo: 'medallas_cwl', entregado: true }],
   premiosPlan: [

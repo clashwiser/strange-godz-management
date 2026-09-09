@@ -882,19 +882,28 @@ td:has(.mini-base) { padding: 8px 10px; }
 }
 
 @media (max-width: 640px) {
-  /* En el telefono el titulo ya ocupa toda la fila, asi que los controles
-     se reparten a lo ancho en vez de amontonarse a la derecha. */
-  .acciones-top { margin-left: 0; width: 100%; gap: 8px; justify-content: flex-start; }
+  /* A la derecha TAMBIEN en el telefono. Aqui los alineaba a la izquierda
+     pensando que repartirlos a lo ancho se leeria mejor, y era justo lo
+     contrario: con el titulo ocupando la fila entera, los controles a la
+     izquierda quedan pegados al borde opuesto del que uno mira. */
+  .acciones-top { margin-left: auto; gap: 8px; justify-content: flex-end; }
 }
 
 /* ---------- Comentario de una base ---------- */
-/* Lo que trae el PDF del proveedor y hoy se pierde: contra que ejercito
-   defiende, que donar en el castillo. Se escribe una vez y lo ve todo el
-   clan. */
+/* Lo que trae el PDF del proveedor: contra que ejercito defiende, que donar
+   en el castillo. El importador lo saca solo; este campo es para corregirlo
+   o anadirle algo, y lo ve todo el clan. */
 .campo-nota {
-  margin-top: 0; min-width: 190px; font-size: 13px;
-  white-space: normal;
+  margin-top: 0; min-width: 210px; max-width: 320px; font-size: 13px;
+  white-space: normal; resize: vertical; line-height: 1.35;
+  /* El alto lo pone autoAlto() en bases.jsx segun lo que haya escrito;
+     esto es solo el techo para que una nota kilometrica no estire la fila
+     media pantalla. */
+  max-height: 140px; overflow-y: auto;
 }
+/* El numero con que el proveedor llama a la base ("Base 7"), debajo de la
+   miniatura. */
+.etiqueta-base { display: block; margin-top: 4px; font-size: 12px; }
 .nota-base {
   margin: 10px 0 0; padding: 9px 12px;
   background: rgba(0, 0, 0, .16);

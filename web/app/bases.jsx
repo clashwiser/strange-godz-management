@@ -48,6 +48,23 @@ export default function Bases({ d, demo = false, recargar }) {
     return () => window.removeEventListener('keydown', alTecla);
   }, [ampliada]);
 
+  /**
+   * Estira la caja de la nota hasta que quepa todo.
+   *
+   * Con alto fijo las notas del proveedor salen cortadas y con una barrita
+   * de scroll adentro, que para leerlas es casi tan incomodo como no
+   * tenerlas. El tope lo pone max-height en el CSS.
+   */
+  function autoAlto(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    // El borde va sumado aparte: con box-sizing:border-box el alto incluye
+    // el borde pero scrollHeight no, asi que quedarse en scrollHeight deja
+    // el contenido 4px por fuera y la barrita de scroll no se va nunca.
+    const borde = el.offsetHeight - el.clientHeight;
+    el.style.height = `${el.scrollHeight + borde}px`;
+  }
+
   async function copiar(b) {
     try {
       await navigator.clipboard.writeText(b.url);
@@ -179,6 +196,9 @@ export default function Bases({ d, demo = false, recargar }) {
                   ) : (
                     <span className="mini-vacia">{t('sin imagen')}</span>
                   )}
+                  {/* El numero que trae el PDF: es como el proveedor las
+                      llama cuando alguien pregunta por una en el grupo. */}
+                  {b.etiqueta && <span className="sub etiqueta-base">{b.etiqueta}</span>}
                 </td>
                 <td className="num">{b.th ?? '—'}</td>
                 <td>
@@ -202,13 +222,25 @@ export default function Bases({ d, demo = false, recargar }) {
                 <td>
                   {/* defaultValue y guardado al salir: con value controlado
                       cada tecla repinta la tabla entera, y con onChange cada
-                      tecla escribiria en la base. */}
-                  <input
+                      tecla escribiria en la base.
+
+                      Es textarea y no input porque lo que trae el PDF son
+                      frases enteras ("Builder: Aquiles - Recommendation 1:
+                      Ice Golem x2, Furnace x1...") y en una sola linea hay
+                      que ir barriendo con el cursor para leerlas.
+
+                      key con la nota: React reusa el nodo al recargar y un
+                      defaultValue no se vuelve a aplicar, asi que sin esto
+                      la celda seguiria mostrando lo viejo. */}
+                  <textarea
+                    key={b.nota ?? ''}
+                    ref={autoAlto}
                     className="campo campo-nota"
+                    rows={1}
                     defaultValue={b.nota ?? ''}
                     placeholder={t('contra qué defiende, qué donar…')}
+                    onInput={(e) => autoAlto(e.currentTarget)}
                     onBlur={(e) => guardarNota(b, e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                   />
                 </td>
                 {/* El flex va en la caja interior, NO en el <td>. Una celda
