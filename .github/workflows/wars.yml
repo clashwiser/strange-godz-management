@@ -1,0 +1,43 @@
+name: Guerra normal - sync
+
+# Cada 2 horas, todo el mes.
+#
+# Una guerra normal dura 24h de preparacion + 24h de batalla, pero el
+# detalle por jugador SOLO existe mientras /currentwar la devuelve: cuando
+# empieza la siguiente, la anterior desaparece y el /warlog historico solo
+# deja totales del clan, sin decir quien ataco. Una guerra que pase entera
+# entre dos corridas se pierde y no se recupera.
+#
+# Corre tambien durante la CWL aunque entonces no haya guerras normales: el
+# job responde "sin guerra ahora" en dos segundos y no cuesta nada. En un
+# repo publico los minutos de Actions son ilimitados.
+#
+# Va a los :35 para no chocar con la CWL, que sale en punto: comparten el
+# grupo de concurrencia y el segundo tendria que esperar.
+on:
+  schedule:
+    - cron: '35 */2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: escritura-db
+  cancel-in-progress: false
+
+jobs:
+  wars:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run wars:sync
+        env:
+          COC_TOKEN: ${{ secrets.COC_TOKEN }}
+          COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+          CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
