@@ -818,11 +818,34 @@ td:has(.mini-base) { padding: 8px 10px; }
   min-width: 38px; min-height: 38px;
   font-size: 17px;
 }
+/* Mientras se arrastra, la tarjeta original se queda de hueco: la que se
+   mueve es la copia. Antes se resaltaba en su sitio y no iba a ningun lado,
+   que es lo que hacia sentir el arrastre rigido. */
 .ficha[data-agarrada="1"] {
-  transform: scale(1.04) rotate(-1deg);
+  transform: none;
+  border-style: dashed; border-color: var(--bronce);
+  background: rgba(0, 0, 0, .10);
+  box-shadow: none;
+  opacity: .45;
+}
+.ficha[data-agarrada="1"] * { visibility: hidden; }
+
+/* La copia que va pegada al dedo. Vive colgada de <body>, asi que ninguna
+   columna con overflow puede recortarla. */
+.ficha-fantasma {
+  position: fixed; left: 0; top: 0; z-index: 200;
+  margin: 0;
+  /* Imprescindible: sin esto elementFromPoint devolveria SIEMPRE la copia
+     -esta justo debajo del dedo- y no habria forma de saber sobre que
+     columna se esta soltando. */
+  pointer-events: none;
+  /* La .ficha normal lleva transition en transform; con ella puesta la
+     copia iria un pelin por detras del dedo todo el rato. */
+  transition: none;
+  will-change: transform;
   border-color: var(--oro);
-  box-shadow: 0 0 0 2px var(--oro), 0 10px 22px rgba(0,0,0,.55);
-  opacity: .92;
+  box-shadow: 0 0 0 2px var(--oro), 0 18px 34px rgba(0, 0, 0, .55);
+  opacity: .96;
 }
 /* La columna de destino ya se resalta con .col[data-sobre="1"] */
 

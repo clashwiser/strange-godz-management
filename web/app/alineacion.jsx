@@ -24,7 +24,7 @@
 // la espera de 250 ms un deslizamiento rapido sigue siendo scroll, y solo un
 // gesto deliberado arrastra.
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 
@@ -45,6 +45,19 @@ export default function Alineacion({ d, recargar, demo = false }) {
   // Pulsacion larga en curso. En una ref y no en estado: cambia dentro de
   // un temporizador y no debe repintar nada.
   const presion = useRef(null);
+  // La copia de la tarjeta que va pegada al dedo. Tambien en una ref y
+  // movida a mano por el DOM: se recoloca en cada pointermove, y hacerlo
+  // por el estado de React seria repintar las siete columnas enteras
+  // sesenta veces por segundo para mover una sola tarjeta.
+  const fantasma = useRef(null);
+  // Espejo de `arrastrando` para los manejadores de puntero. El estado de
+  // React no sirve aca: entre que activar() lo pone y React repinta pasa un
+  // frame, y los pointermove que caen dentro de ese hueco leerian el valor
+  // viejo y se descartarian. Con raton eso es visible, porque el arrastre
+  // arranca en el mismo pointerdown y los primeros movimientos se perdian.
+  const agarrada = useRef(null);
+  // Temporizador del desplazamiento por borde, para poder pararlo.
+  const autoScroll = useRef(null);
   // Estable entre renders: hay que poder quitar el MISMO listener.
   const frenar = useRef((e) => e.preventDefault()).current;
   const [guardando, setGuardando] = useState(false);
@@ -112,6 +125,98 @@ export default function Alineacion({ d, recargar, demo = false }) {
     }
   }
 
+  // ---- El fantasma: la tarjeta que sigue al dedo ----
+  /**
+   * Levanta una copia de la tarjeta y la deja pegada al puntero.
+   *
+   * Antes la tarjeta se quedaba clavada en su sitio y solo se iluminaba la
+   * columna de destino: se veia rigido y no habia forma de saber que se
+   * estaba moviendo hasta soltar. Ahora la que se mueve es la copia y el
+   * hueco original queda marcado con el borde punteado.
+   *
+   * Es un clon del nodo y no otra ficha en JSX para que no haya dos sitios
+   * que mantener cuando cambie el diseño de la tarjeta.
+   */
+  function crearFantasma(el, x, y) {
+    const r = el.getBoundingClientRect();
+    const nodo = el.cloneNode(true);
+    nodo.className = 'ficha ficha-fantasma';
+    nodo.style.width = `${r.width}px`;
+    document.body.appendChild(nodo);
+    // La tira de columnas se busca UNA vez, no en cada fotograma.
+    const tira = el.closest('.columnas');
+    // El ajuste por imanes pelea con el desplazamiento a mano: cada vez que
+    // el bucle mueve unos pixeles, el navegador tira de vuelta a la columna
+    // mas cercana y se ve a tirones.
+    if (tira) tira.style.scrollSnapType = 'none';
+    // dx/dy: donde agarro el dedo DENTRO de la tarjeta. Sin esto la tarjeta
+    // pega un salto y se centra en el dedo al empezar a moverse.
+    fantasma.current = { nodo, tira, dx: x - r.left, dy: y - r.top, puntero: { x, y } };
+    moverFantasma(x, y);
+  }
+
+  function moverFantasma(x, y) {
+    const f = fantasma.current;
+    if (!f) return;
+    f.puntero = { x, y };
+    f.nodo.style.transform =
+      `translate3d(${x - f.dx}px, ${y - f.dy}px, 0) scale(1.04) rotate(-2deg)`;
+  }
+
+  function quitarFantasma() {
+    const f = fantasma.current;
+    if (!f) return;
+    if (f.tira) f.tira.style.scrollSnapType = '';
+    f.nodo.remove();
+    fantasma.current = null;
+  }
+
+  // ---- Desplazar solo al llegar al borde ----
+  // Mientras se arrastra, el scroll de la pagina esta bloqueado a proposito.
+  // Sin esto no habria forma de soltar a alguien en un clan que no quepa en
+  // pantalla, y en el telefono las columnas van APILADAS: casi ningun clan
+  // de destino se ve a la vez que el de origen. Es el caso normal, no el
+  // raro.
+  const BORDE = 70; // px de margen donde empieza a desplazarse
+  const PASO = 8; // px por tic
+  const TIC = 16; // ms entre tics (~60 por segundo)
+
+  // Con setInterval y no con requestAnimationFrame: rAF solo corre cuando
+  // el navegador esta pintando, y basta que el sistema decida saltarse unos
+  // fotogramas -o que la pagina no se este dibujando- para que el
+  // desplazamiento se pare a media arrastrada sin que nadie lo suelte. El
+  // bucle dura lo que dura el gesto y se corta en soltarPresion().
+  function pasoAutoScroll() {
+    const f = fantasma.current;
+    if (!f) return;
+    const { x, y } = f.puntero;
+
+    if (y < BORDE) window.scrollBy(0, -PASO);
+    else if (y > window.innerHeight - BORDE) window.scrollBy(0, PASO);
+
+    const tira = f.tira;
+    if (tira && tira.scrollWidth > tira.clientWidth) {
+      const r = tira.getBoundingClientRect();
+      if (x < r.left + BORDE) tira.scrollLeft -= PASO;
+      else if (x > r.right - BORDE) tira.scrollLeft += PASO;
+    }
+
+    // Recalcular aqui y no solo en pointermove: con el dedo quieto en el
+    // borde, lo que se mueve es el contenido, y la columna que hay debajo
+    // cambia sin que llegue ningun evento de puntero.
+    setSobre(columnaEn(x, y));
+  }
+
+  // Si el componente se va con un arrastre a medias, el clon vive en
+  // document.body y no lo limpiaria nadie.
+  useEffect(
+    () => () => {
+      clearInterval(autoScroll.current);
+      quitarFantasma();
+    },
+    []
+  );
+
   // ---- Arrastrar con raton o dedo ----
   /**
    * Empezar a arrastrar desde CUALQUIER parte de la ficha.
@@ -135,24 +240,40 @@ export default function Alineacion({ d, recargar, demo = false }) {
     const x0 = e.clientX;
     const y0 = e.clientY;
 
-    const activar = () => {
-      el.setPointerCapture?.(pid);
+    const activar = (x, y) => {
+      // Con try: si el puntero ya se solto, setPointerCapture lanza
+      // NotFoundError y sin esto se llevaria por delante todo lo que viene
+      // detras — no se crearia la copia y el arrastre quedaria muerto.
+      try {
+        el.setPointerCapture?.(pid);
+      } catch {}
+      crearFantasma(el, x, y);
+      agarrada.current = tag;
       setArrastrando(tag);
+      // Un toquecito para avisar de que ya agarro. Sin esto el unico aviso
+      // de que la pulsacion larga cumplio es visual, y el dedo suele estar
+      // justo encima tapandolo.
+      if (!esRaton) navigator.vibrate?.(15);
       // Solo mientras se arrastra: bloquea el desplazamiento de la pagina
       // sin quitarselo al resto del tiempo. Va como listener no pasivo
       // porque uno pasivo no puede llamar a preventDefault.
       document.addEventListener('touchmove', frenar, { passive: false });
+      autoScroll.current ??= setInterval(pasoAutoScroll, TIC);
     };
 
-    if (esRaton) return activar();
+    if (esRaton) return activar(x0, y0);
 
     presion.current = {
       tag,
       x0,
       y0,
+      ultimo: { x: x0, y: y0 },
       temporizador: setTimeout(() => {
+        // Desde donde esta el dedo AHORA, no desde donde toco hace 250 ms:
+        // puede haberse corrido hasta 10 px y la copia saldria descuadrada.
+        const { x, y } = presion.current.ultimo;
         presion.current = { ...presion.current, temporizador: null };
-        activar();
+        activar(x, y);
       }, 250),
     };
   }
@@ -161,6 +282,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
   function alTantear(e) {
     const p = presion.current;
     if (!p?.temporizador) return;
+    p.ultimo = { x: e.clientX, y: e.clientY };
     if (Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 10) {
       clearTimeout(p.temporizador);
       presion.current = null;
@@ -170,28 +292,43 @@ export default function Alineacion({ d, recargar, demo = false }) {
   function soltarPresion() {
     if (presion.current?.temporizador) clearTimeout(presion.current.temporizador);
     presion.current = null;
+    clearInterval(autoScroll.current);
+    autoScroll.current = null;
+    quitarFantasma();
     document.removeEventListener('touchmove', frenar, { passive: false });
   }
 
   /** Columna que hay debajo del puntero. elementFromPoint hace su propia
    *  prueba de impacto sobre el documento: la captura del puntero no le
    *  afecta, por eso sigue viendo lo que hay debajo. */
-  const columnaBajo = (e) =>
-    document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-col]')?.dataset.col ?? null;
+  const columnaEn = (x, y) =>
+    document.elementFromPoint(x, y)?.closest('[data-col]')?.dataset.col ?? null;
+  const columnaBajo = (e) => columnaEn(e.clientX, e.clientY);
 
   function alArrastrar(e) {
-    if (!arrastrando) return alTantear(e);
+    if (!agarrada.current) return alTantear(e);
+    // La copia primero: es lo que el ojo sigue. setSobre no repinta si la
+    // columna no cambio, asi que el coste real de mover es este renglon.
+    moverFantasma(e.clientX, e.clientY);
     setSobre(columnaBajo(e));
   }
 
   function alSoltar(e) {
     soltarPresion();
-    if (!arrastrando) return;
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
-    const destino = columnaBajo(e);
-    const tag = arrastrando;
+    const tag = agarrada.current;
+    if (!tag) return;
+    agarrada.current = null;
+    // Soltar el estado ANTES de tocar el puntero. releasePointerCapture
+    // lanza si la captura ya no existe -y no existe justo en el caso que
+    // mas importa, el pointercancel que dispara el sistema cuando entra una
+    // llamada o se cambia de app-; si lanzase aqui arriba, la tarjeta se
+    // quedaria de hueco punteado y sin dueño hasta recargar la pagina.
     setArrastrando(null);
     setSobre(null);
+    try {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    } catch {}
+    const destino = columnaBajo(e);
     if (destino) mover(tag, destino);
   }
 
@@ -254,7 +391,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
         </button>
       </div>
       <p className="sub" style={{ color: 'var(--tenue)', fontSize: 13, marginTop: 0 }}>
-        {t('Arrastra los nombres entre clanes. En el teléfono usa el desplegable de cada tarjeta.')}
+        {t('Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.')}
       </p>
       {msg &&
         // Un mensaje de varias lineas dentro de un <p> colapsa los saltos y

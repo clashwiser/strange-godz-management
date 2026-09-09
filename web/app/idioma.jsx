@@ -104,8 +104,8 @@ export const EN = {
     'No players yet. Run the snapshot first.',
   'temporada': 'season',
   'Generando…': 'Generating…',
-  'Arrastra los nombres entre clanes. En el teléfono usa el desplegable de cada tarjeta.':
-    'Drag names between clans. On the phone, use the dropdown on each card.',
+  'Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.':
+    'Drag names between clans. On the phone press and hold a card, then drag it; the dropdown works too.',
   'Clan de': 'Clan for',
   'suelta nombres aquí': 'drop names here',
   'Generar mensaje': 'Generate message',
