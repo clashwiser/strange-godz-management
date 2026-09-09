@@ -126,6 +126,8 @@ export const EN = {
   'Base': 'Base',
   'Tipo': 'Type',
   'Asignada a': 'Assigned to',
+  'Notas': 'Notes',
+  'contra qué defiende, qué donar…': 'what it defends against, what to donate…',
   'Enlace': 'Link',
   'Aldea': 'Home',
   'Guerra': 'War',
@@ -197,6 +199,9 @@ export const EN = {
   'Todavía no corrió ningún job.': 'No job has run yet.',
 
   // ---- CWL ----
+  'Por clan': 'By clan',
+  'Rondas': 'Rounds',
+  'Sin usar': 'Unused',
   'Ronda': 'Round',
   'Rival': 'Opponent',
   'Nosotros': 'Us',
@@ -303,6 +308,30 @@ export const EN = {
   'Cupo de CWL': 'CWL slots',
   'Cancelar': 'Cancel',
   'Añadir a la alianza': 'Add to the alliance',
+
+  // ---- Heraldo en el panel ----
+  'responde de la base, sin inventar': 'answers from the database, no guessing',
+  'Pregúntame. Por ejemplo:': 'Ask me. For example:',
+  '¿quién no ha atacado?': 'who has not attacked?',
+  'Enviar': 'Send',
+  'No entendí. Puedo responder a:': "I didn't get that. I can answer:",
+  'quién no ha atacado': 'who has not attacked',
+  'tabla de estrellas': 'star table',
+  'ficha de alguien': 'someone profile',
+  'el reparto del mes': 'this month split',
+  'quién va en cada clan': 'who goes in each clan',
+  'Nadie falló ataques en las rondas cerradas.': 'Nobody missed an attack in the finished rounds.',
+  'Ataques sin usar en rondas cerradas:': 'Unused attacks in finished rounds:',
+  'Estrellas de la temporada:': 'Stars this season:',
+  'Todavía no hay ataques de CWL guardados.': 'No CWL attacks saved yet.',
+  'No encuentro a nadie con ese nombre.': 'I cannot find anyone with that name.',
+  'Ese nombre coincide con demasiados. Sé más específico.': 'That name matches too many. Be more specific.',
+  'en': 'in',
+  'ataques': 'attacks',
+  'No hay premios cargados para este mes.': 'No prizes loaded for this month.',
+  'Premios de este mes:': 'This month prizes:',
+  'Total': 'Total',
+  'Todavía no hay nadie asignado a la CWL.': 'Nobody is assigned to the CWL yet.',
 
   // ---- Aviso legal ----
   'Este material no está creado ni respaldado por Supercell. Para más información, consulta la':

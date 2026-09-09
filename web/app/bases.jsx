@@ -58,6 +58,37 @@ export default function Bases({ d, demo = false, recargar }) {
     }
   }
 
+  /**
+   * Guarda el comentario de una base.
+   *
+   * Los PDF del proveedor traen anotaciones que hoy se pierden al importar:
+   * contra que ejercito defiende, que donar en el castillo. El importador
+   * saca el enlace y el nivel de ayuntamiento, no el texto suelto de
+   * alrededor, asi que esto se escribe a mano una vez y queda para todos.
+   *
+   * Se guarda al salir del campo y no en cada tecla: escribir "defiende
+   * bien contra hydra" son 26 escrituras a la base contra una.
+   */
+  async function guardarNota(b, texto) {
+    const limpio = texto.trim();
+    if ((b.nota ?? '') === limpio) return;
+    if (demo) {
+      setMsg(t('En la demo no se guarda.'));
+      setTimeout(() => setMsg(''), 2000);
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('bases')
+        .update({ nota: limpio || null })
+        .eq('id', b.id);
+      if (error) throw error;
+      recargar?.();
+    } catch (e) {
+      setMsg(`${t('No se pudo guardar: ')}${e.message}`);
+    }
+  }
+
   async function asignar(b, playerTag) {
     if (demo) {
       setMsg(t('En la demo no se guarda.'));
@@ -127,6 +158,7 @@ export default function Bases({ d, demo = false, recargar }) {
               <th className="num">TH</th>
               <th>{t('Tipo')}</th>
               <th>{t('Asignada a')}</th>
+              <th>{t('Notas')}</th>
               <th>{t('Enlace')}</th>
             </tr>
           </thead>
@@ -167,21 +199,40 @@ export default function Bases({ d, demo = false, recargar }) {
                     ))}
                   </select>
                 </td>
+                <td>
+                  {/* defaultValue y guardado al salir: con value controlado
+                      cada tecla repinta la tabla entera, y con onChange cada
+                      tecla escribiria en la base. */}
+                  <input
+                    className="campo campo-nota"
+                    defaultValue={b.nota ?? ''}
+                    placeholder={t('contra qué defiende, qué donar…')}
+                    onBlur={(e) => guardarNota(b, e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  />
+                </td>
+                {/* El flex va en la caja interior, NO en el <td>. Una celda
+                    con display:flex deja de ser celda de tabla y se cae del
+                    calculo de altura de la fila: su borde inferior quedaba
+                    19px mas arriba que el resto y la linea divisoria se veia
+                    rota justo en esta columna. */}
                 <td className="acciones">
-                  <button
-                    className="fantasma"
-                    onClick={() => setAmpliada(b)}
-                    disabled={!b.preview}
-                    title={b.preview ? t('Ver la base en grande') : t('Este pack no trae imagen')}
-                  >
-                    {t('Ver')}
-                  </button>
-                  <button className="fantasma" onClick={() => copiar(b)}>
-                    {copiada === b.id ? t('¡Copiado!') : t('Copiar')}
-                  </button>
-                  <a href={b.url} target="_blank" rel="noopener noreferrer">
-                    <button className="fantasma">{t('Abrir')}</button>
-                  </a>
+                  <div className="acciones-caja">
+                    <button
+                      className="fantasma"
+                      onClick={() => setAmpliada(b)}
+                      disabled={!b.preview}
+                      title={b.preview ? t('Ver la base en grande') : t('Este pack no trae imagen')}
+                    >
+                      {t('Ver')}
+                    </button>
+                    <button className="fantasma" onClick={() => copiar(b)}>
+                      {copiada === b.id ? t('¡Copiado!') : t('Copiar')}
+                    </button>
+                    <a href={b.url} target="_blank" rel="noopener noreferrer">
+                      <button className="fantasma">{t('Abrir')}</button>
+                    </a>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -195,6 +246,7 @@ export default function Bases({ d, demo = false, recargar }) {
           {/* stopPropagation: tocar la imagen no debe cerrar la lupa */}
           <div className="lupa-caja" onClick={(e) => e.stopPropagation()}>
             <img src={ampliada.preview} alt="" />
+            {ampliada.nota && <p className="nota-base">{ampliada.nota}</p>}
             <div className="lupa-pie">
               <span className="pill">TH{ampliada.th ?? '?'}</span>{' '}
               <span className="pill">{t(TIPOS[ampliada.tipo] ?? ampliada.tipo ?? '—')}</span>

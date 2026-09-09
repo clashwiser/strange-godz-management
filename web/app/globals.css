@@ -400,9 +400,26 @@ pre.msg {
 }
 
 /* ---------- Armado de alineaciones ---------- */
+/* Tablero tipo kanban: UNA fila que se desliza de lado, no una rejilla que
+   envuelve. Con 6 columnas -Sin asignar mas 5 clanes- de 214px minimos
+   hacen falta 1.284px para que quepan, asi que hasta en escritorio se
+   partian en dos filas y los ultimos clanes quedaban abajo del todo, lejos
+   de la lista de jugadores. Deslizando, la columna Sin asignar siempre
+   queda al alcance.
+
+   En el telefono vuelven a apilarse: alli una columna a lo ancho se lee
+   mejor que seis estrechas. */
 .columnas {
-  display: grid; gap: 16px; align-items: start;
-  grid-template-columns: repeat(auto-fit, minmax(214px, 1fr));
+  display: flex; gap: 16px; align-items: flex-start;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: 10px;
+  scroll-snap-type: x proximity;
+}
+.columnas > .col { flex: 0 0 232px; scroll-snap-align: start; }
+
+@media (max-width: 640px) {
+  .columnas { display: grid; grid-template-columns: 1fr; overflow-x: visible; }
+  .columnas > .col { flex: none; }
 }
 .col { padding: 12px; min-height: 152px; transition: box-shadow .12s; }
 .col[data-sobre="1"] {
@@ -643,7 +660,12 @@ td:has(.mini-base) { padding: 8px 10px; }
 
 /* Lupa de base: la miniatura es chica para elegir, esto es para mirarla */
 .mini-base { cursor: zoom-in; }
-.acciones { display: flex; gap: 6px; align-items: center; }
+/* La CELDA se queda como celda de tabla. Llevaba display:flex y eso la
+   sacaba del calculo de altura de la fila: medía 60px donde el resto medía
+   79, asi que su borde inferior caia 19px mas arriba y la linea divisoria
+   se veia rota justo en la columna Enlace. El flex va dentro. */
+.acciones { white-space: nowrap; }
+.acciones-caja { display: flex; gap: 6px; align-items: center; }
 .lupa {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(0, 0, 0, .82);
@@ -753,7 +775,7 @@ td:has(.mini-base) { padding: 8px 10px; }
   table { font-size: 13px; min-width: 0; }
   th, td { padding: 9px 10px; }
   .mini-base { width: 96px; height: 46px; }
-  .acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+  .acciones-caja { flex-wrap: wrap; }
 
   /* ---- Ventanas emergentes ---- */
   .lupa { padding: 10px; }
@@ -835,3 +857,104 @@ td:has(.mini-base) { padding: 8px 10px; }
 /* El desplegable SI necesita sus toques: es la otra forma de mover a alguien
    y no debe disparar el arrastre. */
 .ficha-sel { touch-action: auto; }
+
+/* ---------- Controles de la cabecera ---------- */
+/* Van agrupados y empujados a la derecha. Antes eran hermanos sueltos del
+   <h1> con un espaciador flex:1 en medio, y eso solo funcionaba mientras
+   todo cupiera en una linea: con los temas Strange y Godz el titulo usa
+   Cinzel, mas ancha que Lilita One, se comia la fila entera y los controles
+   caian a la segunda pegados a la IZQUIERDA. */
+.acciones-top {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  /* justify-content NO es decorativo aqui. El grupo se parte en varias
+     lineas cuando no cabe, y sin esto cada linea envuelta se alinea a la
+     izquierda: margin-left:auto mueve el bloque entero, no su contenido.
+     Ese fue el fallo de la primera version — los temas terminaban ENCIMA
+     del selector de idioma en vez de a su lado. */
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+/* El nombre del tema ocupa 132px fijos y es lo primero que sobra cuando la
+   cabecera va justa: los cuatro circulos ya dicen que tema esta puesto. */
+@media (max-width: 1100px) {
+  .tema-nombre { display: none; }
+}
+
+@media (max-width: 640px) {
+  /* En el telefono el titulo ya ocupa toda la fila, asi que los controles
+     se reparten a lo ancho en vez de amontonarse a la derecha. */
+  .acciones-top { margin-left: 0; width: 100%; gap: 8px; justify-content: flex-start; }
+}
+
+/* ---------- Comentario de una base ---------- */
+/* Lo que trae el PDF del proveedor y hoy se pierde: contra que ejercito
+   defiende, que donar en el castillo. Se escribe una vez y lo ve todo el
+   clan. */
+.campo-nota {
+  margin-top: 0; min-width: 190px; font-size: 13px;
+  white-space: normal;
+}
+.nota-base {
+  margin: 10px 0 0; padding: 9px 12px;
+  background: rgba(0, 0, 0, .16);
+  border-left: 4px solid var(--realce); border-radius: 8px;
+  color: var(--texto); font-size: 14px; white-space: pre-wrap;
+}
+
+/* ---------- Heraldo dentro del panel ---------- */
+/* Flotante y por encima de todo: la pregunta llega cuando llega, no cuando
+   estas en la pestaña correcta. */
+.heraldo-burbuja {
+  position: fixed; right: 16px; bottom: 16px; z-index: 90;
+  width: 56px; height: 56px; border-radius: 50%;
+  font-size: 26px; line-height: 1; cursor: pointer;
+  background: linear-gradient(180deg, var(--accion-a), var(--accion-b));
+  border: 3px solid var(--accion-bord); border-bottom-width: 6px;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.45), 0 6px 16px rgba(0,0,0,.5);
+}
+.heraldo-burbuja:active { transform: translateY(3px); border-bottom-width: 3px; }
+
+.heraldo {
+  position: fixed; right: 16px; bottom: 16px; z-index: 90;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 90px));
+  display: flex; flex-direction: column;
+  background-color: var(--panel);
+  background-image: var(--textura, none);
+  background-size: 240px 240px; background-blend-mode: soft-light;
+  border: 3px solid var(--marco); border-radius: 14px;
+  box-shadow: inset 0 0 0 3px var(--bronce), 0 18px 44px rgba(0,0,0,.6);
+}
+.heraldo-cab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 3px solid var(--bronce);
+  font-family: var(--fuente); color: var(--titulo);
+}
+.heraldo-cab .sub { font-size: 11px; }
+.heraldo-hilo {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.heraldo-msg {
+  /* pre-wrap: las respuestas son listas de varias lineas y colapsarlas las
+     volveria ilegibles. */
+  white-space: pre-wrap; font-size: 13.5px; line-height: 1.5;
+  padding: 9px 11px; border-radius: 10px;
+  background: rgba(0,0,0,.14); border-left: 4px solid var(--bronce);
+  color: var(--texto);
+}
+.heraldo-msg.yo {
+  align-self: flex-end; max-width: 85%;
+  background: linear-gradient(180deg, rgba(255,255,255,.3), rgba(0,0,0,.08)), var(--panel-2);
+  border-left: 0; border-right: 4px solid var(--realce);
+}
+.heraldo-pie {
+  display: flex; gap: 8px; padding: 10px 12px;
+  border-top: 3px solid var(--bronce);
+}
+.heraldo-pie .campo { margin-top: 0; flex: 1; min-width: 0; }
+@media (max-width: 640px) {
+  .heraldo { right: 8px; bottom: 8px; width: calc(100vw - 16px); max-height: 72vh; }
+  .heraldo-burbuja { right: 12px; bottom: 12px; }
+}

@@ -12,6 +12,7 @@ import { SelectorIdioma, useT } from '../idioma';
 import Bots from '../bots';
 import Bases from '../bases';
 import Bonos from '../bonos';
+import Heraldo from '../heraldo';
 
 const d = {
   temporada: '2026-09',
@@ -43,10 +44,14 @@ const d = {
     { player_tag: '#P5', clan_tag: '#228QU9Q8',  th_level: 17, trofeos: 4600, liga: 'Champion League I',  war_stars: 1180, donaciones: 220 },
     { player_tag: '#P8', clan_tag: '#JUYP2PL',   th_level: 16, trofeos: 4310, liga: 'Champion League II', war_stars: 940,  donaciones: 510 },
   ],
+  seasons: [
+    { id: 10, temporada: '2026-09', clan_tag: '#2GC',       liga: 'Champion League I' },
+    { id: 11, temporada: '2026-09', clan_tag: '#2CCJYG2YL', liga: 'Master League I' },
+  ],
   wars: [
-    { id: 1, ronda: 1, clan_rival_nombre: 'Rivales FC', estrellas_nuestras: 44, estrellas_rival: 41, estado: 'warEnded' },
-    { id: 2, ronda: 2, clan_rival_nombre: 'Los Duros',  estrellas_nuestras: 45, estrellas_rival: 45, estado: 'warEnded' },
-    { id: 3, ronda: 3, clan_rival_nombre: 'Titanes',    estrellas_nuestras: 30, estrellas_rival: 28, estado: 'inWar' },
+    { id: 1, season_id: 10, ronda: 1, clan_rival_nombre: 'Rivales FC', estrellas_nuestras: 44, estrellas_rival: 41, estado: 'warEnded' },
+    { id: 2, season_id: 10, ronda: 2, clan_rival_nombre: 'Los Duros',  estrellas_nuestras: 45, estrellas_rival: 45, estado: 'warEnded' },
+    { id: 3, season_id: 11, ronda: 1, clan_rival_nombre: 'Titanes',    estrellas_nuestras: 30, estrellas_rival: 28, estado: 'inWar' },
   ],
   ataques: [
     { war_id: 1, player_tag: '#P1', estrellas: 3, destruccion_pct: 100 },
@@ -170,6 +175,7 @@ export default function Demo() {
         {tab === 'bonos' && <Bonos d={d} demo />}
         {tab === 'bots' && <Bots d={d} demo />}
       </div>
+      <Heraldo d={d} />
     </>
   );
 }

@@ -8,6 +8,7 @@ import Clanes from './clanes';
 import Bots from './bots';
 import Bases from './bases';
 import Bonos from './bonos';
+import Heraldo from './heraldo';
 import Instalar from './instalar';
 import { SelectorIdioma, useT } from './idioma';
 
@@ -108,6 +109,9 @@ export default function Panel() {
         outbox: outbox.data ?? [],
         wa: wa.data ?? null,
         temporada,
+        // Sin esto no hay forma de saber de que clan es cada guerra: cwl_wars
+        // solo guarda season_id.
+        seasons: seasons.data ?? [],
         wars,
         ataques,
         roster,
@@ -201,6 +205,10 @@ export default function Panel() {
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
         {d && tab === 'bots' && <Bots d={d} recargar={cargar} />}
       </div>
+
+      {/* Flotante sobre todo el panel: la pregunta llega cuando llega, no
+          cuando estas en la pestana correcta. */}
+      {d && <Heraldo d={d} nombreBot={d.config?.find((c) => c.clave === 'bot_nombre')?.valor ?? 'Heraldo'} />}
     </>
   );
 }
@@ -392,12 +400,85 @@ export function CWL({ d }) {
       .sort((a, b) => b.e - a.e || b.prom - a.prom);
   }, [d.ataques]);
 
+  // Resumen por clan. Cada temporada de CWL es de UN clan, asi que la tabla
+  // de rondas mezcla los tres sin decirlo; esto los separa.
+  const porClan = useMemo(() => {
+    const clanDeSeason = Object.fromEntries((d.seasons ?? []).map((s) => [s.id, s.clan_tag]));
+    const ligaDe = Object.fromEntries((d.seasons ?? []).map((s) => [s.id, s.liga]));
+    const nombreClan = Object.fromEntries((d.clans ?? []).map((c) => [c.clan_tag, c.nombre]));
+    const clanDeWar = Object.fromEntries(d.wars.map((w) => [w.id, clanDeSeason[w.season_id]]));
+
+    const acc = {};
+    const toca = (clan) =>
+      (acc[clan] ??= {
+        clan,
+        nombre: nombreClan[clan] ?? clan,
+        liga: null,
+        rondas: 0,
+        cerradas: 0,
+        estrellas: 0,
+        rival: 0,
+        usados: 0,
+        alineados: 0,
+      });
+
+    for (const w of d.wars) {
+      const c = clanDeWar[w.id];
+      if (!c) continue;
+      const a = toca(c);
+      a.liga ??= ligaDe[w.season_id];
+      a.rondas += 1;
+      if (w.estado === 'warEnded') {
+        a.cerradas += 1;
+        a.estrellas += w.estrellas_nuestras ?? 0;
+        a.rival += w.estrellas_rival ?? 0;
+      }
+    }
+    const cerradas = new Set(d.wars.filter((w) => w.estado === 'warEnded').map((w) => w.id));
+    for (const r of d.roster) if (cerradas.has(r.war_id) && clanDeWar[r.war_id]) toca(clanDeWar[r.war_id]).alineados += 1;
+    for (const x of d.ataques) if (cerradas.has(x.war_id) && clanDeWar[x.war_id]) toca(clanDeWar[x.war_id]).usados += 1;
+
+    return Object.values(acc).sort((a, b) => b.estrellas - a.estrellas);
+  }, [d.seasons, d.wars, d.roster, d.ataques, d.clans]);
+
   if (!d.wars.length) {
     return <p className="vacio">Sin datos de CWL para {d.temporada}. Corre el job <code>cwl:sync</code>.</p>;
   }
 
   return (
     <>
+      <h2 className="sec">{t('Por clan')} · {t('temporada')} {d.temporada}</h2>
+      <div className="tabla-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('Clan')}</th>
+              <th>{t('Liga')}</th>
+              <th className="num">{t('Rondas')}</th>
+              <th className="num">{t('Estrellas')}</th>
+              <th className="num">{t('Rival')}</th>
+              <th className="num">{t('Ataques')}</th>
+              <th className="num">{t('Sin usar')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {porClan.map((c) => (
+              <tr key={c.clan}>
+                <td>{c.nombre}</td>
+                <td className="sub">{c.liga ?? '—'}</td>
+                <td className="num">{c.cerradas}/{c.rondas}</td>
+                <td className="num">{c.estrellas}</td>
+                <td className="num">{c.rival}</td>
+                <td className="num">{c.usados}/{c.alineados}</td>
+                <td className={c.alineados - c.usados > 0 ? 'num mal' : 'num'}>
+                  {c.alineados - c.usados}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       <h2 className="sec">Rondas · temporada {d.temporada}</h2>
       <div className="tabla-scroll">
         <table>
