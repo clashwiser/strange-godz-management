@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { Resumen, CWL, Jugadores, Mensajes } from '../page';
+import GrupoCWL from '../grupo-cwl';
 import Alineacion from '../alineacion';
 import SelectorTema from '../temas';
 import { SelectorIdioma, useT } from '../idioma';
@@ -47,6 +48,30 @@ const d = {
   seasons: [
     { id: 10, temporada: '2026-09', clan_tag: '#2GC',       liga: 'Champion League I' },
     { id: 11, temporada: '2026-09', clan_tag: '#2CCJYG2YL', liga: 'Master League I' },
+  ],
+  // Grupo de CWL de ejemplo: 8 clanes, 3 rondas cerradas y la cuarta en
+  // curso. Sirve para ver la tabla y el analisis sin base de datos.
+  grupo: [
+    { id: 1, season_id: 10, ronda: 1, war_tag: '#W1', clan_a_tag: '#2GC', clan_a_nombre: 'x300', estrellas_a: 38, destruccion_a: 79.80, clan_b_tag: '#R1', clan_b_nombre: 'Rivales FC', estrellas_b: 35, destruccion_b: 73.50, estado: 'warEnded' },
+    { id: 2, season_id: 10, ronda: 1, war_tag: '#W2', clan_a_tag: '#R2', clan_a_nombre: 'Los Duros', estrellas_a: 39, destruccion_a: 81.90, clan_b_tag: '#R3', clan_b_nombre: 'Nakama', estrellas_b: 43, destruccion_b: 90.30, estado: 'warEnded' },
+    { id: 3, season_id: 10, ronda: 1, war_tag: '#W3', clan_a_tag: '#R4', clan_a_nombre: 'Blitz', estrellas_a: 33, destruccion_a: 69.30, clan_b_tag: '#R5', clan_b_nombre: 'Dragon', estrellas_b: 34, destruccion_b: 71.40, estado: 'warEnded' },
+    { id: 4, season_id: 10, ronda: 1, war_tag: '#W4', clan_a_tag: '#R6', clan_a_nombre: 'UAE', estrellas_a: 41, destruccion_a: 86.10, clan_b_tag: '#R7', clan_b_nombre: 'Vampier', estrellas_b: 34, destruccion_b: 71.40, estado: 'warEnded' },
+    { id: 5, season_id: 10, ronda: 2, war_tag: '#W5', clan_a_tag: '#2GC', clan_a_nombre: 'x300', estrellas_a: 38, destruccion_a: 79.80, clan_b_tag: '#R2', clan_b_nombre: 'Los Duros', estrellas_b: 42, destruccion_b: 88.20, estado: 'warEnded' },
+    { id: 6, season_id: 10, ronda: 2, war_tag: '#W6', clan_a_tag: '#R1', clan_a_nombre: 'Rivales FC', estrellas_a: 33, destruccion_a: 69.30, clan_b_tag: '#R3', clan_b_nombre: 'Nakama', estrellas_b: 41, destruccion_b: 86.10, estado: 'warEnded' },
+    { id: 7, season_id: 10, ronda: 2, war_tag: '#W7', clan_a_tag: '#R4', clan_a_nombre: 'Blitz', estrellas_a: 36, destruccion_a: 75.60, clan_b_tag: '#R6', clan_b_nombre: 'UAE', estrellas_b: 33, destruccion_b: 69.30, estado: 'warEnded' },
+    { id: 8, season_id: 10, ronda: 2, war_tag: '#W8', clan_a_tag: '#R5', clan_a_nombre: 'Dragon', estrellas_a: 34, destruccion_a: 71.40, clan_b_tag: '#R7', clan_b_nombre: 'Vampier', estrellas_b: 39, destruccion_b: 81.90, estado: 'warEnded' },
+    { id: 9, season_id: 10, ronda: 3, war_tag: '#W9', clan_a_tag: '#2GC', clan_a_nombre: 'x300', estrellas_a: 39, destruccion_a: 81.90, clan_b_tag: '#R3', clan_b_nombre: 'Nakama', estrellas_b: 34, destruccion_b: 71.40, estado: 'warEnded' },
+    { id: 10, season_id: 10, ronda: 3, war_tag: '#W10', clan_a_tag: '#R1', clan_a_nombre: 'Rivales FC', estrellas_a: 36, destruccion_a: 75.60, clan_b_tag: '#R2', clan_b_nombre: 'Los Duros', estrellas_b: 34, destruccion_b: 71.40, estado: 'warEnded' },
+    { id: 11, season_id: 10, ronda: 3, war_tag: '#W11', clan_a_tag: '#R4', clan_a_nombre: 'Blitz', estrellas_a: 41, destruccion_a: 86.10, clan_b_tag: '#R7', clan_b_nombre: 'Vampier', estrellas_b: 39, destruccion_b: 81.90, estado: 'warEnded' },
+    { id: 12, season_id: 10, ronda: 3, war_tag: '#W12', clan_a_tag: '#R5', clan_a_nombre: 'Dragon', estrellas_a: 33, destruccion_a: 69.30, clan_b_tag: '#R6', clan_b_nombre: 'UAE', estrellas_b: 42, destruccion_b: 88.20, estado: 'warEnded' },
+    { id: 13, season_id: 10, ronda: 4, war_tag: '#W13', clan_a_tag: '#2GC', clan_a_nombre: 'x300', estrellas_a: 21, destruccion_a: 44.10, clan_b_tag: '#R4', clan_b_nombre: 'Blitz', estrellas_b: 23, destruccion_b: 48.30, estado: 'inWar' },
+    { id: 14, season_id: 10, ronda: 4, war_tag: '#W14', clan_a_tag: '#R1', clan_a_nombre: 'Rivales FC', estrellas_a: 30, destruccion_a: 63.00, clan_b_tag: '#R5', clan_b_nombre: 'Dragon', estrellas_b: 30, destruccion_b: 63.00, estado: 'inWar' },
+    { id: 15, season_id: 10, ronda: 4, war_tag: '#W15', clan_a_tag: '#R2', clan_a_nombre: 'Los Duros', estrellas_a: 29, destruccion_a: 60.90, clan_b_tag: '#R6', clan_b_nombre: 'UAE', estrellas_b: 20, destruccion_b: 42.00, estado: 'inWar' },
+    { id: 16, season_id: 10, ronda: 4, war_tag: '#W16', clan_a_tag: '#R3', clan_a_nombre: 'Nakama', estrellas_a: 29, destruccion_a: 60.90, clan_b_tag: '#R7', clan_b_nombre: 'Vampier', estrellas_b: 29, destruccion_b: 60.90, estado: 'inWar' },
+  ],
+  ligas: [
+    { liga: 'Champion League I', orden: 18, promueven: 1, descienden: 2 },
+    { liga: 'Master League I', orden: 15, promueven: 1, descienden: 2 },
   ],
   wars: [
     { id: 1, season_id: 10, ronda: 1, clan_rival_nombre: 'Rivales FC', estrellas_nuestras: 44, estrellas_rival: 41, estado: 'warEnded' },
@@ -183,7 +208,12 @@ export default function Demo() {
         </nav>
         {tab === 'resumen' && <Resumen d={d} demo />}
         {tab === 'alineacion' && <Alineacion d={d} demo />}
-        {tab === 'cwl' && <CWL d={d} />}
+        {tab === 'cwl' && (
+          <>
+            <GrupoCWL d={d} />
+            <CWL d={d} />
+          </>
+        )}
         {tab === 'jugadores' && <Jugadores d={d} />}
         {tab === 'mensajes' && <Mensajes d={d} recargar={() => {}} />}
         {tab === 'bases' && <Bases d={d} demo />}

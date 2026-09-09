@@ -6,6 +6,10 @@
 //
 // Guarda el roster ademas de los ataques: sin saber quien estaba alineado
 // no se puede distinguir "no atacó" de "no jugaba esta ronda".
+//
+// Y guarda tambien las guerras del grupo en las que NO jugamos: son la
+// tabla de posiciones, y ya se estaban bajando de la API para descartarlas.
+// Ver sql/015_cwl_grupo.sql.
 
 import { getClan, getLeagueGroup, getLeagueWar, parseCocDate, mapLimit, opcional } from '../lib/coc.js';
 import { db, chk, asegurarJugadores, correrJob } from '../lib/db.js';
@@ -54,13 +58,45 @@ await correrJob('sync_cwl', async () => {
 
     let guardadas = 0;
     let ataquesTotal = 0;
+    let delGrupo = 0;
 
     await mapLimit(pendientes, 4, async ({ war_tag, ronda }) => {
       const w = await opcional(getLeagueWar(war_tag));
       if (!w) return;
 
-      // Cada tag de ronda cubre TODOS los enfrentamientos de la liga.
-      // Solo nos interesan aquellos donde jugamos nosotros.
+      // Cada tag de ronda cubre TODOS los enfrentamientos de la liga: las
+      // cuatro guerras, no solo la nuestra. Las otras tres se guardan
+      // porque son la tabla de posiciones del grupo — sin ellas no se puede
+      // responder "¿en que puesto vamos?" sin entrar clan por clan en el
+      // juego. Es el mismo dato que ya se estaba bajando y se tiraba.
+      if (w.clan?.tag && w.opponent?.tag) {
+        chk(
+          await db.from('cwl_grupo').upsert(
+            {
+              season_id: season.id,
+              ronda,
+              war_tag,
+              clan_a_tag: w.clan.tag,
+              clan_a_nombre: w.clan.name ?? null,
+              estrellas_a: w.clan.stars ?? null,
+              destruccion_a: w.clan.destructionPercentage ?? null,
+              clan_b_tag: w.opponent.tag,
+              clan_b_nombre: w.opponent.name ?? null,
+              estrellas_b: w.opponent.stars ?? null,
+              destruccion_b: w.opponent.destructionPercentage ?? null,
+              estado: w.state,
+              end_time: parseCocDate(w.endTime)?.toISOString() ?? null,
+              actualizado_en: new Date().toISOString(),
+            },
+            { onConflict: 'season_id,war_tag' }
+          ),
+          `upsert cwl_grupo ${war_tag}`
+        );
+        delGrupo++;
+      }
+
+      // De aqui para abajo, solo las guerras donde jugamos nosotros: el
+      // roster y los ataques uno por uno son de nuestra gente.
       const nosotros = [w.clan, w.opponent].find((x) => x?.tag === clan_tag);
       if (!nosotros) return;
       const rival = nosotros === w.clan ? w.opponent : w.clan;
@@ -152,8 +188,10 @@ await correrJob('sync_cwl', async () => {
     });
 
     filas += ataquesTotal;
-    detalle[clan_tag] = { temporada, rondas: guardadas, ataques: ataquesTotal };
-    console.log(`  ${clan_tag} ${temporada}: ${guardadas} rondas, ${ataquesTotal} ataques`);
+    detalle[clan_tag] = { temporada, rondas: guardadas, ataques: ataquesTotal, grupo: delGrupo };
+    console.log(
+      `  ${clan_tag} ${temporada}: ${guardadas} rondas, ${ataquesTotal} ataques, ${delGrupo} guerras del grupo`
+    );
   }
 
   return { filas, detalle };

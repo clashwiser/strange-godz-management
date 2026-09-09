@@ -849,6 +849,33 @@ td:has(.mini-base) { padding: 8px 10px; }
 }
 /* La columna de destino ya se resalta con .col[data-sobre="1"] */
 
+/* ---------- Tabla del grupo de CWL ---------- */
+/* Los ocho clanes del grupo de una vez. Sin esto hay que entrar clan por
+   clan en el juego y sumar estrellas a mano para saber si se desciende, y
+   por eso nadie lo hace. */
+.grupo-cwl { margin-bottom: 16px; }
+.grupo-cab {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.grupo-cab strong { font-size: 16px; }
+.grupo-resumen { margin: 0 0 8px; font-size: 13px; }
+.grupo-analisis {
+  margin: 0 0 12px; padding-left: 18px;
+  font-size: 13px; line-height: 1.6;
+}
+.grupo-analisis li.mal { color: var(--mal); font-weight: 700; }
+.grupo-pie { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+/* Nuestra fila resaltada, y las lineas de corte pintadas: quien sube y
+   quien baja se tiene que ver sin leer numeros. */
+.tabla-grupo tr[data-yo="1"] {
+  background: rgba(255, 255, 255, .10);
+  outline: 2px solid var(--oro); outline-offset: -2px;
+}
+.tabla-grupo tr[data-zona="sube"] td:first-child { border-left: 4px solid var(--ok); }
+.tabla-grupo tr[data-zona="baja"] td:first-child { border-left: 4px solid var(--mal); }
+
 /* ---------- Mirando una temporada cerrada ---------- */
 /* Armar las siete listas cada mes es el trabajo mas pesado de la CWL y de
    un mes al siguiente cambian cuatro o cinco nombres: desde aqui se copia

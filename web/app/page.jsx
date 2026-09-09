@@ -7,6 +7,7 @@ import SelectorTema, { Mascota } from './temas';
 import Clanes from './clanes';
 import Bots from './bots';
 import Bases from './bases';
+import GrupoCWL from './grupo-cwl';
 import Bonos from './bonos';
 import Heraldo from './heraldo';
 import Instalar from './instalar';
@@ -45,7 +46,7 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan] = await Promise.all([
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas] = await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
         supabase.from('outbox').select('*').order('creado_en', { ascending: false }).limit(30),
@@ -57,6 +58,9 @@ export default function Panel() {
         supabase.from('bases').select('*').order('th', { ascending: false }),
         supabase.from('bonos').select('*').eq('temporada', temporada),
         supabase.from('premios_plan').select('*').order('orden'),
+        // Cupos de ascenso y descenso por liga. Van en tabla y no en el
+        // codigo porque Supercell los ha cambiado antes.
+        supabase.from('cwl_ligas').select('*').order('orden'),
       ]);
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
@@ -82,7 +86,12 @@ export default function Panel() {
       let wars = [];
       let ataques = [];
       let roster = [];
+      let grupo = [];
       if (ids.length) {
+        // Todas las guerras del grupo, no solo las nuestras: son la tabla
+        // de posiciones. Ver sql/015_cwl_grupo.sql.
+        const gr = await supabase.from('cwl_grupo').select('*').in('season_id', ids).order('ronda');
+        grupo = gr.data ?? [];
         const w = await supabase.from('cwl_wars').select('*').in('season_id', ids).order('ronda');
         wars = w.data ?? [];
         const warIds = wars.map((x) => x.id);
@@ -115,6 +124,8 @@ export default function Panel() {
         wars,
         ataques,
         roster,
+        grupo,
+        ligas: ligas.data ?? [],
         snaps,
         players: players ?? [],
         alineaciones: alin.data ?? [],
@@ -198,7 +209,14 @@ export default function Panel() {
         {d && tab === 'resumen' && <Resumen d={d} recargar={cargar} />}
         {/* key: al cambiar de temporada se reinicia el estado local del tablero */}
         {d && tab === 'alineacion' && <Alineacion key={d.temporada} d={d} recargar={cargar} />}
-        {d && tab === 'cwl' && <CWL d={d} />}
+        {d && tab === 'cwl' && (
+          <>
+            {/* Primero el grupo entero: es la pregunta del dia 4, "¿en que
+                puesto vamos?". El detalle nuestro va debajo. */}
+            <GrupoCWL d={d} />
+            <CWL d={d} />
+          </>
+        )}
         {d && tab === 'jugadores' && <Jugadores d={d} />}
         {d && tab === 'mensajes' && <Mensajes d={d} recargar={cargar} />}
         {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}

@@ -1,4 +1,4 @@
-name: CWL - sync y alerta
+name: CWL - sync, parte diario y alerta
 
 # La CWL corre del dia 1 al ~9. Damos margen hasta el 11 por si se corre.
 # Cada 2 horas: baja rondas y ataques, y avisa de ataques sin usar cuando
@@ -10,6 +10,10 @@ on:
     inputs:
       solo_alerta:
         description: 'Correr solo la alerta, sin sincronizar'
+        type: boolean
+        default: false
+      heraldo_seco:
+        description: 'Heraldo en seco: imprime el parte y NO lo manda'
         type: boolean
         default: false
 
@@ -33,6 +37,7 @@ jobs:
       # del cierre en que avisa, de mayor a menor. Pasar la otra no hacia
       # nada, asi que cambiarla en Variables no tenia ningun efecto.
       ALERTA_UMBRALES: ${{ vars.ALERTA_UMBRALES || '6,3,1' }}
+      HERALDO_SECO: ${{ inputs.heraldo_seco && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,6 +49,13 @@ jobs:
       - name: Sincronizar CWL
         if: ${{ inputs.solo_alerta != true }}
         run: npm run cwl:sync
+
+      # El parte del dia. Va DESPUES del sync porque lee la tabla del grupo
+      # de la base, no de la API. La deduplicacion por ronda hace que solo
+      # salga uno por clan y por dia aunque esto corra cada 2 horas.
+      - name: Parte diario de Heraldo
+        if: ${{ inputs.solo_alerta != true }}
+        run: npm run cwl:heraldo
 
       # La alerta corre siempre, aunque el sync haya fallado: lee de la API
       # directo. Un fallo guardando datos no puede costarnos una guerra.

@@ -12,6 +12,7 @@
     "snapshot": "node --env-file-if-exists=.env src/jobs/snapshot.js",
     "cwl:sync": "node --env-file-if-exists=.env src/jobs/cwl-sync.js",
     "cwl:alerta": "node --env-file-if-exists=.env src/jobs/cwl-alerta.js",
+    "cwl:heraldo": "node --env-file-if-exists=.env src/jobs/cwl-heraldo.js",
     "wa:vincular": "node --env-file-if-exists=.env src/jobs/wa-vincular.js",
     "wa:enviar": "node --env-file-if-exists=.env src/jobs/wa-enviar.js",
     "tg:webhook": "node --env-file-if-exists=.env src/jobs/tg-webhook.js",
