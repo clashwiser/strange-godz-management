@@ -1,4 +1,4 @@
-name: Guerra normal - sync
+name: Guerra normal - sync y aviso
 
 # Cada 2 horas, todo el mes.
 #
@@ -27,6 +27,18 @@ jobs:
   wars:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # A nivel de JOB y no de paso. Estaba colgando del ultimo paso, asi que
+    # wars:sync corria sin COC_TOKEN ni base de datos; y el aviso nuevo se
+    # habria quedado sin Telegram, que es justo lo que tiene que usar.
+    env:
+      COC_TOKEN: ${{ secrets.COC_TOKEN }}
+      COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+      CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ALERTA_UMBRALES: ${{ vars.ALERTA_UMBRALES || '6,3,1' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,10 +46,19 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --omit=dev
-      - run: npm run wars:sync
-        env:
-          COC_TOKEN: ${{ secrets.COC_TOKEN }}
-          COC_BASE_URL: ${{ vars.COC_BASE_URL }}
-          CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Sincronizar guerras
+        run: npm run wars:sync
+
+      # El aviso corre SIEMPRE, aunque el sync haya fallado: lee de la API
+      # directo. Un fallo guardando datos no puede costar una guerra — que es
+      # justo lo que pasaba, porque la CWL avisaba y la guerra normal no, y
+      # ahi se desperdicia el 14,7% de los ataques contra el 0,8% de la CWL.
+      - name: Aviso de ataques sin usar
+        if: ${{ always() }}
+        run: npm run guerra:alerta
+
+      # Manda lo que haya quedado en el outbox.
+      - name: Enviar por WhatsApp
+        if: ${{ always() }}
+        run: npm run wa:enviar

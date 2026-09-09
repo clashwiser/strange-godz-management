@@ -21,7 +21,8 @@
     "bases:importar": "node --env-file-if-exists=.env src/jobs/importar-bases.js",
     "sql:unir": "node --env-file-if-exists=.env src/jobs/unir-sql.js",
     "cierre": "node --env-file-if-exists=.env src/jobs/cierre-mensual.js",
-    "wars:sync": "node --env-file-if-exists=.env src/jobs/wars-sync.js"
+    "wars:sync": "node --env-file-if-exists=.env src/jobs/wars-sync.js",
+    "guerra:alerta": "node --env-file-if-exists=.env src/jobs/guerra-alerta.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

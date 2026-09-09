@@ -1,0 +1,73 @@
+name: Cierre del mes
+
+# El dia 1, para el mes que acaba de terminar.
+#
+# Corre SIN --guardar-premios a proposito: recalcula monthly_stats -que es
+# idempotente y se puede repetir sin dano- y deja la tabla de rendimiento
+# lista para mirar, pero NO escribe los pagos.
+#
+# Pagar es una decision de personas y no de un cron: hay excusas avisadas a
+# tiempo, cuentas que cambiaron de dueño y meses raros. El job deja los
+# numeros hechos; quien paga sigue apretando el boton.
+#
+#   Para guardar los premios de verdad, a mano:
+#   npm run cierre -- 2026-09 --guardar-premios
+#
+# A las 7:10 UTC: despues del snapshot de las 6:00, para que el ultimo dia
+# del mes este contado.
+on:
+  schedule:
+    - cron: '10 7 1 * *'
+  workflow_dispatch:
+    inputs:
+      mes:
+        description: 'Mes a cerrar (YYYY-MM). Vacio = el mes pasado'
+        type: string
+        required: false
+      guardar_premios:
+        description: 'Escribir los pagos en payouts (decision de personas)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: escritura-db
+  cancel-in-progress: false
+
+jobs:
+  cierre:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COC_TOKEN: ${{ secrets.COC_TOKEN }}
+      COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+      CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+
+      # El mes pasado, no el de hoy: esto corre el dia 1 y lo que se cierra
+      # es el mes que acaba de terminar. `date -d 'last month'` el dia 1 da
+      # siempre el mes anterior sin sustos de fin de mes.
+      - name: Elegir el mes
+        id: mes
+        run: |
+          if [ -n "${{ inputs.mes }}" ]; then
+            echo "valor=${{ inputs.mes }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "valor=$(date -u -d 'last month' +%Y-%m)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Calcular el cierre
+        run: npm run cierre -- ${{ steps.mes.outputs.valor }} ${{ inputs.guardar_premios && '--guardar-premios' || '' }}
+
+      - name: Enviar por WhatsApp
+        if: ${{ always() }}
+        run: npm run wa:enviar

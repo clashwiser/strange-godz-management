@@ -107,6 +107,7 @@ async function ejecutar(comando, arg) {
         `/faltan — quién no ha atacado en la CWL de ahora\n` +
         `/estrellas — tabla de estrellas de la temporada\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
+        `/base [th] [guerra|aldea] — enlaces de bases del pack\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp`
       );
 
@@ -118,6 +119,9 @@ async function ejecutar(comando, arg) {
       return await cmdEstrellas();
     case 'jugador':
       return await cmdJugador(arg);
+    case 'base':
+    case 'bases':
+      return await cmdBases(arg);
     case 'reporte':
       return await cmdReporte();
     default:
@@ -291,4 +295,56 @@ async function cmdReporte() {
   if (!data?.length) return 'No hay mensajes generados todavía.';
   const m = data[0];
   return `<b>${esc(m.tipo)}</b> · ${esc(m.estado)}\n\n<pre>${esc(m.cuerpo)}</pre>`;
+}
+
+/**
+ * Bases del pack, con el enlace que abre el juego.
+ *
+ * Es la peticion mas repetida del grupo y hasta ahora se contestaba a mano
+ * buscando el PDF. Acepta filtros sueltos y en cualquier orden:
+ *
+ *   /base            las ultimas que haya
+ *   /base 17         solo TH17
+ *   /base guerra     solo bases de guerra
+ *   /base 17 guerra  las dos cosas
+ *
+ * Va con la nota del proveedor -que donar en el castillo- porque es la
+ * mitad del valor del pack y es justo lo que se pregunta despues.
+ */
+async function cmdBases(arg) {
+  const texto = (arg || '').toLowerCase();
+  // Un numero suelto es el ayuntamiento, con o sin "th" delante.
+  const th = Number((/(?:th)?\s*(\d{1,2})/.exec(texto) || [])[1]) || null;
+  const tipo = /guerra|war|wb/.test(texto) ? 'WB' : /aldea|home|hv/.test(texto) ? 'HV' : null;
+
+  let q = admin
+    .from('bases')
+    .select('url, th, tipo, etiqueta, nota')
+    .order('th', { ascending: false })
+    .limit(10);
+  if (th) q = q.eq('th', th);
+  if (tipo) q = q.eq('tipo', tipo);
+
+  const { data, error } = await q;
+  if (error) throw error;
+
+  if (!data?.length) {
+    const filtro = [th ? `TH${th}` : null, tipo === 'WB' ? 'guerra' : tipo === 'HV' ? 'aldea' : null]
+      .filter(Boolean)
+      .join(' ');
+    return `No hay bases${filtro ? ' de ' + esc(filtro) : ''} en el pack.\nPrueba <code>/base</code> a secas.`;
+  }
+
+  const linea = (b, i) => {
+    const cabeza =
+      `${i + 1}. <b>TH${b.th ?? '?'}</b> · ${b.tipo === 'WB' ? 'guerra' : 'aldea'}` +
+      (b.etiqueta ? ` · ${esc(b.etiqueta)}` : '');
+    // El enlace va como <a>: pegar la URL cruda llena el chat de texto y
+    // dentro de una lista no siempre queda tocable.
+    const enlace = `<a href="${esc(b.url)}">abrir en el juego</a>`;
+    const nota = b.nota ? `\n   <i>${esc(b.nota)}</i>` : '';
+    return `${cabeza} — ${enlace}${nota}`;
+  };
+
+  return `<b>Bases del pack</b> (${data.length})\n\n` + data.map(linea).join('\n\n');
 }

@@ -1012,17 +1012,23 @@ button.enlace-clave:hover { color: var(--texto); transform: none; }
    que hace el bot: anunciar. Va recortada en circulo porque asi es como la
    pinta Telegram, y asi se ve igual en los dos sitios.
    Ver web/public/heraldo.png (panel) y heraldo-telegram.png (BotFather). */
-.heraldo-burbuja img { display: block; border-radius: 50%; }
+/* La cara ocupa la burbuja entera: el borde verde de boton dejaba a
+   Heraldo del tamaño de una moneda dentro de un circulo mas grande, y a esa
+   escala no se distinguia de un emoji cualquiera. */
+.heraldo-burbuja img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .heraldo-cara { border-radius: 50%; flex: 0 0 auto; }
 .heraldo-burbuja {
   position: fixed; right: 16px; bottom: 16px; z-index: 90;
-  width: 56px; height: 56px; border-radius: 50%;
+  width: 84px; height: 84px; border-radius: 50%;
+  padding: 0; overflow: hidden;
   font-size: 26px; line-height: 1; cursor: pointer;
   background: linear-gradient(180deg, var(--accion-a), var(--accion-b));
-  border: 3px solid var(--accion-bord); border-bottom-width: 6px;
-  box-shadow: inset 0 3px 0 rgba(255,255,255,.45), 0 6px 16px rgba(0,0,0,.5);
+  border: 4px solid var(--accion-bord);
+  box-shadow: 0 0 0 2px var(--oro), inset 0 3px 0 rgba(255,255,255,.25), 0 8px 20px rgba(0,0,0,.55);
+  transition: transform .12s;
 }
-.heraldo-burbuja:active { transform: translateY(3px); border-bottom-width: 3px; }
+.heraldo-burbuja:hover { transform: scale(1.06); }
+.heraldo-burbuja:active { transform: scale(.96); }
 
 .heraldo {
   position: fixed; right: 16px; bottom: 16px; z-index: 90;
