@@ -1,0 +1,55 @@
+name: Snapshot diario
+
+# El dia de Clash of Clans arranca a las 05:00 UTC. Corremos despues del
+# reset para que cada fila de snapshots caiga limpia en su dia.
+# Aviso: el cron de GitHub puede retrasarse entre 5 y 30 minutos bajo carga.
+# Para el snapshot da igual; para la alerta de CWL esta contemplado.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: escritura-db
+  cancel-in-progress: false
+
+# Necesario para que el paso de latido pueda hacer push. Sin esto el
+# GITHUB_TOKEN es de solo lectura y el commit falla.
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run snapshot
+        env:
+          COC_TOKEN: ${{ secrets.COC_TOKEN }}
+          COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+          CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # GitHub desactiva los cron de un repo sin actividad por 60 dias.
+      # Este commit diario mantiene el repo vivo. Si aun asi lo desactivan,
+      # llega un mail y se reactiva con un click.
+      # Corre aunque el snapshot falle: si no, una racha de fallos dejaria el
+      # repo inactivo y GitHub apagaria el cron justo cuando mas hace falta.
+      - name: Latido
+        if: ${{ always() }}
+        run: |
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .heartbeat
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .heartbeat
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: latido [skip ci]"
+          git pull --rebase --autostash
+          git push

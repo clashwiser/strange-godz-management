@@ -1,0 +1,641 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Lilita+One&display=swap');
+
+/* =====================================================================
+   Strange Godz Alliance - tres temas
+   Todo es CSS: ni un recurso de Supercell.
+
+   Lo que hace que se sienta "de juego" no es el color, son cuatro cosas:
+   marcos gruesos con relieve, remaches, botones que se hunden, y texto
+   con contorno oscuro (paint-order: stroke fill).
+
+   OJO con el tema Clash: la interfaz REAL del juego es CLARA - paneles de
+   pergamino, marcos de madera, botones verdes. Por eso los tokens estan
+   pensados para soportar temas claros Y oscuros: --texto es el color del
+   texto SOBRE PANEL, y --barra-texto el de las barras de madera.
+   ===================================================================== */
+
+/* ---------- Tema 1: CLASH (por defecto) - pergamino y madera -------- */
+:root, :root[data-tema="clash"] {
+  --fuente:      'Lilita One', system-ui, sans-serif;
+  --fondo:       #2a2412;
+  --panel:       #f0e2bd;   /* pergamino claro, como los paneles del juego */
+  --panel-2:     #e0cb9c;
+  --texto:       #402c12;   /* marron oscuro SOBRE el pergamino */
+  --tenue:       #7a5f33;
+  --barra-a:     #8f5f28;   /* madera */
+  --barra-b:     #5f3c17;
+  --barra-texto: #fff3d6;
+  --marco:       #3d2610;
+  --bronce:      #b0803a;
+  --bronce-2:    #6b4a12;
+  --oro:         #ffc21e;
+  --oro-claro:   #fff0b8;
+  --oro-hondo:   #c98a08;
+  --accion-a:    #a6e86a;   /* verde de boton, la marca de la casa */
+  --accion-b:    #4a9c1e;
+  --accion-bord: #22550c;
+  --realce:      #4a9c1e;
+  --tinta:       #2b1a05;
+  --titulo:      #402c12;   /* panel claro -> titulo oscuro */
+  --titulo-trazo: 0px;
+  --neb-1: rgba(120, 190, 70, .18);
+  --neb-2: rgba(255, 194, 30, .16);
+  --neb-3: rgba(120, 80, 30, .30);
+}
+
+/* ---------- Tema 2: STRANGE WORLD - carmesi y oro mistico ----------- */
+:root[data-tema="strange"] {
+  --fuente:      Cinzel, Georgia, serif;
+  --fondo:       #12060c;
+  --panel:       #3d0f1c;
+  --panel-2:     #52142a;
+  --texto:       #fceee6;
+  --tenue:       #d19a9a;
+  --barra-a:     #5e1a2e;
+  --barra-b:     #360c18;
+  --barra-texto: #ffd9a0;
+  --marco:       #1a0208;
+  --bronce:      #c25a2e;
+  --bronce-2:    #6e2a11;
+  --oro:         #ffa63d;
+  --oro-claro:   #ffd9a0;
+  --oro-hondo:   #b65d10;
+  --accion-a:    #ffd9a0;
+  --accion-b:    #b65d10;
+  --accion-bord: #1a0208;
+  --realce:      #38d6d6;
+  --tinta:       #1c0405;
+  --titulo:      #ffd9a0;
+  --titulo-trazo: 3px;
+  --neb-1: rgba(255, 90, 60, .24);
+  --neb-2: rgba(56, 214, 214, .14);
+  --neb-3: rgba(150, 30, 60, .28);
+}
+
+/* ---------- Tema 3: GODZ - marmol, egeo y laurel ------------------- */
+:root[data-tema="godz"] {
+  --fuente:      Cinzel, Georgia, serif;
+  --fondo:       #070d16;
+  --panel:       #172436;
+  --panel-2:     #1f3149;
+  --texto:       #f2f6fb;
+  --tenue:       #9fb3cc;
+  --barra-a:     #263b56;
+  --barra-b:     #162334;
+  --barra-texto: #fdf6dc;
+  --marco:       #050a11;
+  --bronce:      #8a7434;
+  --bronce-2:    #514213;
+  --oro:         #e8d48a;
+  --oro-claro:   #fdf6dc;
+  --oro-hondo:   #a68f45;
+  --accion-a:    #fdf6dc;
+  --accion-b:    #a68f45;
+  --accion-bord: #050a11;
+  --realce:      #6ec6ff;
+  --tinta:       #060c14;
+  --titulo:      #fdf6dc;
+  --titulo-trazo: 3px;
+  --neb-1: rgba(110, 198, 255, .20);
+  --neb-2: rgba(232, 212, 138, .14);
+  --neb-3: rgba(40, 80, 140, .26);
+}
+
+/* ---------- Tema 4: FUTBOL - cesped, cal y celeste --------------- */
+:root[data-tema="futbol"] {
+  --fuente:      'Lilita One', system-ui, sans-serif;
+  --fondo:       #071a10;
+  --panel:       #15452a;   /* verde cesped a media luz */
+  --panel-2:     #1c5836;
+  --texto:       #f4fbf6;
+  --tenue:       #9dc9ac;
+  --barra-a:     #1f7040;   /* franja de cesped cortado */
+  --barra-b:     #0e3d21;
+  --barra-texto: #ffffff;
+  --marco:       #041008;
+  --bronce:      #eef6f0;   /* la cal de las lineas del campo */
+  --bronce-2:    #7fa88c;
+  --oro:         #8ec9ef;   /* celeste */
+  --oro-claro:   #ffffff;
+  --oro-hondo:   #4a8fbd;
+  --accion-a:    #b8e0f7;
+  --accion-b:    #3f86b8;
+  --accion-bord: #123a52;
+  --realce:      #8ec9ef;
+  --tinta:       #06180d;
+  --titulo:      #ffffff;
+  --titulo-trazo: 3px;
+  --neb-1: rgba(142, 201, 239, .20);
+  --neb-2: rgba(255, 255, 255, .12);
+  --neb-3: rgba(20, 90, 45, .34);
+}
+
+:root { --ok: #3fb877; --mal: #d94141; }
+
+* { box-sizing: border-box; }
+
+html { background: var(--fondo); }
+
+body {
+  margin: 0; padding: 0;
+  color: var(--texto);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  background-color: var(--fondo);
+  background-image:
+    radial-gradient(ellipse 70% 50% at 12% -8%, var(--neb-1), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 88% 0%, var(--neb-2), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% 108%, var(--neb-3), transparent 60%),
+    var(--textura, none);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, 420px 420px;
+  background-attachment: fixed;
+  background-blend-mode: normal, normal, normal, multiply;
+  min-height: 100vh;
+}
+:root, :root[data-tema="clash"] { --textura: url('/texturas/clash.webp'); }
+:root[data-tema="strange"]      { --textura: url('/texturas/strange.webp'); }
+:root[data-tema="godz"]         { --textura: url('/texturas/godz.webp'); }
+:root[data-tema="futbol"]       { --textura: url('/texturas/futbol.webp'); }
+
+a { color: var(--oro-hondo); }
+
+.wrap { max-width: 1140px; margin: 0 auto; padding: 18px 16px 56px; }
+
+/* paint-order pinta el trazo DETRAS del relleno; sin el, el contorno se
+   come las letras desde afuera y quedan ilegibles. */
+header.top h1, .card h3, .card .big, h2.sec,
+nav.tabs button[data-on="1"], button.accion, th, .col-cab strong, .tema-nombre {
+  paint-order: stroke fill;
+}
+
+/* ---------- Cabecera: viga de madera ---------- */
+header.top {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 15px 18px;
+  background-color: var(--barra-b);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.14) 0%, transparent 45%, rgba(0,0,0,.42) 100%),
+    var(--textura, none);
+  background-size: auto, 300px 300px;
+  background-repeat: no-repeat, repeat;
+  background-blend-mode: normal, soft-light;
+  border-bottom: 4px solid var(--marco);
+  box-shadow: 0 4px 0 var(--bronce), 0 8px 22px rgba(0,0,0,.55);
+}
+header.top h1 {
+  margin: 0;
+  font-family: var(--fuente); font-weight: 900;
+  font-size: 22px; letter-spacing: 1px;
+  color: var(--oro-claro);
+  -webkit-text-stroke: 3.5px var(--tinta);
+  text-shadow: 0 3px 0 rgba(0,0,0,.55);
+}
+header.top .sp { flex: 1; }
+header.top .correo { color: var(--barra-texto); font-size: 13px; opacity: .85; }
+
+/* ---------- Pestanas ---------- */
+nav.tabs { display: flex; gap: 7px; flex-wrap: wrap; margin: 20px 0 16px; }
+nav.tabs button {
+  font-family: var(--fuente); font-weight: 700;
+  letter-spacing: .6px; font-size: 14px;
+  color: var(--barra-texto);
+  background: linear-gradient(180deg, var(--barra-a), var(--barra-b));
+  border: 2px solid var(--marco); border-bottom-width: 5px;
+  padding: 9px 17px; border-radius: 10px; cursor: pointer;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.16);
+  transition: filter .12s, transform .06s, border-bottom-width .06s;
+}
+nav.tabs button:hover { filter: brightness(1.12); }
+nav.tabs button:active { transform: translateY(3px); border-bottom-width: 2px; }
+nav.tabs button[data-on="1"] {
+  color: #fff;
+  -webkit-text-stroke: 2.5px var(--accion-bord);
+  background: linear-gradient(180deg, var(--accion-a) 0%, var(--accion-b) 100%);
+  border-color: var(--accion-bord); border-bottom-color: var(--accion-bord);
+  box-shadow: 0 0 16px var(--neb-1), inset 0 2px 0 rgba(255,255,255,.5);
+}
+
+/* ---------- Selector de tema ---------- */
+.temas-caja { display: flex; align-items: center; gap: 9px; }
+.temas { display: flex; gap: 5px; }
+.temas button {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--marco);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.3), 0 2px 5px rgba(0,0,0,.5);
+  transition: transform .1s;
+}
+.temas button:hover { transform: scale(1.15); }
+.temas button[aria-pressed="true"] { outline: 2px solid var(--oro-claro); outline-offset: 2px; }
+.t-clash   { background: linear-gradient(135deg, #ffc21e 50%, #5f3c17 50%); }
+.t-strange { background: linear-gradient(135deg, #ffa63d 50%, #52142a 50%); }
+.t-godz    { background: linear-gradient(135deg, #e8d48a 50%, #1f3149 50%); }
+.tema-nombre {
+  font-family: var(--fuente); font-weight: 700;
+  font-size: 13px; letter-spacing: .5px;
+  color: var(--oro-claro);
+  -webkit-text-stroke: 2px var(--tinta);
+  min-width: 132px;   /* fijo: sin esto la cabecera salta al cambiar de nombre */
+}
+
+/* ---------- Paneles ---------- */
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+.card, .col {
+  position: relative;
+  background-color: var(--panel);
+  /* La textura del tema, apretada y en soft-light: hace que el panel se lea
+     como madera/piedra/cesped tallado en vez de un rectangulo de color. */
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.20) 0%, transparent 40%, rgba(0,0,0,.16) 100%),
+    var(--textura, none);
+  background-size: auto, 240px 240px;
+  background-repeat: no-repeat, repeat;
+  background-blend-mode: normal, soft-light;
+  border: 3px solid var(--marco); border-radius: 14px;
+  box-shadow:
+    inset 0 0 0 3px var(--bronce),
+    inset 0 3px 0 rgba(255,255,255,.35),
+    0 6px 0 rgba(0,0,0,.32),
+    0 10px 26px rgba(0,0,0,.5);
+}
+.card { padding: 16px 17px; }
+
+/* Remaches: el circulo va desplazado hacia adentro. Centrado justo en la
+   esquina se recorta el 75% y solo queda una astilla invisible. */
+.card::after, .col::after {
+  content: ''; position: absolute; inset: 8px; border-radius: 9px; pointer-events: none;
+  background:
+    radial-gradient(circle 5px at 8px 8px,                           var(--oro-claro) 26%, var(--oro) 46%, var(--bronce-2) 74%, rgba(0,0,0,.5) 88%, transparent 92%),
+    radial-gradient(circle 5px at calc(100% - 8px) 8px,              var(--oro-claro) 26%, var(--oro) 46%, var(--bronce-2) 74%, rgba(0,0,0,.5) 88%, transparent 92%),
+    radial-gradient(circle 5px at 8px calc(100% - 8px),              var(--oro-claro) 26%, var(--oro) 46%, var(--bronce-2) 74%, rgba(0,0,0,.5) 88%, transparent 92%),
+    radial-gradient(circle 5px at calc(100% - 8px) calc(100% - 8px), var(--oro-claro) 26%, var(--oro) 46%, var(--bronce-2) 74%, rgba(0,0,0,.5) 88%, transparent 92%);
+  background-repeat: no-repeat;
+}
+.card h3 {
+  margin: 0 0 6px; font-size: 17px;
+  font-family: var(--fuente); font-weight: 700; letter-spacing: .4px;
+  color: var(--titulo);
+  -webkit-text-stroke: var(--titulo-trazo) var(--tinta);
+}
+.card .sub { color: var(--tenue); font-size: 13px; }
+.card .big {
+  font-family: var(--fuente); font-weight: 900;
+  font-size: 38px; margin: 8px 0 0; color: var(--oro);
+  -webkit-text-stroke: 4px var(--tinta);
+  text-shadow: 0 3px 0 rgba(0,0,0,.45);
+}
+
+h2.sec {
+  font-family: var(--fuente); font-weight: 900;
+  font-size: 16px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--oro-claro); margin: 28px 0 11px;
+  display: flex; align-items: center; gap: 11px;
+  -webkit-text-stroke: 3px var(--tinta);
+}
+h2.sec::after {
+  content: ''; flex: 1; height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--bronce), transparent);
+}
+
+/* ---------- Tablas ---------- */
+.tabla-scroll {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background-color: var(--panel);
+  background-image: var(--textura, none);
+  background-size: 240px 240px;
+  background-blend-mode: soft-light;
+  border: 3px solid var(--marco); border-radius: 14px;
+  box-shadow: inset 0 0 0 3px var(--bronce), 0 6px 0 rgba(0,0,0,.3), 0 10px 24px rgba(0,0,0,.45);
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 520px; }
+th, td { text-align: left; padding: 11px 13px; border-bottom: 1px solid var(--bronce); white-space: nowrap; }
+th {
+  color: var(--barra-texto); font-size: 12px;
+  text-transform: uppercase; letter-spacing: .8px;
+  font-family: var(--fuente); font-weight: 700;
+  background: linear-gradient(180deg, var(--barra-a), var(--barra-b));
+  border-bottom: 3px solid var(--marco);
+  -webkit-text-stroke: 2px var(--tinta);
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:nth-child(even) { background: rgba(0,0,0,.055); }
+tbody tr:hover { background: var(--neb-2); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- Insignias ---------- */
+.pill {
+  display: inline-block; padding: 3px 11px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  border: 2px solid var(--marco); color: var(--barra-texto);
+  background: linear-gradient(180deg, var(--barra-a), var(--barra-b));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
+}
+.pill.ok    { color: #08260f; background: linear-gradient(180deg, #a6e86a, #4a9c1e); border-color: #22550c; }
+.pill.mal   { color: #2e0606; background: linear-gradient(180deg, #ff9d9d, #d94141); border-color: #5c1010; }
+.pill.aviso { color: var(--tinta); background: linear-gradient(180deg, var(--oro-claro), var(--oro-hondo)); border-color: var(--marco); }
+
+/* ---------- Botones que se hunden ---------- */
+button.accion {
+  font-family: var(--fuente); font-weight: 700;
+  letter-spacing: .7px; font-size: 15px;
+  color: #fff;
+  -webkit-text-stroke: 3px var(--accion-bord);
+  background: linear-gradient(180deg, var(--accion-a) 0%, var(--accion-b) 100%);
+  border: 3px solid var(--accion-bord); border-bottom-width: 7px;
+  padding: 10px 22px; border-radius: 12px; cursor: pointer;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.5), 0 4px 10px rgba(0,0,0,.35);
+  transition: transform .06s, border-bottom-width .06s, filter .12s;
+  position: relative; overflow: hidden;
+}
+button.accion:hover { filter: brightness(1.08); }
+button.accion:active { transform: translateY(4px); border-bottom-width: 3px; }
+button.accion:disabled { filter: grayscale(.6) brightness(.8); cursor: default; transform: none; }
+
+button.fantasma {
+  font-family: var(--fuente); font-weight: 700; font-size: 13px; letter-spacing: .4px;
+  background: linear-gradient(180deg, var(--barra-a), var(--barra-b));
+  color: var(--barra-texto);
+  border: 2px solid var(--marco); border-bottom-width: 5px;
+  padding: 8px 15px; border-radius: 10px; cursor: pointer;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.16);
+  transition: transform .06s, border-bottom-width .06s, filter .12s;
+}
+button.fantasma:hover { filter: brightness(1.12); }
+button.fantasma:active { transform: translateY(3px); border-bottom-width: 2px; }
+
+/* ---------- Mensajes ---------- */
+pre.msg {
+  white-space: pre-wrap; word-break: break-word;
+  background: rgba(0,0,0,.09);
+  border: 3px solid var(--marco); border-left-width: 7px; border-left-color: var(--bronce);
+  border-radius: 12px; padding: 14px;
+  font: 13px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  margin: 10px 0 0; color: var(--texto);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.18);
+}
+
+/* ---------- Acceso ---------- */
+.login { max-width: 370px; margin: 9vh auto; }
+.login input {
+  width: 100%; padding: 11px 13px; margin: 8px 0; border-radius: 10px;
+  border: 3px solid var(--marco); background: rgba(255,255,255,.55);
+  color: var(--texto); font-size: 15px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.22);
+}
+.login input:focus {
+  outline: none; border-color: var(--accion-b);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.22), 0 0 0 3px var(--neb-1);
+}
+
+.error { color: var(--mal); font-size: 13px; margin-top: 8px; font-weight: 600; }
+.vacio { color: var(--barra-texto); padding: 28px 0; text-align: center; }
+
+.banda-demo {
+  background: linear-gradient(180deg, var(--barra-a), var(--barra-b));
+  color: var(--barra-texto);
+  padding: 8px 16px; font-size: 13px; text-align: center;
+  border-bottom: 3px solid var(--marco);
+}
+
+/* ---------- Armado de alineaciones ---------- */
+.columnas {
+  display: grid; gap: 16px; align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(214px, 1fr));
+}
+.col { padding: 12px; min-height: 152px; transition: box-shadow .12s; }
+.col[data-sobre="1"] {
+  box-shadow:
+    inset 0 0 0 3px var(--accion-b),
+    inset 0 0 26px var(--neb-1),
+    0 0 26px var(--neb-1),
+    0 6px 0 rgba(0,0,0,.3);
+}
+.col-cab {
+  display: flex; align-items: center; gap: 7px;
+  padding-bottom: 10px; margin-bottom: 10px;
+  border-bottom: 3px solid var(--bronce);
+  font-family: var(--fuente); font-weight: 700; font-size: 15px;
+  flex-wrap: wrap; color: var(--titulo);
+}
+.col-cab strong { color: var(--titulo); -webkit-text-stroke: var(--titulo-trazo) var(--tinta); }
+.col-vacia {
+  color: var(--tenue); font-size: 13px; text-align: center;
+  padding: 22px 0; border: 2px dashed var(--bronce); border-radius: 10px;
+  background: rgba(0,0,0,.07);
+}
+.ficha {
+  background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.10)), var(--panel-2);
+  border: 2px solid var(--marco); border-bottom-width: 4px;
+  border-left: 5px solid var(--realce);
+  border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; cursor: grab;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.3), 0 3px 7px rgba(0,0,0,.3);
+  transition: transform .08s, border-left-color .12s;
+  position: relative; z-index: 1;
+}
+.ficha:hover { transform: translateX(3px); border-left-color: var(--oro); }
+.ficha:active { cursor: grabbing; transform: translateY(2px); border-bottom-width: 2px; }
+.ficha-nom { font-size: 14px; font-weight: 700; color: var(--texto); }
+.ficha-sub { color: var(--tenue); font-size: 12px; margin-top: 2px; }
+.ficha-sel {
+  width: 100%; margin-top: 8px; padding: 6px 8px; font-size: 12px;
+  background: rgba(255,255,255,.5); color: var(--texto);
+  border: 2px solid var(--marco); border-radius: 8px;
+}
+/* El desplegable solo hace falta donde no se puede arrastrar. */
+@media (hover: hover) and (pointer: fine) { .ficha-sel { display: none; } }
+
+/* ---------- Mascota y aviso legal ---------- */
+.mascota {
+  display: block; width: 100%; max-width: 210px; height: auto;
+  margin: 0 auto 6px; border-radius: 12px;
+  border: 3px solid var(--marco);
+  box-shadow: inset 0 0 0 3px var(--bronce), 0 6px 16px rgba(0,0,0,.5);
+}
+.aviso-legal {
+  color: var(--barra-texto); font-size: 11px; text-align: center;
+  padding: 22px 16px 10px; line-height: 1.6; opacity: .6;
+}
+
+/* =====================================================================
+   Animacion. Nada se mueve solo por moverse: cada una confirma una accion
+   o dirige la vista a un dato que acaba de aparecer.
+   ===================================================================== */
+@keyframes surgir { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes latir  { 0%,100% { text-shadow: 0 3px 0 rgba(0,0,0,.45); } 50% { text-shadow: 0 3px 0 rgba(0,0,0,.45), 0 0 18px var(--oro); } }
+@keyframes brillo { from { transform: translateX(-130%) skewX(-18deg); } to { transform: translateX(430%) skewX(-18deg); } }
+@keyframes flotar { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes respirar {
+  0%,100% { box-shadow: inset 0 0 0 3px var(--accion-b), 0 0 18px var(--neb-1), 0 6px 0 rgba(0,0,0,.3); }
+  50%     { box-shadow: inset 0 0 0 3px var(--accion-b), 0 0 34px var(--neb-1), 0 6px 0 rgba(0,0,0,.3); }
+}
+
+.grid > *, .columnas > *, .tabla-scroll { animation: surgir .34s cubic-bezier(.22,1,.36,1) both; }
+.grid > *:nth-child(2), .columnas > *:nth-child(2) { animation-delay: .05s; }
+.grid > *:nth-child(3), .columnas > *:nth-child(3) { animation-delay: .10s; }
+.grid > *:nth-child(4), .columnas > *:nth-child(4) { animation-delay: .15s; }
+.grid > *:nth-child(5), .columnas > *:nth-child(5) { animation-delay: .20s; }
+.grid > *:nth-child(n+6), .columnas > *:nth-child(n+6) { animation-delay: .25s; }
+
+.card .big { animation: latir 3.4s ease-in-out infinite; }
+.mascota { animation: flotar 5.5s ease-in-out infinite; }
+.col[data-sobre="1"] { animation: respirar 1.1s ease-in-out infinite; }
+
+button.accion::after {
+  content: ''; position: absolute; top: -60%; left: 0; width: 32%; height: 220%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+  transform: translateX(-130%) skewX(-18deg); pointer-events: none;
+}
+button.accion:hover::after { animation: brillo .75s ease-out; }
+
+tbody tr { transition: background .15s, transform .1s; }
+tbody tr:hover { transform: translateX(3px); }
+.card, .col, .tabla-scroll, header.top, nav.tabs button, .ficha, .pill {
+  transition: background-color .3s ease, border-color .3s ease, color .3s ease;
+}
+
+/* Quien pidio menos movimiento no recibe ninguno. A mucha gente el
+   movimiento le marea; no es un extra opcional. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ---------- Heroe del resumen: la mascota, sola y arriba ---------- */
+.heroe { text-align: center; padding: 8px 0 4px; }
+.heroe-nombre {
+  font-family: var(--fuente); font-weight: 900;
+  font-size: 26px; letter-spacing: .8px; margin: 12px 0 2px;
+  color: var(--oro-claro);
+  -webkit-text-stroke: 3.5px var(--tinta);
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 rgba(0,0,0,.5);
+}
+.heroe-sub { color: var(--barra-texto); font-size: 14px; margin: 0; opacity: .85; }
+
+/* Marco circular: aro de bronce + halo, como el retrato de un heroe. */
+/* Sin aro de bronce a proposito: si el logo ya trae su propio anillo,
+   el del marco crea un segundo circulo y queda un hueco negro entre los dos. */
+.mascota-redonda {
+  border-radius: 50%;
+  aspect-ratio: 1 / 1; object-fit: cover;
+  border: 0;
+  box-shadow:
+    0 0 30px var(--neb-2),
+    0 10px 26px rgba(0,0,0,.55);
+}
+
+/* ---------- Tarjetas de clan reordenables ---------- */
+/* touch-action:none es lo que permite arrastrar con el dedo: sin esto el
+   navegador se queda el gesto para hacer scroll y la tarjeta no se mueve. */
+.carta-clan {
+  cursor: grab; touch-action: none; user-select: none;
+  -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.carta-clan[data-agarrado="1"] {
+  cursor: grabbing;
+  transform: scale(1.03) rotate(-1deg);
+  box-shadow: inset 0 0 0 3px var(--oro), 0 0 30px var(--neb-2), 0 14px 30px rgba(0,0,0,.6);
+  z-index: 5;
+}
+.asa {
+  position: absolute; top: 10px; right: 14px;
+  color: var(--tenue); font-size: 15px; letter-spacing: -2px; opacity: .55;
+}
+.pista-arrastre { color: var(--barra-texto); font-size: 13px; margin: 0 0 10px; opacity: .8; }
+
+.t-futbol { background: linear-gradient(135deg, #8ec9ef 50%, #1f7040 50%); }
+
+/* Emblema: logo que ya trae su propio marco y fondo transparente. Se muestra
+   completo, sin recorte circular ni borde: el recorte le cortaba las alas y
+   el pegaso, que salen fuera del anillo dorado. */
+.mascota-emblema {
+  border: 0; border-radius: 0; background: none;
+  object-fit: contain;
+  box-shadow: none;
+  filter: drop-shadow(0 0 26px var(--neb-2)) drop-shadow(0 10px 20px rgba(0,0,0,.6));
+}
+
+/* Las insignias viven dentro de <h3>, que lleva contorno grueso. Heredado en
+   un texto de 11px, el trazo se come la letra: "principal" quedaba ilegible.
+   Se anula aqui y se compensa con peso y sombra corta. */
+.pill {
+  -webkit-text-stroke: 0 !important;
+  paint-order: normal;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .28);
+  font-weight: 800;
+  vertical-align: middle;
+}
+.pill.aviso { text-shadow: 0 1px 0 rgba(255, 255, 255, .35); }
+
+/* Campos y casillas del panel de bots */
+/* Fondo OPACO del panel, no un blanco translucido: estos campos tambien
+   viven fuera de las tarjetas (fila de filtros) y ahi el translucido dejaba
+   texto oscuro sobre fondo oscuro. */
+.campo {
+  width: 100%; margin-top: 8px; padding: 9px 11px; border-radius: 9px;
+  border: 3px solid var(--marco); background: var(--panel);
+  color: var(--texto); font-size: 14px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, .25);
+}
+.campo:focus { outline: none; border-color: var(--accion-b); }
+.fila-check {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 12px; cursor: pointer; font-size: 13px; color: var(--texto);
+}
+.fila-check input { width: 18px; height: 18px; accent-color: var(--accion-b); cursor: pointer; }
+.fila-check input:disabled { cursor: not-allowed; opacity: .5; }
+
+/* Barra de filtros de las pestañas Bases y Bonos */
+.filtros {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+.campo-corto { width: auto; min-width: 170px; margin-top: 0; }
+
+/* Miniaturas de base en la pestaña Bases */
+.mini-base {
+  display: block; width: 132px; height: 62px; object-fit: cover;
+  border: 2px solid var(--marco); border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--bronce), 0 3px 8px rgba(0, 0, 0, .45);
+  transition: transform .12s;
+}
+.mini-base:hover { transform: scale(1.06); }
+.mini-vacia { color: var(--tenue); font-size: 12px; font-style: italic; }
+td:has(.mini-base) { padding: 8px 10px; }
+
+/* Lupa de base: la miniatura es chica para elegir, esto es para mirarla */
+.mini-base { cursor: zoom-in; }
+.acciones { display: flex; gap: 6px; align-items: center; }
+.lupa {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0, 0, 0, .82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; cursor: zoom-out;
+  animation: surgir .18s ease-out both;
+}
+.lupa-caja {
+  max-width: min(1100px, 96vw); width: 100%; cursor: default;
+  background: var(--panel); border: 3px solid var(--marco); border-radius: 14px;
+  box-shadow: inset 0 0 0 3px var(--bronce), 0 20px 50px rgba(0, 0, 0, .7);
+  padding: 12px;
+}
+.lupa-caja img {
+  display: block; width: 100%; height: auto;
+  max-height: 74vh; object-fit: contain;
+  border-radius: 9px; border: 2px solid var(--marco);
+}
+.lupa-pie {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+/* Papelera de la tabla de premios */
+.borrar {
+  padding: 6px 11px; line-height: 1; font-size: 15px;
+  color: var(--mal); border-color: var(--marco);
+}
+.borrar:hover { filter: brightness(1.25); border-color: var(--mal); }

@@ -1,0 +1,39 @@
+name: Raid Weekends
+
+# Los raids corren de viernes 07:00 UTC a lunes 07:00 UTC. Con correr una vez
+# al dia sobra: el endpoint devuelve el fin de semana completo, no hace falta
+# perseguirlo en vivo como la CWL.
+#
+# La PRIMERA corrida recupera los ultimos ~10 fines de semana de una sola vez.
+on:
+  schedule:
+    - cron: '30 8 * * *'
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: 'Cuantos fines de semana traer hacia atras'
+        default: '10'
+
+concurrency:
+  group: escritura-db
+  cancel-in-progress: false
+
+jobs:
+  raids:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run raids:sync
+        env:
+          COC_TOKEN: ${{ secrets.COC_TOKEN }}
+          COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+          CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RAIDS_LIMITE: ${{ inputs.limite || '10' }}

@@ -1,0 +1,575 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase, configurado } from '../lib/supabase';
+import Alineacion from './alineacion';
+import SelectorTema, { Mascota } from './temas';
+import Clanes from './clanes';
+import Bots from './bots';
+import Bases from './bases';
+import Bonos from './bonos';
+
+const TABS = [
+  ['resumen', 'Resumen'],
+  ['alineacion', 'Alineación'],
+  ['cwl', 'CWL'],
+  ['jugadores', 'Jugadores'],
+  ['mensajes', 'Mensajes'],
+  ['bases', 'Bases'],
+  ['bonos', 'Bonos'],
+  ['bots', 'Bots'],
+];
+
+const temporadaActual = () => new Date().toISOString().slice(0, 7);
+const fmt = (d) => (d ? new Date(d).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+
+export default function Panel() {
+  const [sesion, setSesion] = useState(undefined); // undefined = aun cargando
+  const [tab, setTab] = useState('resumen');
+  const [d, setD] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!configurado) return;
+    supabase.auth.getSession().then(({ data }) => setSesion(data.session ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSesion(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const cargar = useCallback(async () => {
+    setError('');
+    try {
+      const temporada = temporadaActual();
+
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan] = await Promise.all([
+        supabase.from('clans').select('*').order('orden').order('nombre'),
+        supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
+        supabase.from('outbox').select('*').order('creado_en', { ascending: false }).limit(30),
+        supabase.from('wa_estado').select('*').eq('id', 1).maybeSingle(),
+        supabase.from('cwl_seasons').select('*').eq('temporada', temporada),
+        supabase.from('alineaciones').select('player_tag, clan_tag, posicion').eq('temporada', temporada),
+        supabase.from('config').select('clave, valor'),
+        supabase.from('base_packs').select('*').order('subido_en', { ascending: false }),
+        supabase.from('bases').select('*').order('th', { ascending: false }),
+        supabase.from('bonos').select('*').eq('temporada', temporada),
+        supabase.from('premios_plan').select('*').order('orden'),
+      ]);
+
+      // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
+      const { data: ultimo } = await supabase
+        .from('snapshots')
+        .select('fecha')
+        .order('fecha', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let snaps = [];
+      if (ultimo?.fecha) {
+        const r = await supabase
+          .from('snapshots')
+          .select('player_tag, clan_tag, th_level, trofeos, liga, war_stars, donaciones, fecha')
+          .eq('fecha', ultimo.fecha);
+        snaps = r.data ?? [];
+      }
+
+      const { data: players } = await supabase.from('players').select('player_tag, nombre_actual, elegible_premios');
+
+      const ids = (seasons.data ?? []).map((s) => s.id);
+      let wars = [];
+      let ataques = [];
+      let roster = [];
+      if (ids.length) {
+        const w = await supabase.from('cwl_wars').select('*').in('season_id', ids).order('ronda');
+        wars = w.data ?? [];
+        const warIds = wars.map((x) => x.id);
+
+        // Filtrar por war_id EN LA CONSULTA, no en el navegador: Supabase
+        // corta en 1000 filas por defecto, y traer el historico completo
+        // empezaria a devolver datos incompletos en silencio a los pocos meses.
+        if (warIds.length) {
+          const [a, ro] = await Promise.all([
+            supabase
+              .from('cwl_attacks')
+              .select('war_id, player_tag, estrellas, destruccion_pct')
+              .in('war_id', warIds),
+            supabase.from('cwl_roster').select('war_id, player_tag').in('war_id', warIds),
+          ]);
+          ataques = a.data ?? [];
+          roster = ro.data ?? [];
+        }
+      }
+
+      setD({
+        clans: clans.data ?? [],
+        jobs: jobs.data ?? [],
+        outbox: outbox.data ?? [],
+        wa: wa.data ?? null,
+        temporada,
+        wars,
+        ataques,
+        roster,
+        snaps,
+        players: players ?? [],
+        alineaciones: alin.data ?? [],
+        config: conf.data ?? [],
+        basePacks: packs.data ?? [],
+        bases: bases.data ?? [],
+        bonos: bonos.data ?? [],
+        premiosPlan: plan.data ?? [],
+        fechaSnap: ultimo?.fecha ?? null,
+      });
+    } catch (e) {
+      setError(e.message ?? String(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (sesion) cargar();
+  }, [sesion, cargar]);
+
+  // Sin Supabase esta pantalla no puede ser un callejon sin salida: siempre
+  // tiene que ofrecer la vista de ejemplo, que funciona sin base de datos.
+  if (!configurado) {
+    return (
+      <div className="wrap">
+        <div className="login card" style={{ textAlign: 'center' }}>
+          <Mascota ancho={150} />
+          <h3>Todavía no hay base de datos</h3>
+          <p className="sub">
+            El panel real necesita Supabase conectado. Mientras tanto podés recorrer todo con datos
+            de ejemplo.
+          </p>
+          <a href="/demo" style={{ textDecoration: 'none', display: 'inline-block', marginTop: 12 }}>
+            <button className="accion">Ver la demo</button>
+          </a>
+          <p className="sub" style={{ marginTop: 16, fontSize: 12, opacity: 0.75 }}>
+            Para activarlo: definí <code>NEXT_PUBLIC_SUPABASE_URL</code> y{' '}
+            <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (sesion === undefined) return <div className="vacio">Cargando…</div>;
+  if (!sesion) return <Login />;
+
+  return (
+    <>
+      <header className="top">
+        <h1>Strange Godz Alliance · Management</h1>
+        <span className="sp" />
+        <SelectorTema />
+        <span style={{ color: 'var(--tenue)', fontSize: 13 }}>{sesion.user.email}</span>
+        <button className="fantasma" onClick={() => supabase.auth.signOut()}>
+          Salir
+        </button>
+      </header>
+
+      <div className="wrap">
+        <nav className="tabs">
+          {TABS.map(([k, label]) => (
+            <button key={k} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
+              {label}
+            </button>
+          ))}
+          <span style={{ flex: 1 }} />
+          <button className="fantasma" onClick={cargar}>
+            Actualizar
+          </button>
+        </nav>
+
+        {error && <p className="error">Error: {error}</p>}
+        {!d && !error && <p className="vacio">Cargando datos…</p>}
+
+        {d && tab === 'resumen' && <Resumen d={d} />}
+        {/* key: al cambiar de temporada se reinicia el estado local del tablero */}
+        {d && tab === 'alineacion' && <Alineacion key={d.temporada} d={d} recargar={cargar} />}
+        {d && tab === 'cwl' && <CWL d={d} />}
+        {d && tab === 'jugadores' && <Jugadores d={d} />}
+        {d && tab === 'mensajes' && <Mensajes d={d} recargar={cargar} />}
+        {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}
+        {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
+        {d && tab === 'bots' && <Bots d={d} recargar={cargar} />}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- Login
+function Login() {
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  async function entrar(e) {
+    e.preventDefault();
+    setCargando(true);
+    setErr('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) setErr(error.message);
+    setCargando(false);
+  }
+
+  return (
+    <div className="wrap">
+      <form className="login card" onSubmit={entrar}>
+        <Mascota ancho={160} />
+        <h3 style={{ textAlign: 'center' }}>Strange Godz Alliance</h3>
+        <p className="sub" style={{ textAlign: 'center' }}>Acceso solo para los líderes.</p>
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
+          <SelectorTema />
+        </div>
+        <input
+          type="email"
+          placeholder="correo"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="username"
+          required
+        />
+        <input
+          type="password"
+          placeholder="contraseña"
+          value={pass}
+          onChange={(e) => setPass(e.target.value)}
+          autoComplete="current-password"
+          required
+        />
+        <button className="accion" style={{ width: '100%', marginTop: 8 }} disabled={cargando}>
+          {cargando ? 'Entrando…' : 'Entrar'}
+        </button>
+        {err && <p className="error">{err}</p>}
+      </form>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------- Resumen
+export function Resumen({ d, demo = false }) {
+  // Ultima corrida de cada job: asi se ve de un vistazo si algo dejo de correr.
+  const ultimos = useMemo(() => {
+    const m = new Map();
+    for (const j of d.jobs) if (!m.has(j.job)) m.set(j.job, j);
+    return [...m.values()];
+  }, [d.jobs]);
+
+  const pendientes = d.outbox.filter((m) => m.estado === 'pendiente').length;
+
+  const miembros = d.snaps.length;
+
+  return (
+    <>
+      {/* La mascota va sola arriba, no compitiendo con los clanes dentro de
+          la misma grilla: mezcladas, no se entiende cual es cual. */}
+      <div className="heroe">
+        <Mascota ancho={168} redondo />
+        <h2 className="heroe-nombre">Strange Godz Alliance</h2>
+        <p className="heroe-sub">
+          {d.clans.length} {d.clans.length === 1 ? 'clan' : 'clanes'}
+          {miembros ? ` · ${miembros} miembros` : ''}
+        </p>
+      </div>
+
+      <h2 className="sec">Nuestros clanes</h2>
+      <Clanes d={d} demo={demo} />
+
+      <h2 className="sec">Estado del sistema</h2>
+      <div className="grid">
+        <div className="card">
+          <h3>Mensajes por enviar</h3>
+          <p className="big">{pendientes}</p>
+          <p className="sub">se copian desde la pestaña Mensajes</p>
+        </div>
+        <div className="card">
+          <h3>WhatsApp automático</h3>
+          <p className="sub">
+            {d.wa?.vinculado ? (
+              <span className="pill ok">vinculado · {d.wa.numero ?? '?'}</span>
+            ) : (
+              <span className="pill aviso">apagado</span>
+            )}
+          </p>
+          <p className="sub" style={{ marginTop: 8 }}>
+            {d.wa?.vinculado
+              ? `último envío: ${fmt(d.wa.ultimo_ok)}`
+              : 'Sin número secundario. El reporte se copia y se pega a mano.'}
+          </p>
+          {d.wa?.ultimo_error && <p className="error">{d.wa.ultimo_error}</p>}
+        </div>
+        <div className="card">
+          <h3>Último snapshot</h3>
+          <p className="big" style={{ fontSize: 20 }}>{d.fechaSnap ?? '—'}</p>
+          <p className="sub">{d.snaps.length} perfiles guardados</p>
+        </div>
+      </div>
+
+      <h2 className="sec">Últimas corridas</h2>
+      <div className="tabla-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Cuándo</th>
+              <th>Estado</th>
+              <th className="num">Filas</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ultimos.map((j) => (
+              <tr key={j.id}>
+                <td>{j.job}</td>
+                <td>{fmt(j.started_at)}</td>
+                <td>
+                  <span className={`pill ${j.ok === true ? 'ok' : j.ok === false ? 'mal' : 'aviso'}`}>
+                    {j.ok === true ? 'ok' : j.ok === false ? 'falló' : 'corriendo'}
+                  </span>
+                </td>
+                <td className="num">{j.filas ?? '—'}</td>
+                <td style={{ color: 'var(--mal)', whiteSpace: 'normal' }}>{j.error ?? ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!ultimos.length && <p className="vacio">Todavía no corrió ningún job.</p>}
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ CWL
+export function CWL({ d }) {
+  const nombre = useMemo(
+    () => Object.fromEntries(d.players.map((p) => [p.player_tag, p.nombre_actual])),
+    [d.players]
+  );
+
+  // Ataques fallados = estaba alineado y no atacó, en guerras ya cerradas.
+  const fallados = useMemo(() => {
+    const cerradas = new Set(d.wars.filter((w) => w.estado === 'warEnded').map((w) => w.id));
+    const atacó = new Set(d.ataques.map((a) => `${a.war_id}|${a.player_tag}`));
+    const cuenta = new Map();
+    for (const r of d.roster) {
+      if (!cerradas.has(r.war_id)) continue;
+      if (atacó.has(`${r.war_id}|${r.player_tag}`)) continue;
+      cuenta.set(r.player_tag, (cuenta.get(r.player_tag) ?? 0) + 1);
+    }
+    return [...cuenta.entries()].sort((a, b) => b[1] - a[1]);
+  }, [d.wars, d.ataques, d.roster]);
+
+  const estrellas = useMemo(() => {
+    const m = new Map();
+    for (const a of d.ataques) {
+      const p = m.get(a.player_tag) ?? { e: 0, n: 0, dest: 0 };
+      p.e += a.estrellas ?? 0;
+      p.dest += Number(a.destruccion_pct ?? 0);
+      p.n += 1;
+      m.set(a.player_tag, p);
+    }
+    return [...m.entries()]
+      .map(([tag, v]) => ({ tag, ...v, prom: v.n ? v.dest / v.n : 0 }))
+      .sort((a, b) => b.e - a.e || b.prom - a.prom);
+  }, [d.ataques]);
+
+  if (!d.wars.length) {
+    return <p className="vacio">Sin datos de CWL para {d.temporada}. Corré el job <code>cwl:sync</code>.</p>;
+  }
+
+  return (
+    <>
+      <h2 className="sec">Rondas · temporada {d.temporada}</h2>
+      <div className="tabla-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th className="num">Ronda</th>
+              <th>Rival</th>
+              <th className="num">Nosotros</th>
+              <th className="num">Ellos</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.wars.map((w) => (
+              <tr key={w.id}>
+                <td className="num">{w.ronda}</td>
+                <td>{w.clan_rival_nombre ?? '—'}</td>
+                <td className="num">{w.estrellas_nuestras ?? '—'}</td>
+                <td className="num">{w.estrellas_rival ?? '—'}</td>
+                <td>
+                  <span className={`pill ${w.estado === 'warEnded' ? 'ok' : 'aviso'}`}>{w.estado}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="sec">Tabla de estrellas</h2>
+      <div className="tabla-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th className="num">#</th>
+              <th>Jugador</th>
+              <th className="num">Estrellas</th>
+              <th className="num">Ataques</th>
+              <th className="num">% destr. prom</th>
+            </tr>
+          </thead>
+          <tbody>
+            {estrellas.map((p, i) => (
+              <tr key={p.tag}>
+                <td className="num">{i + 1}</td>
+                <td>{nombre[p.tag] ?? p.tag}</td>
+                <td className="num">{p.e}</td>
+                <td className="num">{p.n}</td>
+                <td className="num">{p.prom.toFixed(1)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="sec">Ataques sin usar (guerras cerradas)</h2>
+      {fallados.length ? (
+        <div className="tabla-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Jugador</th>
+                <th className="num">Fallados</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fallados.map(([tag, n]) => (
+                <tr key={tag}>
+                  <td>{nombre[tag] ?? tag}</td>
+                  <td className="num" style={{ color: 'var(--mal)' }}>{n}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="vacio">Nadie falló ataques. </p>
+      )}
+    </>
+  );
+}
+
+// ------------------------------------------------------------ Jugadores
+export function Jugadores({ d }) {
+  const [q, setQ] = useState('');
+  const nombre = useMemo(
+    () => Object.fromEntries(d.players.map((p) => [p.player_tag, p.nombre_actual])),
+    [d.players]
+  );
+  const clanDe = useMemo(
+    () => Object.fromEntries(d.clans.map((c) => [c.clan_tag, `${c.nombre} (${c.escuadra})`])),
+    [d.clans]
+  );
+
+  const filas = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return d.snaps
+      .map((s) => ({ ...s, nombre: nombre[s.player_tag] ?? s.player_tag }))
+      .filter((s) => !t || s.nombre.toLowerCase().includes(t) || s.player_tag.toLowerCase().includes(t))
+      .sort((a, b) => (b.trofeos ?? 0) - (a.trofeos ?? 0));
+  }, [d.snaps, nombre, q]);
+
+  if (!d.snaps.length) return <p className="vacio">Sin snapshots todavía. Corré <code>npm run snapshot</code>.</p>;
+
+  return (
+    <>
+      <input
+        placeholder="Buscar jugador…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        style={{
+          width: '100%', maxWidth: 320, padding: '9px 12px', borderRadius: 8,
+          border: '1px solid var(--borde)', background: 'var(--panel)', color: 'var(--texto)',
+        }}
+      />
+      <p className="sub" style={{ color: 'var(--tenue)', fontSize: 13 }}>
+        {filas.length} jugadores · foto del {d.fechaSnap}
+      </p>
+      <div className="tabla-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Jugador</th>
+              <th>Clan</th>
+              <th className="num">TH</th>
+              <th className="num">Trofeos</th>
+              <th>Liga</th>
+              <th className="num">Estrellas guerra</th>
+              <th className="num">Donaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((s) => (
+              <tr key={s.player_tag}>
+                <td>{s.nombre}</td>
+                <td>{clanDe[s.clan_tag] ?? '—'}</td>
+                <td className="num">{s.th_level ?? '—'}</td>
+                <td className="num">{s.trofeos ?? '—'}</td>
+                <td>{s.liga ?? '—'}</td>
+                <td className="num">{s.war_stars ?? '—'}</td>
+                <td className="num">{s.donaciones ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+// ------------------------------------------------------------- Mensajes
+export function Mensajes({ d, recargar }) {
+  const [copiado, setCopiado] = useState(null);
+
+  async function copiar(m) {
+    try {
+      await navigator.clipboard.writeText(m.cuerpo);
+      setCopiado(m.id);
+      setTimeout(() => setCopiado(null), 2000);
+      // Queda constancia de que ya se compartio, para no repetirlo.
+      if (m.estado === 'pendiente') {
+        await supabase.from('outbox').update({ estado: 'copiado', enviado_en: new Date().toISOString() }).eq('id', m.id);
+        recargar();
+      }
+    } catch {
+      setCopiado(-1);
+    }
+  }
+
+  if (!d.outbox.length) return <p className="vacio">No hay mensajes generados todavía.</p>;
+
+  return (
+    <>
+      <p className="sub" style={{ color: 'var(--tenue)' }}>
+        Copiá y pegá en el grupo del clan. Al copiar, el mensaje se marca como compartido.
+      </p>
+      {d.outbox.map((m) => (
+        <div className="card" key={m.id} style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <strong>{m.tipo}</strong>
+            <span className={`pill ${m.estado === 'enviado' || m.estado === 'copiado' ? 'ok' : m.estado === 'fallido' ? 'mal' : 'aviso'}`}>
+              {m.estado}
+            </span>
+            <span className="sub" style={{ color: 'var(--tenue)', fontSize: 12 }}>{fmt(m.creado_en)}</span>
+            <span style={{ flex: 1 }} />
+            <button className="accion" onClick={() => copiar(m)}>
+              {copiado === m.id ? '¡Copiado!' : copiado === -1 ? 'Error' : 'Copiar'}
+            </button>
+          </div>
+          <pre className="msg">{m.cuerpo}</pre>
+          {m.error && <p className="error">{m.error}</p>}
+        </div>
+      ))}
+    </>
+  );
+}

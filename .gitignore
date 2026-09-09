@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+web/.next/
+web/node_modules/
+.vercel
+
+# Mascotas descartadas: se quedan en disco como historial, pero no van al
+# repo publico ni a Vercel. Son 1 MB que nadie descarga nunca.
+web/public/mascotas/descartadas/

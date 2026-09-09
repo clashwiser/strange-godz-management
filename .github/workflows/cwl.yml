@@ -1,0 +1,55 @@
+name: CWL - sync y alerta
+
+# La CWL corre del dia 1 al ~9. Damos margen hasta el 11 por si se corre.
+# Cada 2 horas: baja rondas y ataques, y avisa de ataques sin usar cuando
+# faltan menos de ALERTA_HORAS para el cierre.
+on:
+  schedule:
+    - cron: '0 */2 1-11 * *'
+  workflow_dispatch:
+    inputs:
+      solo_alerta:
+        description: 'Correr solo la alerta, sin sincronizar'
+        type: boolean
+        default: false
+
+concurrency:
+  group: escritura-db
+  cancel-in-progress: false
+
+jobs:
+  cwl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COC_TOKEN: ${{ secrets.COC_TOKEN }}
+      COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+      CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ALERTA_HORAS: ${{ vars.ALERTA_HORAS || '6' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --omit=dev
+
+      - name: Sincronizar CWL
+        if: ${{ inputs.solo_alerta != true }}
+        run: npm run cwl:sync
+
+      # La alerta corre siempre, aunque el sync haya fallado: lee de la API
+      # directo. Un fallo guardando datos no puede costarnos una guerra.
+      - name: Alerta de ataques sin usar
+        if: ${{ always() }}
+        run: npm run cwl:alerta
+
+      # Manda lo que haya quedado en el outbox. Si WhatsApp esta caido, los
+      # mensajes siguen en la base y el website los muestra para copiar.
+      - name: Enviar por WhatsApp
+        if: ${{ always() }}
+        run: npm run wa:enviar

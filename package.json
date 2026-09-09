@@ -1,0 +1,28 @@
+{
+  "name": "x300-clan-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Base de datos y automatizacion de premios para la familia de clanes x300 (Clash of Clans)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "probe": "node src/jobs/probe.js",
+    "snapshot": "node src/jobs/snapshot.js",
+    "cwl:sync": "node src/jobs/cwl-sync.js",
+    "cwl:alerta": "node src/jobs/cwl-alerta.js",
+    "wa:vincular": "node src/jobs/wa-vincular.js",
+    "wa:enviar": "node src/jobs/wa-enviar.js",
+    "tg:webhook": "node src/jobs/tg-webhook.js",
+    "raids:sync": "node src/jobs/raids-sync.js",
+    "bases:importar": "node src/jobs/importar-bases.js",
+    "sql:unir": "node src/jobs/unir-sql.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "pdf-lib": "^1.17.1",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
