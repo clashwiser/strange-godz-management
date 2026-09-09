@@ -106,6 +106,10 @@ export const EN = {
   'Generando…': 'Generating…',
   'Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.':
     'Drag names between clans. On the phone press and hold a card, then drag it; the dropdown works too.',
+  // ---- Planear el mes que viene ----
+  'Estás planeando': 'You are planning',
+  'Se guarda igual que el mes en curso; puedes seguir editándolo hasta que empiece.': 'It saves just like the current month; you can keep editing it until it starts.',
+  'a': 'to',
   // ---- Tabla del grupo de CWL ----
   'Desciende': 'Relegated',
   'En zona de descenso': 'In the relegation zone',

@@ -191,10 +191,13 @@ export default function Demo() {
       </div>
       <header className="top">
         <h1>Strange Godz Alliance · Management</h1>
+        {/* Mismo orden que el panel de verdad: idioma, correo, temas y Salir
+            al final. Si la demo lo pone distinto deja de servir para mirar
+            como queda. */}
         <div className="acciones-top">
-          <SelectorTema />
           <SelectorIdioma />
           <span className="correo">cris@ejemplo.com</span>
+          <SelectorTema />
           <button className="fantasma">{t('Salir')}</button>
         </div>
       </header>

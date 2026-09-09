@@ -179,11 +179,17 @@ export default function Panel() {
             Godz usan Cinzel, mas ancha que Lilita One-, se iban a una segunda
             linea y se pegaban a la IZQUIERDA. Agrupados y con margin-left
             auto quedan siempre a la derecha, envuelvan o no. */}
+        {/* El ORDEN es el que pidio Cris: idioma, correo, temas y Salir al
+            final. Antes los temas iban primeros del grupo y, como el grupo
+            esta pegado a la derecha, los cuatro circulos acababan a media
+            barra — se veian "en el medio" aunque el bloque estuviera bien
+            alineado. Descargar app abre la fila porque es la accion que se
+            usa una vez y hay que encontrarla. */}
         <div className="acciones-top">
-          <SelectorTema />
-          <SelectorIdioma />
           <Instalar />
+          <SelectorIdioma />
           <span className="correo">{sesion.user.email}</span>
+          <SelectorTema />
           <button className="fantasma" onClick={() => supabase.auth.signOut()}>
             {t('Salir')}
           </button>

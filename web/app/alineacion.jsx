@@ -33,11 +33,14 @@ const SIN = '__sin__';
 // `demo` = tablero jugable sin base de datos, para la vista de ejemplo.
 export default function Alineacion({ d, recargar, demo = false }) {
   const t = useT();
-  // Copia local para que la UI responda al instante y no espere a la base.
-  const [asig, setAsig] = useState(() => {
+  // Copia local por TEMPORADA para que la UI responda al instante sin
+  // esperar a la base. Antes era un solo mapa, el del mes en curso, y por
+  // eso no se podia armar la lista de octubre en septiembre: la pantalla no
+  // tenia donde guardar mas de un mes a la vez.
+  const [porTemp, setPorTemp] = useState(() => {
     const m = {};
     for (const a of d.alineaciones ?? []) m[a.player_tag] = a.clan_tag;
-    return m;
+    return { [d.temporada]: m };
   });
   const [arrastrando, setArrastrando] = useState(null);
   const [sobre, setSobre] = useState(null);
@@ -69,9 +72,22 @@ export default function Alineacion({ d, recargar, demo = false }) {
   // partida.
   const [temporadas, setTemporadas] = useState([]);
   const [verTemporada, setVerTemporada] = useState(d.temporada);
-  const [historico, setHistorico] = useState({});
   const [confirmar, setConfirmar] = useState(false);
+
+  // El mes que viene. Se ofrece SIEMPRE aunque no exista todavia en la base:
+  // armar la CWL del mes siguiente con calma es justo lo que hay que poder
+  // hacer, y esperar al dia 1 para empezar es lo que obliga a improvisar.
+  const siguiente = useMemo(() => {
+    const [a, m] = d.temporada.split('-').map(Number);
+    const f = new Date(Date.UTC(a, m, 1));
+    return f.toISOString().slice(0, 7);
+  }, [d.temporada]);
+
+  // Un mes ya cerrado se mira y no se toca. El actual y los futuros se
+  // editan: comparar cadenas 'YYYY-MM' ordena bien sin parsear fechas.
+  const editable = verTemporada >= d.temporada;
   const esActual = verTemporada === d.temporada;
+  const esFutura = verTemporada > d.temporada;
 
   const nombre = useMemo(
     () => Object.fromEntries((d.players ?? []).map((p) => [p.player_tag, p.nombre_actual])),
@@ -103,9 +119,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
     return [{ clan_tag: SIN, nombre: t('Sin asignar'), cwl_tamano: null }, ...clanes];
   }, [d.clans]);
 
-  // Lo que se pinta: la temporada en curso se edita, las de antes solo se
-  // miran.
-  const asigVista = esActual ? asig : historico[verTemporada] ?? {};
+  const asigVista = porTemp[verTemporada] ?? {};
 
   const enColumna = (clanTag) =>
     candidatos.filter((p) => (asigVista[p.tag] ?? SIN) === clanTag);
@@ -115,7 +129,9 @@ export default function Alineacion({ d, recargar, demo = false }) {
   useEffect(() => {
     if (demo) {
       return setTemporadas(
-        [...new Set([d.temporada, ...Object.keys(d.alineacionesPrevias ?? {})])].sort().reverse()
+        [...new Set([siguiente, d.temporada, ...Object.keys(d.alineacionesPrevias ?? {})])]
+          .sort()
+          .reverse()
       );
     }
     (async () => {
@@ -124,18 +140,20 @@ export default function Alineacion({ d, recargar, demo = false }) {
         .select('temporada')
         .order('temporada', { ascending: false });
       if (error) return;
-      const unicas = [...new Set([d.temporada, ...(data ?? []).map((r) => r.temporada)])];
+      const unicas = [
+        ...new Set([siguiente, d.temporada, ...(data ?? []).map((r) => r.temporada)]),
+      ];
       setTemporadas(unicas.sort().reverse());
     })();
-  }, [demo, d.temporada]);
+  }, [demo, d.temporada, siguiente]);
 
   // La alineacion de una temporada vieja se trae solo cuando se mira, y una
   // sola vez.
   useEffect(() => {
-    if (esActual || historico[verTemporada]) return;
+    if (porTemp[verTemporada]) return;
     if (demo) {
       const filas = d.alineacionesPrevias?.[verTemporada] ?? [];
-      return setHistorico((h) => ({
+      return setPorTemp((h) => ({
         ...h,
         [verTemporada]: Object.fromEntries(filas.map((r) => [r.player_tag, r.clan_tag])),
       }));
@@ -146,12 +164,12 @@ export default function Alineacion({ d, recargar, demo = false }) {
         .select('player_tag, clan_tag')
         .eq('temporada', verTemporada);
       if (error) return setMsg(`No se pudo cargar ${verTemporada}: ${error.message}`);
-      setHistorico((h) => ({
+      setPorTemp((h) => ({
         ...h,
         [verTemporada]: Object.fromEntries((data ?? []).map((r) => [r.player_tag, r.clan_tag])),
       }));
     })();
-  }, [verTemporada, esActual, demo]);
+  }, [verTemporada, demo]);
 
   /**
    * Copia la alineacion que se esta mirando a la temporada en curso.
@@ -161,12 +179,12 @@ export default function Alineacion({ d, recargar, demo = false }) {
    * cuando ya hay algo asignado — si no, un toque mal dado borra el trabajo
    * de una tarde.
    */
-  async function copiarAlineacion() {
-    const origen = historico[verTemporada] ?? {};
+  async function copiarAlineacion(destinoTemp) {
+    const origen = asigVista;
     const filas = Object.entries(origen)
       .filter(([tag, clan]) => clan && clan !== SIN && snap[tag])
       .map(([tag, clan]) => ({
-        temporada: d.temporada,
+        temporada: destinoTemp,
         player_tag: tag,
         clan_tag: clan,
         actualizado: new Date().toISOString(),
@@ -186,11 +204,15 @@ export default function Alineacion({ d, recargar, demo = false }) {
           .upsert(filas, { onConflict: 'temporada,player_tag' });
         if (error) throw error;
       }
-      setAsig(Object.fromEntries(filas.map((f) => [f.player_tag, f.clan_tag])));
-      setVerTemporada(d.temporada);
+      setPorTemp((h) => ({
+        ...h,
+        [destinoTemp]: Object.fromEntries(filas.map((f) => [f.player_tag, f.clan_tag])),
+      }));
+      const desde = verTemporada;
+      setVerTemporada(destinoTemp);
       setConfirmar(false);
       setMsg(
-        `${t('Copiada la alineación de')} ${verTemporada}: ${filas.length} ${t('jugadores')}. ${t('Ahora edita lo que haga falta.')}`
+        `${t('Copiada la alineación de')} ${desde} ${t('a')} ${destinoTemp}: ${filas.length} ${t('jugadores')}. ${t('Ahora edita lo que haga falta.')}`
       );
     } catch (e) {
       setMsg(`No se pudo copiar: ${e.message}`);
@@ -200,10 +222,12 @@ export default function Alineacion({ d, recargar, demo = false }) {
   }
 
   async function mover(tag, destino) {
-    const previo = asig[tag] ?? SIN;
+    if (!editable) return;
+    const previo = asigVista[tag] ?? SIN;
     if (previo === destino) return;
 
-    setAsig((a) => ({ ...a, [tag]: destino }));
+    const temp = verTemporada;
+    setPorTemp((h) => ({ ...h, [temp]: { ...(h[temp] ?? {}), [tag]: destino } }));
     setMsg('');
     if (demo) return;
 
@@ -212,19 +236,19 @@ export default function Alineacion({ d, recargar, demo = false }) {
         const { error } = await supabase
           .from('alineaciones')
           .delete()
-          .eq('temporada', d.temporada)
+          .eq('temporada', temp)
           .eq('player_tag', tag);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('alineaciones').upsert(
-          { temporada: d.temporada, player_tag: tag, clan_tag: destino, actualizado: new Date().toISOString() },
+          { temporada: temp, player_tag: tag, clan_tag: destino, actualizado: new Date().toISOString() },
           { onConflict: 'temporada,player_tag' }
         );
         if (error) throw error;
       }
     } catch (e) {
       // Revertir: si la base rechazo, la pantalla no puede mentir.
-      setAsig((a) => ({ ...a, [tag]: previo }));
+      setPorTemp((h) => ({ ...h, [temp]: { ...(h[temp] ?? {}), [tag]: previo } }));
       setMsg(`No se pudo guardar: ${e.message}`);
     }
   }
@@ -456,7 +480,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
       }
 
       const cuerpo =
-        `📋 *ALINEACIÓN CWL ${d.temporada}*\n\n` +
+        `📋 *ALINEACIÓN CWL ${verTemporada}*\n\n` +
         bloques.join('\n\n') +
         `\n\n_Si no puedes jugar, avisa ANTES del día de batalla._`;
 
@@ -468,7 +492,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
       const { error } = await supabase.from('outbox').insert({
         tipo: 'alineacion_cwl',
         cuerpo,
-        clave_dedupe: `alineacion:${d.temporada}:${Date.now()}`,
+        clave_dedupe: `alineacion:${verTemporada}:${Date.now()}`,
       });
       if (error) throw error;
 
@@ -508,20 +532,43 @@ export default function Alineacion({ d, recargar, demo = false }) {
           ))}
         </select>
         <span style={{ flex: 1 }} />
-        {esActual && (
+        {editable && (
           <button className="accion" onClick={generarMensaje} disabled={guardando}>
             {guardando ? t('Generando…') : t('Generar mensaje')}
           </button>
         )}
       </div>
 
-      {esActual ? (
-        <p className="sub" style={{ color: 'var(--tenue)', fontSize: 13, marginTop: 0 }}>
-          {t('Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.')}
-        </p>
+      {editable ? (
+        <>
+          <p className="sub" style={{ color: 'var(--tenue)', fontSize: 13, marginTop: 0 }}>
+            {t('Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.')}
+          </p>
+          {esFutura && (
+            // Planear el mes que viene con calma es lo que evita armar las
+            // siete listas a las corridas el dia 1.
+            <div className="aviso-historico">
+              <span>
+                {t('Estás planeando')} <strong>{verTemporada}</strong>.{' '}
+                {t('Se guarda igual que el mes en curso; puedes seguir editándolo hasta que empiece.')}
+              </span>
+              <span style={{ flex: 1 }} />
+              <button
+                className="fantasma"
+                disabled={guardando || !Object.keys(porTemp[d.temporada] ?? {}).length}
+                onClick={() => {
+                  setVerTemporada(d.temporada);
+                  setConfirmar(false);
+                }}
+              >
+                {t('Ver')} {d.temporada}
+              </button>
+            </div>
+          )}
+        </>
       ) : (
-        // Barra de la temporada vieja: se mira, no se toca, y desde aqui se
-        // copia al mes en curso.
+        // Barra del mes cerrado: se mira, no se toca, y desde aqui se copia
+        // al mes en curso o al siguiente.
         <div className="aviso-historico">
           <span>
             {t('Estás viendo')} <strong>{verTemporada}</strong>. {t('Los meses cerrados no se editan.')}
@@ -530,9 +577,9 @@ export default function Alineacion({ d, recargar, demo = false }) {
           {confirmar ? (
             <>
               <span className="sub">
-                {t('Esto reemplaza la alineación de')} {d.temporada}.
+                {t('Esto reemplaza la alineación de')} {confirmar}.
               </span>
-              <button className="accion" onClick={copiarAlineacion} disabled={guardando}>
+              <button className="accion" onClick={() => copiarAlineacion(confirmar)} disabled={guardando}>
                 {guardando ? t('Copiando…') : t('Sí, copiar')}
               </button>
               <button className="fantasma" onClick={() => setConfirmar(false)}>
@@ -540,17 +587,24 @@ export default function Alineacion({ d, recargar, demo = false }) {
               </button>
             </>
           ) : (
-            <button
-              className="accion"
-              disabled={guardando}
-              onClick={() =>
-                // Sin nadie asignado todavia no hay nada que perder, asi que
-                // no se molesta con la confirmacion.
-                Object.keys(asig).length ? setConfirmar(true) : copiarAlineacion()
-              }
-            >
-              {t('Copiar a')} {d.temporada}
-            </button>
+            // Dos destinos: el mes en curso y el que viene. Copiar a octubre
+            // en septiembre es justo el caso de "planear desde ahora".
+            [d.temporada, siguiente].map((destino) => (
+              <button
+                key={destino}
+                className="accion"
+                disabled={guardando}
+                onClick={() =>
+                  // Sin nadie asignado todavia no hay nada que perder, asi
+                  // que no se molesta con la confirmacion.
+                  Object.keys(porTemp[destino] ?? {}).length
+                    ? setConfirmar(destino)
+                    : copiarAlineacion(destino)
+                }
+              >
+                {t('Copiar a')} {destino}
+              </button>
+            ))
           )}
         </div>
       )}
@@ -589,16 +643,16 @@ export default function Alineacion({ d, recargar, demo = false }) {
                   key={p.tag}
                   className="ficha"
                   data-agarrada={arrastrando === p.tag ? '1' : '0'}
-                  data-solo-mirar={esActual ? '0' : '1'}
+                  data-solo-mirar={editable ? '0' : '1'}
                   title={
-                    esActual
+                    editable
                       ? t('Arrastra desde cualquier parte. En el teléfono, mantén pulsado.')
                       : t('Los meses cerrados no se editan.')
                   }
-                  onPointerDown={esActual ? (e) => alAgarrar(e, p.tag) : undefined}
-                  onPointerMove={esActual ? alArrastrar : undefined}
-                  onPointerUp={esActual ? alSoltar : undefined}
-                  onPointerCancel={esActual ? alSoltar : undefined}
+                  onPointerDown={editable ? (e) => alAgarrar(e, p.tag) : undefined}
+                  onPointerMove={editable ? alArrastrar : undefined}
+                  onPointerUp={editable ? alSoltar : undefined}
+                  onPointerCancel={editable ? alSoltar : undefined}
                 >
                   {/* El asa se queda como pista visual de que la tarjeta se
                       arrastra. Ya no es la unica zona que responde. */}
@@ -611,7 +665,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
                   </div>
                   <select
                     className="ficha-sel"
-                    disabled={!esActual}
+                    disabled={!editable}
                     value={asigVista[p.tag] ?? SIN}
                     onChange={(e) => mover(p.tag, e.target.value)}
                     aria-label={`${t('Clan de')} ${p.nombre}`}
