@@ -849,6 +849,25 @@ td:has(.mini-base) { padding: 8px 10px; }
 }
 /* La columna de destino ya se resalta con .col[data-sobre="1"] */
 
+/* ---------- Mirando una temporada cerrada ---------- */
+/* Armar las siete listas cada mes es el trabajo mas pesado de la CWL y de
+   un mes al siguiente cambian cuatro o cinco nombres: desde aqui se copia
+   la del mes pasado y solo se corrige. */
+.aviso-historico {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 12px; padding: 10px 14px;
+  background: rgba(0, 0, 0, .16);
+  border: 2px solid var(--bronce); border-left: 5px solid var(--oro);
+  border-radius: 10px;
+  font-size: 13px; color: var(--texto);
+}
+.aviso-historico .sub { margin: 0; }
+/* Una temporada cerrada se mira y no se toca: el cursor lo dice antes de
+   que nadie intente arrastrar. */
+.ficha[data-solo-mirar="1"] { cursor: default; opacity: .88; }
+.ficha[data-solo-mirar="1"]:hover { transform: none; border-left-color: var(--realce); }
+.ficha[data-solo-mirar="1"] .asa-ficha { display: none; }
+
 /* ---------- Alta de clan ---------- */
 .campo-etiqueta {
   display: flex; flex-direction: column; gap: 4px;

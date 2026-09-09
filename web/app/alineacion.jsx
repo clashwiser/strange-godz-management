@@ -62,6 +62,17 @@ export default function Alineacion({ d, recargar, demo = false }) {
   const frenar = useRef((e) => e.preventDefault()).current;
   const [guardando, setGuardando] = useState(false);
 
+  // ---- Alineaciones de meses anteriores ----
+  // Armar las siete listas desde cero cada mes es el trabajo mas pesado de
+  // toda la CWL, y de un mes al siguiente cambian cuatro o cinco nombres.
+  // Con esto se mira lo que se hizo el mes pasado y se copia como punto de
+  // partida.
+  const [temporadas, setTemporadas] = useState([]);
+  const [verTemporada, setVerTemporada] = useState(d.temporada);
+  const [historico, setHistorico] = useState({});
+  const [confirmar, setConfirmar] = useState(false);
+  const esActual = verTemporada === d.temporada;
+
   const nombre = useMemo(
     () => Object.fromEntries((d.players ?? []).map((p) => [p.player_tag, p.nombre_actual])),
     [d.players]
@@ -92,8 +103,101 @@ export default function Alineacion({ d, recargar, demo = false }) {
     return [{ clan_tag: SIN, nombre: t('Sin asignar'), cwl_tamano: null }, ...clanes];
   }, [d.clans]);
 
+  // Lo que se pinta: la temporada en curso se edita, las de antes solo se
+  // miran.
+  const asigVista = esActual ? asig : historico[verTemporada] ?? {};
+
   const enColumna = (clanTag) =>
-    candidatos.filter((p) => (asig[p.tag] ?? SIN) === clanTag);
+    candidatos.filter((p) => (asigVista[p.tag] ?? SIN) === clanTag);
+
+  // Que temporadas hay guardadas. Una consulta y ya: son una fila por
+  // jugador y mes, unos cientos en total.
+  useEffect(() => {
+    if (demo) {
+      return setTemporadas(
+        [...new Set([d.temporada, ...Object.keys(d.alineacionesPrevias ?? {})])].sort().reverse()
+      );
+    }
+    (async () => {
+      const { data, error } = await supabase
+        .from('alineaciones')
+        .select('temporada')
+        .order('temporada', { ascending: false });
+      if (error) return;
+      const unicas = [...new Set([d.temporada, ...(data ?? []).map((r) => r.temporada)])];
+      setTemporadas(unicas.sort().reverse());
+    })();
+  }, [demo, d.temporada]);
+
+  // La alineacion de una temporada vieja se trae solo cuando se mira, y una
+  // sola vez.
+  useEffect(() => {
+    if (esActual || historico[verTemporada]) return;
+    if (demo) {
+      const filas = d.alineacionesPrevias?.[verTemporada] ?? [];
+      return setHistorico((h) => ({
+        ...h,
+        [verTemporada]: Object.fromEntries(filas.map((r) => [r.player_tag, r.clan_tag])),
+      }));
+    }
+    (async () => {
+      const { data, error } = await supabase
+        .from('alineaciones')
+        .select('player_tag, clan_tag')
+        .eq('temporada', verTemporada);
+      if (error) return setMsg(`No se pudo cargar ${verTemporada}: ${error.message}`);
+      setHistorico((h) => ({
+        ...h,
+        [verTemporada]: Object.fromEntries((data ?? []).map((r) => [r.player_tag, r.clan_tag])),
+      }));
+    })();
+  }, [verTemporada, esActual, demo]);
+
+  /**
+   * Copia la alineacion que se esta mirando a la temporada en curso.
+   *
+   * Pisa lo que haya: la gracia es arrancar el mes con la lista del mes
+   * pasado ya puesta y solo corregir los cambios. Por eso pide confirmacion
+   * cuando ya hay algo asignado — si no, un toque mal dado borra el trabajo
+   * de una tarde.
+   */
+  async function copiarAlineacion() {
+    const origen = historico[verTemporada] ?? {};
+    const filas = Object.entries(origen)
+      .filter(([tag, clan]) => clan && clan !== SIN && snap[tag])
+      .map(([tag, clan]) => ({
+        temporada: d.temporada,
+        player_tag: tag,
+        clan_tag: clan,
+        actualizado: new Date().toISOString(),
+      }));
+
+    if (!filas.length) {
+      setMsg(t('Esa temporada no tiene a nadie asignado que siga en la alianza.'));
+      return;
+    }
+
+    setGuardando(true);
+    setMsg('');
+    try {
+      if (!demo) {
+        const { error } = await supabase
+          .from('alineaciones')
+          .upsert(filas, { onConflict: 'temporada,player_tag' });
+        if (error) throw error;
+      }
+      setAsig(Object.fromEntries(filas.map((f) => [f.player_tag, f.clan_tag])));
+      setVerTemporada(d.temporada);
+      setConfirmar(false);
+      setMsg(
+        `${t('Copiada la alineación de')} ${verTemporada}: ${filas.length} ${t('jugadores')}. ${t('Ahora edita lo que haga falta.')}`
+      );
+    } catch (e) {
+      setMsg(`No se pudo copiar: ${e.message}`);
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   async function mover(tag, destino) {
     const previo = asig[tag] ?? SIN;
@@ -384,15 +488,72 @@ export default function Alineacion({ d, recargar, demo = false }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-        <h2 className="sec" style={{ margin: 0 }}>{t('Alineación')} · {t('temporada')} {d.temporada}</h2>
+        <h2 className="sec" style={{ margin: 0 }}>{t('Alineación')}</h2>
+        <select
+          className="campo campo-corto"
+          style={{ marginTop: 0 }}
+          value={verTemporada}
+          onChange={(e) => {
+            setVerTemporada(e.target.value);
+            setConfirmar(false);
+            setMsg('');
+          }}
+          aria-label={t('Temporada')}
+        >
+          {temporadas.map((s) => (
+            <option key={s} value={s}>
+              {s}
+              {s === d.temporada ? ` · ${t('en curso')}` : ''}
+            </option>
+          ))}
+        </select>
         <span style={{ flex: 1 }} />
-        <button className="accion" onClick={generarMensaje} disabled={guardando}>
-          {guardando ? t('Generando…') : t('Generar mensaje')}
-        </button>
+        {esActual && (
+          <button className="accion" onClick={generarMensaje} disabled={guardando}>
+            {guardando ? t('Generando…') : t('Generar mensaje')}
+          </button>
+        )}
       </div>
-      <p className="sub" style={{ color: 'var(--tenue)', fontSize: 13, marginTop: 0 }}>
-        {t('Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.')}
-      </p>
+
+      {esActual ? (
+        <p className="sub" style={{ color: 'var(--tenue)', fontSize: 13, marginTop: 0 }}>
+          {t('Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.')}
+        </p>
+      ) : (
+        // Barra de la temporada vieja: se mira, no se toca, y desde aqui se
+        // copia al mes en curso.
+        <div className="aviso-historico">
+          <span>
+            {t('Estás viendo')} <strong>{verTemporada}</strong>. {t('Los meses cerrados no se editan.')}
+          </span>
+          <span style={{ flex: 1 }} />
+          {confirmar ? (
+            <>
+              <span className="sub">
+                {t('Esto reemplaza la alineación de')} {d.temporada}.
+              </span>
+              <button className="accion" onClick={copiarAlineacion} disabled={guardando}>
+                {guardando ? t('Copiando…') : t('Sí, copiar')}
+              </button>
+              <button className="fantasma" onClick={() => setConfirmar(false)}>
+                {t('Cancelar')}
+              </button>
+            </>
+          ) : (
+            <button
+              className="accion"
+              disabled={guardando}
+              onClick={() =>
+                // Sin nadie asignado todavia no hay nada que perder, asi que
+                // no se molesta con la confirmacion.
+                Object.keys(asig).length ? setConfirmar(true) : copiarAlineacion()
+              }
+            >
+              {t('Copiar a')} {d.temporada}
+            </button>
+          )}
+        </div>
+      )}
       {msg &&
         // Un mensaje de varias lineas dentro de un <p> colapsa los saltos y
         // el preview mentiria sobre como se ve en WhatsApp.
@@ -428,11 +589,16 @@ export default function Alineacion({ d, recargar, demo = false }) {
                   key={p.tag}
                   className="ficha"
                   data-agarrada={arrastrando === p.tag ? '1' : '0'}
-                  title={t('Arrastra desde cualquier parte. En el teléfono, mantén pulsado.')}
-                  onPointerDown={(e) => alAgarrar(e, p.tag)}
-                  onPointerMove={alArrastrar}
-                  onPointerUp={alSoltar}
-                  onPointerCancel={alSoltar}
+                  data-solo-mirar={esActual ? '0' : '1'}
+                  title={
+                    esActual
+                      ? t('Arrastra desde cualquier parte. En el teléfono, mantén pulsado.')
+                      : t('Los meses cerrados no se editan.')
+                  }
+                  onPointerDown={esActual ? (e) => alAgarrar(e, p.tag) : undefined}
+                  onPointerMove={esActual ? alArrastrar : undefined}
+                  onPointerUp={esActual ? alSoltar : undefined}
+                  onPointerCancel={esActual ? alSoltar : undefined}
                 >
                   {/* El asa se queda como pista visual de que la tarjeta se
                       arrastra. Ya no es la unica zona que responde. */}
@@ -445,7 +611,8 @@ export default function Alineacion({ d, recargar, demo = false }) {
                   </div>
                   <select
                     className="ficha-sel"
-                    value={asig[p.tag] ?? SIN}
+                    disabled={!esActual}
+                    value={asigVista[p.tag] ?? SIN}
                     onChange={(e) => mover(p.tag, e.target.value)}
                     aria-label={`${t('Clan de')} ${p.nombre}`}
                   >

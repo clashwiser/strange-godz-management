@@ -127,6 +127,21 @@ const d = {
     { player_tag: '#P3', clan_tag: '#2CCJYG2YL' },
     { player_tag: '#P7', clan_tag: '#228QU9Q8' },
   ],
+  // Meses cerrados, para poder probar aqui el desplegable de temporadas y
+  // el copiado. En la app de verdad esto sale de la tabla alineaciones.
+  alineacionesPrevias: {
+    '2026-08': [
+      { player_tag: '#P1', clan_tag: '#2GC' },
+      { player_tag: '#P2', clan_tag: '#2GC' },
+      { player_tag: '#P3', clan_tag: '#2GC' },
+      { player_tag: '#P4', clan_tag: '#2CCJYG2YL' },
+      { player_tag: '#P6', clan_tag: '#228QU9Q8' },
+    ],
+    '2026-07': [
+      { player_tag: '#P1', clan_tag: '#2GC' },
+      { player_tag: '#P5', clan_tag: '#2CCJYG2YL' },
+    ],
+  },
 };
 
 const TABS = [
