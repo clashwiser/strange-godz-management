@@ -40,9 +40,19 @@ async function responder(chatId, texto) {
 }
 
 export async function POST(request) {
+  // Falla CERRADO. Antes esta comprobacion iba como "if (SECRETO && ...)":
+  // si la variable no estaba puesta, se saltaba entera y el endpoint quedaba
+  // abierto a cualquiera que adivinara la URL. Se vio en el primer despliegue
+  // a Vercel, hecho a proposito sin variables: devolvia 200 en vez de 401.
+  //
+  // Una app a medio configurar tiene que ser inerte, no permisiva.
+  if (!SECRETO || !TOKEN || !PERMITIDOS.length) {
+    return new Response('webhook sin configurar', { status: 503 });
+  }
+
   // Telegram reenvia el secreto en cada peticion. Sin esta comprobacion,
   // cualquiera que adivine la URL puede inyectar mensajes falsos.
-  if (SECRETO && request.headers.get('x-telegram-bot-api-secret-token') !== SECRETO) {
+  if (request.headers.get('x-telegram-bot-api-secret-token') !== SECRETO) {
     return new Response('no', { status: 401 });
   }
 
@@ -59,7 +69,9 @@ export async function POST(request) {
 
   if (!chatId || !texto.startsWith('/')) return Response.json({ ok: true });
 
-  if (PERMITIDOS.length && !PERMITIDOS.includes(String(chatId))) {
+  // Sin "PERMITIDOS.length &&": la lista vacia ya se rechaza arriba con 503,
+  // asi que aca un chat que no este en la lista blanca siempre se corta.
+  if (!PERMITIDOS.includes(String(chatId))) {
     await responder(chatId, `Este bot es privado.\nTu chat id es <code>${chatId}</code>.`);
     return Response.json({ ok: true });
   }
