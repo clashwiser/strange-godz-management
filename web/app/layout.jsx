@@ -4,6 +4,23 @@ import { guionAntiParpadeo } from './temas';
 export const metadata = {
   title: 'Strange Godz Alliance · Management',
   description: 'Rendimiento, CWL y premios de la alianza Strange Godz',
+  manifest: '/manifest.webmanifest',
+  // iOS ignora los iconos del manifest y solo mira apple-touch-icon.
+  icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' },
+  appleWebApp: {
+    capable: true,
+    title: 'Strange Godz',
+    statusBarStyle: 'black-translucent',
+  },
+};
+
+// Color de la barra del sistema cuando se abre como app. Es la madera del
+// marco, para que no aparezca una franja blanca arriba del pergamino.
+export const viewport = {
+  themeColor: '#3d2610',
+  // La app va a pantalla completa en el telefono; sin esto, iOS deja un
+  // borde blanco en el area de la muesca.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }) {

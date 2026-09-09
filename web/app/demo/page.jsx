@@ -145,7 +145,7 @@ export default function Demo() {
         <h1>Strange Godz Alliance · Management</h1>
         <span className="sp" />
         <SelectorTema />
-        <span style={{ color: 'var(--tenue)', fontSize: 13 }}>cris@ejemplo.com</span>
+        <span className="correo">cris@ejemplo.com</span>
         <button className="fantasma">Salir</button>
       </header>
       <div className="wrap">

@@ -8,6 +8,7 @@ import Clanes from './clanes';
 import Bots from './bots';
 import Bases from './bases';
 import Bonos from './bonos';
+import Instalar from './instalar';
 
 const TABS = [
   ['resumen', 'Resumen'],
@@ -159,7 +160,8 @@ export default function Panel() {
         <h1>Strange Godz Alliance · Management</h1>
         <span className="sp" />
         <SelectorTema />
-        <span style={{ color: 'var(--tenue)', fontSize: 13 }}>{sesion.user.email}</span>
+        <Instalar />
+        <span className="correo">{sesion.user.email}</span>
         <button className="fantasma" onClick={() => supabase.auth.signOut()}>
           Salir
         </button>
@@ -240,6 +242,12 @@ function Login() {
           {cargando ? 'Entrando…' : 'Entrar'}
         </button>
         {err && <p className="error">{err}</p>}
+        {/* Tambien aca, no solo en la cabecera: en el telefono esta es la
+            primera pantalla, y es el momento en que uno decide dejarla a mano.
+            Despues de entrar, ya nadie va a buscar como instalarla. */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+          <Instalar />
+        </div>
       </form>
     </div>
   );

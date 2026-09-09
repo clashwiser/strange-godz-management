@@ -1,24 +1,43 @@
 'use client';
 
-// Tarjetas de clan reordenables arrastrando, con raton O con el dedo.
+// Tarjetas de clan reordenables. Pensado para el telefono primero, que es
+// donde se usa de verdad.
 //
-// No usa la API de arrastre de HTML5 a proposito: esa no dispara en pantallas
-// tactiles. Con eventos de puntero el mismo codigo sirve para los dos, que es
-// lo que hace falta cuando los lideres entran desde el telefono.
+// Hay DOS formas de mover un clan y las dos guardan igual:
+//
+//   Botones ↑ ↓   la via principal en el telefono. Un toque, sin gesto que
+//                 pueda salir mal, y funciona con el lector de pantalla.
+//   Arrastrar     comodo con raton, y en tactil solo desde el asa.
+//
+// Por que el arrastre estaba practicamente inservible en el telefono:
+//
+//   1. La tarjeta ENTERA llevaba touch-action:none. Eso le dice al navegador
+//      "yo manejo este gesto", asi que tocar cualquier parte de un clan
+//      arrancaba un arrastre y ademas bloqueaba el scroll: no se podia ni
+//      recorrer la lista. Ahora esa regla vive solo en el asa.
+//   2. El asa era un simbolo de 15px. Un dedo no acierta eso; la guia de
+//      Apple y la de Android piden 44px de lado como minimo.
+//   3. No se capturaba el puntero. Si el dedo salia de la grilla dejaban de
+//      llegar eventos y el 'pointerup' nunca disparaba: la tarjeta quedaba
+//      pegada al dedo hasta recargar.
+//
+// No se usa la API de arrastre de HTML5: no dispara en pantallas tactiles.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export default function Clanes({ d, demo = false }) {
   const [orden, setOrden] = useState(() => d.clans.map((c) => c.clan_tag));
   const [agarrado, setAgarrado] = useState(null);
   const [msg, setMsg] = useState('');
-  const cambiado = useRef(false);
+  const temporizador = useRef(null);
 
   // Si llegan clanes nuevos desde la base, rehacemos el orden local.
   useEffect(() => {
     setOrden(d.clans.map((c) => c.clan_tag));
   }, [d.clans]);
+
+  useEffect(() => () => clearTimeout(temporizador.current), []);
 
   const porTag = useMemo(
     () => Object.fromEntries(d.clans.map((c) => [c.clan_tag, c])),
@@ -27,10 +46,56 @@ export default function Clanes({ d, demo = false }) {
 
   const miembros = (tag) => d.snaps.filter((s) => s.clan_tag === tag).length;
 
+  /**
+   * Guarda el orden. Los botones no tienen un momento de "soltar", asi que
+   * se guarda solo, esperando a que el usuario deje de tocar: cuatro toques
+   * seguidos son una escritura, no cuatro.
+   */
+  const guardar = useCallback(
+    (nuevo) => {
+      clearTimeout(temporizador.current);
+      temporizador.current = setTimeout(async () => {
+        if (demo) {
+          setMsg('Orden cambiado (en la demo no se guarda).');
+          setTimeout(() => setMsg(''), 2500);
+          return;
+        }
+        try {
+          // Una fila por clan con su posicion. upsert en lote: si falla, no
+          // queda medio orden guardado.
+          const filas = nuevo.map((t, i) => ({ clan_tag: t, orden: i + 1 }));
+          const { error } = await supabase.from('clans').upsert(filas, { onConflict: 'clan_tag' });
+          if (error) throw error;
+          setMsg('Orden guardado.');
+          setTimeout(() => setMsg(''), 2000);
+        } catch (e) {
+          setMsg(`No se pudo guardar: ${e.message}`);
+          setOrden(d.clans.map((c) => c.clan_tag)); // volver a lo que dice la base
+        }
+      }, 600);
+    },
+    [demo, d.clans]
+  );
+
+  /** Mueve un clan `paso` posiciones. Usado por los botones ↑ ↓. */
+  function mover(tag, paso) {
+    setOrden((prev) => {
+      const i = prev.indexOf(tag);
+      const j = i + paso;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const copia = [...prev];
+      [copia[i], copia[j]] = [copia[j], copia[i]];
+      guardar(copia);
+      return copia;
+    });
+  }
+
   function alMover(e) {
     if (!agarrado) return;
-    const p = e.touches ? e.touches[0] : e;
-    const bajo = document.elementFromPoint(p.clientX, p.clientY)?.closest('[data-tag]');
+    // Con el puntero capturado los eventos llegan siempre al asa, pero
+    // elementFromPoint hace su propia prueba de impacto sobre el documento y
+    // no le afecta la captura: sigue devolviendo la tarjeta de abajo.
+    const bajo = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-tag]');
     const destino = bajo?.dataset.tag;
     if (!destino || destino === agarrado) return;
 
@@ -41,35 +106,18 @@ export default function Clanes({ d, demo = false }) {
       const copia = [...prev];
       copia.splice(i, 1);
       copia.splice(j, 0, agarrado);
-      cambiado.current = true;
       return copia;
     });
   }
 
-  async function alSoltar() {
-    const tag = agarrado;
+  function alSoltar(e) {
+    if (!agarrado) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
     setAgarrado(null);
-    if (!tag || !cambiado.current) return;
-    cambiado.current = false;
-
-    if (demo) {
-      setMsg('Orden cambiado (en la demo no se guarda).');
-      setTimeout(() => setMsg(''), 2500);
-      return;
-    }
-
-    try {
-      // Una fila por clan con su nueva posicion. upsert en lote: si falla,
-      // no queda medio orden guardado.
-      const filas = orden.map((t, i) => ({ clan_tag: t, orden: i + 1 }));
-      const { error } = await supabase.from('clans').upsert(filas, { onConflict: 'clan_tag' });
-      if (error) throw error;
-      setMsg('Orden guardado.');
-      setTimeout(() => setMsg(''), 2000);
-    } catch (e) {
-      setMsg(`No se pudo guardar: ${e.message}`);
-      setOrden(d.clans.map((c) => c.clan_tag)); // volver a lo que dice la base
-    }
+    setOrden((prev) => {
+      guardar(prev);
+      return prev;
+    });
   }
 
   if (!d.clans.length) {
@@ -86,17 +134,12 @@ export default function Clanes({ d, demo = false }) {
   return (
     <>
       <p className="sub pista-arrastre">
-        Arrastrá las tarjetas para cambiar el orden — con el ratón o con el dedo.
+        Cambiá el orden con <b>↑ ↓</b>, o arrastrá desde el asa <b>⠿</b>. Se guarda solo.
       </p>
       {msg && <p className={msg.startsWith('No se pudo') ? 'error' : 'sub'}>{msg}</p>}
 
-      <div
-        className="grid"
-        onPointerMove={alMover}
-        onPointerUp={alSoltar}
-        onPointerCancel={alSoltar}
-      >
-        {orden.map((tag) => {
+      <div className="grid">
+        {orden.map((tag, i) => {
           const c = porTag[tag];
           if (!c) return null;
           const n = miembros(tag);
@@ -106,14 +149,48 @@ export default function Clanes({ d, demo = false }) {
               data-tag={tag}
               className="card carta-clan"
               data-agarrado={agarrado === tag ? '1' : '0'}
-              onPointerDown={(e) => {
-                // setPointerCapture en el contenedor haria que elementFromPoint
-                // siempre devuelva la misma tarjeta; capturamos solo el gesto.
-                e.currentTarget.releasePointerCapture?.(e.pointerId);
-                setAgarrado(tag);
-              }}
             >
-              <span className="asa" aria-hidden="true">⠿</span>
+              <div className="mando">
+                <button
+                  className="fantasma mover"
+                  onClick={() => mover(tag, -1)}
+                  disabled={i === 0}
+                  aria-label={`Subir ${c.nombre}`}
+                  title="Subir"
+                >
+                  ↑
+                </button>
+                <button
+                  className="fantasma mover"
+                  onClick={() => mover(tag, 1)}
+                  disabled={i === orden.length - 1}
+                  aria-label={`Bajar ${c.nombre}`}
+                  title="Bajar"
+                >
+                  ↓
+                </button>
+                <span
+                  className="asa"
+                  role="button"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  title="Arrastrar para reordenar"
+                  onPointerDown={(e) => {
+                    // Capturar el puntero: a partir de aca todos los eventos
+                    // del gesto llegan a este elemento aunque el dedo salga
+                    // de la grilla, asi que el 'pointerup' nunca se pierde.
+                    e.currentTarget.setPointerCapture?.(e.pointerId);
+                    setAgarrado(tag);
+                  }}
+                  onPointerMove={alMover}
+                  onPointerUp={alSoltar}
+                  onPointerCancel={alSoltar}
+                >
+                  ⠿
+                </span>
+              </div>
+
+              <p className="posicion">#{i + 1}</p>
               <h3>
                 {c.nombre}{' '}
                 {c.escuadra && <span className="pill">escuadra {c.escuadra}</span>}{' '}

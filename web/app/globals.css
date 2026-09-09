@@ -529,21 +529,48 @@ tbody tr:hover { transform: translateX(3px); }
 }
 
 /* ---------- Tarjetas de clan reordenables ---------- */
-/* touch-action:none es lo que permite arrastrar con el dedo: sin esto el
-   navegador se queda el gesto para hacer scroll y la tarjeta no se mueve. */
+/* La tarjeta NO lleva touch-action:none. Lo llevaba, y era el motivo de que
+   en el telefono no se pudiera hacer nada: esa regla le dice al navegador
+   "este gesto lo manejo yo", asi que cualquier toque sobre un clan iniciaba
+   un arrastre y de paso mataba el scroll de la pagina. Ahora vive solo en el
+   asa, que es lo unico que de verdad se arrastra. */
 .carta-clan {
-  cursor: grab; touch-action: none; user-select: none;
+  user-select: none;
   -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .carta-clan[data-agarrado="1"] {
-  cursor: grabbing;
   transform: scale(1.03) rotate(-1deg);
   box-shadow: inset 0 0 0 3px var(--oro), 0 0 30px var(--neb-2), 0 14px 30px rgba(0,0,0,.6);
   z-index: 5;
 }
+
+/* Controles de la esquina: subir, bajar y el asa de arrastre. */
+.mando {
+  position: absolute; top: 8px; right: 10px;
+  display: flex; align-items: center; gap: 4px; z-index: 2;
+}
+.mover {
+  /* 44px de lado es el minimo que piden Apple y Android para algo que se
+     toca con el dedo. Debajo de eso la gente falla y culpa a la app. */
+  min-width: 44px; min-height: 44px;
+  padding: 0; font-size: 20px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.mover:disabled { opacity: .3; cursor: default; }
 .asa {
-  position: absolute; top: 10px; right: 14px;
-  color: var(--tenue); font-size: 15px; letter-spacing: -2px; opacity: .55;
+  /* touch-action:none SOLO aca: es lo que permite arrastrar con el dedo sin
+     que el navegador se quede el gesto para hacer scroll. */
+  touch-action: none; cursor: grab;
+  min-width: 44px; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tenue); font-size: 20px; letter-spacing: -2px; opacity: .6;
+}
+.asa:active { cursor: grabbing; opacity: 1; }
+/* Numero de posicion: con botones en vez de arrastre hay que poder ver de un
+   vistazo en que puesto quedo cada clan. */
+.posicion {
+  margin: 0 0 2px; font-size: 12px; font-weight: bold;
+  color: var(--tenue); letter-spacing: 1px;
 }
 .pista-arrastre { color: var(--barra-texto); font-size: 13px; margin: 0 0 10px; opacity: .8; }
 
@@ -639,3 +666,98 @@ td:has(.mini-base) { padding: 8px 10px; }
   color: var(--mal); border-color: var(--marco);
 }
 .borrar:hover { filter: brightness(1.25); border-color: var(--mal); }
+
+/* Instrucciones de instalacion manual (iPhone, o navegador dentro de otra app) */
+.pasos {
+  margin: 12px 0; padding-left: 22px;
+  color: var(--texto); line-height: 1.55;
+}
+.pasos li { margin-bottom: 9px; }
+.pasos li::marker { color: var(--bronce); font-weight: bold; }
+
+/* =====================================================================
+   TELEFONO
+   =====================================================================
+   El panel se usa sobre todo desde el telefono: los lideres lo abren en
+   medio de una guerra, no sentados en una PC. Hasta ahora el CSS no tenia
+   ni una regla de layout para pantallas chicas.
+
+   Corte en 640px: por encima entra comodo el diseno de escritorio; por
+   debajo hay que apilar.
+   ===================================================================== */
+@media (max-width: 640px) {
+
+  /* ---- Cabecera ---- */
+  header.top { padding: 10px 12px; gap: 8px; }
+  header.top h1 { font-size: 17px; line-height: 1.15; flex: 1 1 100%; }
+  /* El correo del que entro ocupa media pantalla y no aporta nada en el
+     telefono: se sabe quien sos porque es tu telefono. */
+  header.top .correo { display: none; }
+
+  /* ---- Pestanas: una tira que se desliza ---- */
+  /* Antes se envolvian en 3 filas y empujaban el contenido fuera de la
+     pantalla. Ahora es una sola linea que se arrastra de lado. */
+  nav.tabs {
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    padding-bottom: 6px; margin-bottom: 12px;
+    scrollbar-width: none;
+  }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button { flex: 0 0 auto; scroll-snap-align: start; min-height: 42px; }
+
+  .wrap { padding: 12px 10px 44px; }
+  h2.sec { font-size: 18px; }
+
+  /* ---- Todo lo que se toca, 44px de alto ---- */
+  /* Por debajo de eso el dedo falla y parece que la app no responde. */
+  button.accion, button.fantasma { min-height: 44px; }
+  button.accion { padding: 10px 16px; font-size: 14px; }
+
+  /* ---- Formularios a ancho completo ---- */
+  .filtros { gap: 8px; }
+  .filtros > * { flex: 1 1 100%; }
+  .campo-corto { width: 100%; min-width: 0; }
+  /* 16px es el minimo que evita que iOS haga zoom solo al enfocar un campo,
+     dejando la pagina corrida y al usuario perdido. */
+  input, select, textarea { font-size: 16px; }
+
+  /* ---- Tarjetas y tablero, una columna ---- */
+  .grid, .columnas { grid-template-columns: 1fr; gap: 12px; }
+  .login { margin: 4vh auto; max-width: 100%; }
+
+  /* En el telefono los controles dejan de flotar en la esquina y pasan a su
+     propia fila. Reservar hueco con padding-right no alcanzaba: los tres
+     miden 150px y a un nombre como "STRANGE - WORLD" le quedaban 190px,
+     asi que se partia en dos lineas y la primera pasaba por debajo de los
+     botones. Una fila aparte no se puede solapar con nada. */
+  .mando {
+    position: static;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--bronce);
+  }
+
+  /* ---- Tablas ---- */
+  /* Siguen desplazandose de lado dentro de .tabla-scroll, pero apretadas:
+     asi entra una columna mas antes de tener que arrastrar. */
+  table { font-size: 13px; min-width: 0; }
+  th, td { padding: 9px 10px; }
+  .mini-base { width: 96px; height: 46px; }
+  .acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* ---- Ventanas emergentes ---- */
+  .lupa { padding: 10px; }
+  .lupa-caja { padding: 10px; border-radius: 12px; }
+  .lupa-caja img { max-height: 62vh; }
+  .lupa-pie { gap: 6px; }
+  .lupa-pie button { flex: 1 1 auto; }
+}
+
+/* Pantallas muy angostas (iPhone SE y similares) */
+@media (max-width: 380px) {
+  header.top h1 { font-size: 15px; }
+  nav.tabs button { padding: 9px 13px; font-size: 13px; }
+}
