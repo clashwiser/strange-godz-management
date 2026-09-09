@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Heraldo: tocororo mensajero de Strange Godz Alliance">
+  <title>Heraldo</title>
+  <!--
+    La mascota del bot: un TOCORORO, el ave nacional de Cuba.
+
+    Por que este y no un duende de Clash: el duende es el diseño de
+    Supercell casi calcado, y ademas lee como ladron, no como mensajero de
+    fiar. El tocororo ya lleva encima los tres colores de la bandera
+    cubana (azul en la cabeza, blanco en la garganta, rojo en el pecho), asi
+    que el clan queda identificado sin escribir nada.
+
+    Por que en estilo EMBLEMA y no en dibujo animado: esto se ve casi
+    siempre a 48 px, redondo, al lado de un mensaje de Telegram. Un dibujo
+    con sombras se hace papilla a ese tamaño; un emblema plano con silueta
+    fuerte se lee igual de bien a 48 que a 512. Es tambien lo que significa
+    "heraldo": la heraldica es exactamente esto.
+
+    Por que un BUSTO y no el pajaro entero: metido entero en el circulo, el
+    cuerpo se come el encuadre y a 48 px queda un borron verde. Un busto de
+    perfil es lo que usan los escudos deportivos, y es por esto: la cabeza es
+    lo unico que se sigue leyendo cuando la imagen es del tamaño de una uña.
+
+    Todo va recortado contra el circulo (clipPath), asi que los hombros
+    pueden salirse del encuadre como en un escudo de verdad.
+  -->
+
+  <defs>
+    <clipPath id="roldana">
+      <circle cx="256" cy="256" r="222"/>
+    </clipPath>
+    <linearGradient id="aro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8bd63"/>
+      <stop offset=".5" stop-color="#b0803a"/>
+      <stop offset="1" stop-color="#5c3f0f"/>
+    </linearGradient>
+    <linearGradient id="cielo" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f6ead0"/>
+      <stop offset="1" stop-color="#d8bd85"/>
+    </linearGradient>
+    <linearGradient id="azul" x1=".15" y1="0" x2=".85" y2="1">
+      <stop offset="0" stop-color="#5b8ded"/>
+      <stop offset=".55" stop-color="#2c4fae"/>
+      <stop offset="1" stop-color="#1a2a63"/>
+    </linearGradient>
+    <linearGradient id="verde" x1=".2" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#3fb877"/>
+      <stop offset="1" stop-color="#14532d"/>
+    </linearGradient>
+    <linearGradient id="rojo" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#ef5236"/>
+      <stop offset="1" stop-color="#8e1010"/>
+    </linearGradient>
+    <linearGradient id="bronce" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" stop-color="#ffdf9a"/>
+      <stop offset=".5" stop-color="#c98a08"/>
+      <stop offset="1" stop-color="#6b4a12"/>
+    </linearGradient>
+  </defs>
+
+  <!-- El aro de bronce. Telegram recorta en circulo, asi que nada que
+       importe puede tocar el borde. -->
+  <circle cx="256" cy="256" r="252" fill="url(#aro)"/>
+  <circle cx="256" cy="256" r="234" fill="#3d2610"/>
+  <circle cx="256" cy="256" r="222" fill="url(#cielo)"/>
+
+  <g clip-path="url(#roldana)">
+
+    <!-- Rayos de fondo en vez de las cornetas cruzadas que habia aqui.
+         Las cornetas son el simbolo de heraldo de toda la vida, pero sus
+         campanas redondas a los lados de la cabeza se leian como OREJAS y
+         convertian al pajaro en un peluche. Los rayos dan la misma
+         profundidad sin meter una silueta que compita, que a 48 px es lo
+         unico que importa. -->
+    <g fill="#e3cb99">
+      <path d="M256 256 92 76l58-30Z"/>
+      <path d="M256 256 176 34l64-8Z"/>
+      <path d="M256 256 292 26l62 24Z"/>
+      <path d="M256 256 412 66l46 46Z"/>
+      <path d="M256 256 480 176l16 62Z"/>
+      <path d="M256 256 24 200l22-60Z"/>
+    </g>
+
+    <!-- ===== El busto, de perfil mirando a la izquierda ===== -->
+
+    <!-- Hombros verdes. Se salen del circulo a proposito. -->
+    <path d="M12 540C28 424 116 356 252 356s226 68 246 184Z" fill="url(#verde)"
+          stroke="#14210f" stroke-width="9" stroke-linejoin="round"/>
+
+    <!-- Pecho rojo, delante del hombro: el tercer color de la bandera. -->
+    <path d="M8 546c10-128 84-196 222-196-52 60-80 126-88 196Z" fill="url(#rojo)"
+          stroke="#14210f" stroke-width="9" stroke-linejoin="round"/>
+
+    <!-- Nuca verde, por detras de la cabeza. -->
+    <path d="M252 116c78 0 122 60 122 130 0 52-26 92-70 112 26-46 32-96 20-146-12-50-38-82-72-96Z"
+          fill="url(#verde)" stroke="#14210f" stroke-width="9" stroke-linejoin="round"/>
+
+    <!-- Cresta: tres plumas cortas hacia atras. Es lo que le da perfil de
+         tocororo y no de paloma. -->
+    <path d="M232 126c-14-30-8-56 18-72 0 24 10 38 30 44-14 12-18 26-12 42Z"
+          fill="url(#azul)" stroke="#14210f" stroke-width="9" stroke-linejoin="round"/>
+
+    <!-- Cabeza. -->
+    <ellipse cx="246" cy="228" rx="114" ry="104" fill="url(#azul)"
+             stroke="#14210f" stroke-width="9"/>
+
+    <!-- Garganta blanca, justo debajo del pico: es lo que separa el azul del
+         rojo y lo que hace que se lea "pajaro" y no "mancha". -->
+    <path d="M130 252c4 56 44 98 106 108-10 48-48 72-100 60-38-32-56-86-52-168Z"
+          fill="#f8f4e8" stroke="#14210f" stroke-width="9" stroke-linejoin="round"/>
+
+    <!-- Pico corto y ganchudo. -->
+    <path d="M140 214 44 240l96 40c-20-22-20-46 0-66Z"
+          fill="#241a10" stroke="#14210f" stroke-width="9" stroke-linejoin="round"/>
+    <path d="M44 240l60 16" stroke="#0d0906" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- Ojo. Va al final para que ningun relleno anterior se lo coma: a 48 px
+         el ojo es lo unico que hace que el pajaro mire a alguien. -->
+    <circle cx="198" cy="202" r="26" fill="#f8f4e8" stroke="#14210f" stroke-width="9"/>
+    <circle cx="192" cy="204" r="12" fill="#14210f"/>
+    <circle cx="187" cy="198" r="4" fill="#fff"/>
+
+    <!-- Cinta con el nombre. A 48 px desaparece, y esta bien: a ese tamaño
+         manda la silueta, y la cinta solo trabaja en el tamaño grande. -->
+    <path d="M104 414h304l-24 44H128Z" fill="#7a1414" stroke="#3d2610"
+          stroke-width="7" stroke-linejoin="round"/>
+    <text x="258" y="445" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
+          font-size="25" font-weight="bold" fill="#ffe9b0" letter-spacing="4">HERALDO</text>
+  </g>
+</svg>

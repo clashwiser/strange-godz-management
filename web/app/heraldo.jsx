@@ -178,7 +178,9 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
   if (!abierto) {
     return (
       <button className="heraldo-burbuja" onClick={() => setAbierto(true)} title={nombreBot}>
-        🛡️
+        {/* La misma imagen que lleva el bot en Telegram, para que sea el
+            mismo personaje en los dos sitios y no dos cosas distintas. */}
+        <img src="/heraldo.svg" alt="" width="40" height="40" />
       </button>
     );
   }
@@ -186,6 +188,7 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
   return (
     <div className="heraldo">
       <div className="heraldo-cab">
+        <img src="/heraldo.svg" alt="" width="26" height="26" className="heraldo-cara" />
         <strong>{nombreBot}</strong>
         <span className="sub">{t('responde de la base, sin inventar')}</span>
         <span style={{ flex: 1 }} />

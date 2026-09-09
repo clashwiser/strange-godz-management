@@ -983,6 +983,11 @@ td:has(.mini-base) { padding: 8px 10px; }
 /* ---------- Heraldo dentro del panel ---------- */
 /* Flotante y por encima de todo: la pregunta llega cuando llega, no cuando
    estas en la pestaña correcta. */
+/* La mascota: un tocororo, el ave nacional de Cuba. En emblema y no en
+   dibujo porque casi siempre se ve del tamaño de una uña, redonda, al lado
+   de un mensaje. Ver web/public/heraldo.svg. */
+.heraldo-burbuja img { display: block; border-radius: 50%; }
+.heraldo-cara { border-radius: 50%; flex: 0 0 auto; }
 .heraldo-burbuja {
   position: fixed; right: 16px; bottom: 16px; z-index: 90;
   width: 56px; height: 56px; border-radius: 50%;
