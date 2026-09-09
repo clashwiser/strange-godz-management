@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Base de datos y automatizacion de premios para la familia de clanes x300 (Clash of Clans)",
   "engines": {
-    "node": ">=20.12"
+    "node": ">=22.9"
   },
   "scripts": {
     "probe": "node --env-file-if-exists=.env src/jobs/probe.js",
