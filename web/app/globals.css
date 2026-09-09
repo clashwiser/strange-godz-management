@@ -761,3 +761,19 @@ td:has(.mini-base) { padding: 8px 10px; }
   header.top h1 { font-size: 15px; }
   nav.tabs button { padding: 9px 13px; font-size: 13px; }
 }
+
+/* ---------- Interruptor de idioma ES / EN ---------- */
+/* Dos botones en vez de un desplegable: se ve de un vistazo en que idioma
+   estas y se cambia con un toque, sin abrir nada. */
+.idioma { display: flex; gap: 4px; }
+.idioma button {
+  min-width: 40px; padding: 7px 9px; font-size: 12px; letter-spacing: 1px;
+}
+.idioma button[data-on="1"] {
+  background: linear-gradient(180deg, var(--accion-a), var(--accion-b));
+  border-color: var(--accion-bord); color: #fff;
+  -webkit-text-stroke: 2px var(--accion-bord);
+}
+.idioma button[data-on="0"] { opacity: .65; }
+.idioma button[data-on="0"]:hover { opacity: 1; }
+@media (max-width: 640px) { .idioma button { min-height: 40px; } }

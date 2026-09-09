@@ -121,7 +121,7 @@ async function ejecutar(comando, arg) {
     case 'reporte':
       return await cmdReporte();
     default:
-      return `No conozco <code>/${esc(comando)}</code>. Probá /ayuda.`;
+      return `No conozco <code>/${esc(comando)}</code>. Prueba /ayuda.`;
   }
 }
 
@@ -244,7 +244,7 @@ async function cmdEstrellas() {
 }
 
 async function cmdJugador(arg) {
-  if (!arg) return 'Usá: <code>/jugador Cris</code>';
+  if (!arg) return 'Usa: <code>/jugador Cris</code>';
 
   const { data: encontrados } = await admin
     .from('players')

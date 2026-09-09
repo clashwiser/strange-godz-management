@@ -91,7 +91,7 @@ await correrJob('alerta_cwl', async () => {
   const cuerpo =
     `⚔️ ${negrita('ATAQUES DE CWL SIN USAR')}\n\n` +
     bloques.join('\n\n') +
-    `\n\n_Si avisaste antes del dia de batalla, decilo y no cuenta como fallo._`;
+    `\n\n_Si avisaste antes del dia de batalla, dilo y no cuenta como fallo._`;
 
   const nuevo = await encolar({
     tipo: 'alerta_cwl',

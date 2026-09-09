@@ -1,5 +1,6 @@
 import './globals.css';
 import { guionAntiParpadeo } from './temas';
+import { ProveedorIdioma, AvisoLegal } from './idioma';
 
 export const metadata = {
   title: 'Strange Godz Alliance · Management',
@@ -35,12 +36,10 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: guionAntiParpadeo }} />
       </head>
       <body>
-        {children}
-        <p className="aviso-legal">
-          Este material no está creado ni respaldado por Supercell. Para más información, consultá
-          la <a href="https://supercell.com/en/fan-content-policy/" target="_blank" rel="noopener noreferrer">
-          Política de Contenido de Fans</a> de Supercell.
-        </p>
+        <ProveedorIdioma>
+          {children}
+          <AvisoLegal />
+        </ProveedorIdioma>
       </body>
     </html>
   );

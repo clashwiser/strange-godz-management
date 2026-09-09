@@ -7,10 +7,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useT } from './idioma';
 
+// Se traducen al pintar, no aqui: el mapa es de codigo de la API a texto.
 const TIPOS = { HV: 'Aldea', WB: 'Guerra' };
 
 export default function Bases({ d, demo = false, recargar }) {
+  const t = useT();
   const [packSel, setPackSel] = useState('todos');
   const [tipoSel, setTipoSel] = useState('todos');
   const [soloLibres, setSoloLibres] = useState(false);
@@ -45,13 +48,13 @@ export default function Bases({ d, demo = false, recargar }) {
       setCopiada(b.id);
       setTimeout(() => setCopiada(null), 1800);
     } catch {
-      setMsg('No se pudo copiar. Abrila con el botón y copiá desde la barra.');
+      setMsg(t('No se pudo copiar. Ábrela con el botón y copia desde la barra.'));
     }
   }
 
   async function asignar(b, playerTag) {
     if (demo) {
-      setMsg('En la demo no se guarda.');
+      setMsg(t('En la demo no se guarda.'));
       setTimeout(() => setMsg(''), 2000);
       return;
     }
@@ -70,17 +73,15 @@ export default function Bases({ d, demo = false, recargar }) {
   if (!d.bases?.length) {
     return (
       <>
-        <h2 className="sec">Bases</h2>
+        <h2 className="sec">{t('Bases')}</h2>
         <div className="card">
-          <h3>Todavía no hay bases cargadas</h3>
+          <h3>{t('Todavía no hay bases cargadas')}</h3>
           <p className="sub">
-            Bajá el PDF del proveedor y corré:
+            {t('Baja el PDF del proveedor y corre:')}
           </p>
           <pre className="msg">npm run bases:importar &quot;C:/ruta/al/pack.pdf&quot; &quot;RH CWL Sept&quot;</pre>
           <p className="sub" style={{ marginTop: 10 }}>
-            Los enlaces van como anotaciones dentro del PDF, no como texto — por eso copiar y
-            pegar el contenido no trae nada. El importador los lee y saca de cada uno el nivel de
-            ayuntamiento y si es base de aldea o de guerra.
+            {t('Los enlaces van como anotaciones dentro del PDF, no como texto — por eso copiar y pegar el contenido no trae nada. El importador los lee y saca de cada uno el nivel de ayuntamiento y si es base de aldea o de guerra.')}
           </p>
         </div>
       </>
@@ -91,24 +92,24 @@ export default function Bases({ d, demo = false, recargar }) {
 
   return (
     <>
-      <h2 className="sec">Bases · {filtradas.length} de {d.bases.length}</h2>
+      <h2 className="sec">{t('Bases')} · {filtradas.length} {t('de')} {d.bases.length}</h2>
       {msg && <p className="error">{msg}</p>}
 
       <div className="filtros">
         <select className="campo campo-corto" value={packSel} onChange={(e) => setPackSel(e.target.value)}>
-          <option value="todos">Todos los packs</option>
+          <option value="todos">{t('Todos los packs')}</option>
           {(d.basePacks ?? []).map((p) => (
             <option key={p.id} value={String(p.id)}>{p.nombre}</option>
           ))}
         </select>
         <select className="campo campo-corto" value={tipoSel} onChange={(e) => setTipoSel(e.target.value)}>
-          <option value="todos">Aldea y guerra</option>
-          <option value="WB">Solo guerra</option>
-          <option value="HV">Solo aldea</option>
+          <option value="todos">{t('Aldea y guerra')}</option>
+          <option value="WB">{t('Solo guerra')}</option>
+          <option value="HV">{t('Solo aldea')}</option>
         </select>
         <label className="fila-check" style={{ marginTop: 0 }}>
           <input type="checkbox" checked={soloLibres} onChange={(e) => setSoloLibres(e.target.checked)} />
-          <span>Solo sin asignar ({libres})</span>
+          <span>{t('Solo sin asignar')} ({libres})</span>
         </label>
       </div>
 
@@ -116,11 +117,11 @@ export default function Bases({ d, demo = false, recargar }) {
         <table>
           <thead>
             <tr>
-              <th>Base</th>
+              <th>{t('Base')}</th>
               <th className="num">TH</th>
-              <th>Tipo</th>
-              <th>Asignada a</th>
-              <th>Enlace</th>
+              <th>{t('Tipo')}</th>
+              <th>{t('Asignada a')}</th>
+              <th>{t('Enlace')}</th>
             </tr>
           </thead>
           <tbody>
@@ -138,12 +139,12 @@ export default function Bases({ d, demo = false, recargar }) {
                       onClick={() => setAmpliada(b)}
                     />
                   ) : (
-                    <span className="mini-vacia">sin imagen</span>
+                    <span className="mini-vacia">{t('sin imagen')}</span>
                   )}
                 </td>
                 <td className="num">{b.th ?? '—'}</td>
                 <td>
-                  <span className="pill">{TIPOS[b.tipo] ?? b.tipo ?? '—'}</span>
+                  <span className="pill">{t(TIPOS[b.tipo] ?? b.tipo ?? '—')}</span>
                 </td>
                 <td>
                   <select
@@ -152,7 +153,7 @@ export default function Bases({ d, demo = false, recargar }) {
                     value={b.asignada_a ?? ''}
                     onChange={(e) => asignar(b, e.target.value)}
                   >
-                    <option value="">— libre —</option>
+                    <option value="">{t('— libre —')}</option>
                     {(d.players ?? []).map((p) => (
                       <option key={p.player_tag} value={p.player_tag}>
                         {nombre[p.player_tag]}
@@ -165,15 +166,15 @@ export default function Bases({ d, demo = false, recargar }) {
                     className="fantasma"
                     onClick={() => setAmpliada(b)}
                     disabled={!b.preview}
-                    title={b.preview ? 'Ver la base en grande' : 'Este pack no trae imagen'}
+                    title={b.preview ? t('Ver la base en grande') : t('Este pack no trae imagen')}
                   >
-                    Ver
+                    {t('Ver')}
                   </button>
                   <button className="fantasma" onClick={() => copiar(b)}>
-                    {copiada === b.id ? '¡Copiado!' : 'Copiar'}
+                    {copiada === b.id ? t('¡Copiado!') : t('Copiar')}
                   </button>
                   <a href={b.url} target="_blank" rel="noopener noreferrer">
-                    <button className="fantasma">Abrir</button>
+                    <button className="fantasma">{t('Abrir')}</button>
                   </a>
                 </td>
               </tr>
@@ -181,7 +182,7 @@ export default function Bases({ d, demo = false, recargar }) {
           </tbody>
         </table>
       </div>
-      {!filtradas.length && <p className="vacio">Ninguna base con esos filtros.</p>}
+      {!filtradas.length && <p className="vacio">{t('Ninguna base con esos filtros.')}</p>}
 
       {ampliada && (
         <div className="lupa" onClick={() => setAmpliada(null)}>
@@ -190,15 +191,15 @@ export default function Bases({ d, demo = false, recargar }) {
             <img src={ampliada.preview} alt="" />
             <div className="lupa-pie">
               <span className="pill">TH{ampliada.th ?? '?'}</span>{' '}
-              <span className="pill">{TIPOS[ampliada.tipo] ?? ampliada.tipo ?? '—'}</span>
+              <span className="pill">{t(TIPOS[ampliada.tipo] ?? ampliada.tipo ?? '—')}</span>
               <span style={{ flex: 1 }} />
               <button className="fantasma" onClick={() => copiar(ampliada)}>
-                {copiada === ampliada.id ? '¡Copiado!' : 'Copiar enlace'}
+                {copiada === ampliada.id ? t('¡Copiado!') : t('Copiar enlace')}
               </button>
               <a href={ampliada.url} target="_blank" rel="noopener noreferrer">
-                <button className="accion">Abrir en el juego</button>
+                <button className="accion">{t('Abrir en el juego')}</button>
               </a>
-              <button className="fantasma" onClick={() => setAmpliada(null)}>Cerrar</button>
+              <button className="fantasma" onClick={() => setAmpliada(null)}>{t('Cerrar')}</button>
             </div>
           </div>
         </div>

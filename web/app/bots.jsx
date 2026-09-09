@@ -9,10 +9,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useT } from './idioma';
 
 const fmt = (d) => (d ? new Date(d).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
 export default function Bots({ d, demo = false, recargar }) {
+  const t = useT();
   const inicial = useMemo(
     () => Object.fromEntries((d.config ?? []).map((c) => [c.clave, c.valor])),
     [d.config]
@@ -68,7 +70,7 @@ export default function Bots({ d, demo = false, recargar }) {
   if (!d.config?.length) {
     return (
       <p className="vacio">
-        Falta correr <code>sql/008_config.sql</code> en Supabase para crear los ajustes.
+        {t('Falta correr')} <code>sql/008_config.sql</code> {t('en Supabase para crear los ajustes.')}
       </p>
     );
   }
@@ -76,18 +78,18 @@ export default function Bots({ d, demo = false, recargar }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <h2 className="sec" style={{ margin: '18px 0 8px' }}>Identidad del bot</h2>
+        <h2 className="sec" style={{ margin: '18px 0 8px' }}>{t('Identidad del bot')}</h2>
         <span style={{ flex: 1 }} />
         <button className="accion" onClick={guardar} disabled={guardando}>
-          {guardando ? 'Guardando…' : 'Guardar cambios'}
+          {guardando ? t('Guardando…') : t('Guardar cambios')}
         </button>
       </div>
       {msg && <p className={msg.startsWith('Error') ? 'error' : 'sub'}>{msg}</p>}
 
       <div className="grid">
         <div className="card">
-          <h3>Nombre</h3>
-          <p className="sub">Con este nombre firma sus avisos.</p>
+          <h3>{t('Nombre')}</h3>
+          <p className="sub">{t('Con este nombre firma sus avisos.')}</p>
           <input
             className="campo"
             value={cfg.bot_nombre ?? ''}
@@ -95,8 +97,8 @@ export default function Bots({ d, demo = false, recargar }) {
           />
         </div>
         <div className="card">
-          <h3>Firma</h3>
-          <p className="sub">Línea final de cada mensaje al clan.</p>
+          <h3>{t('Firma')}</h3>
+          <p className="sub">{t('Línea final de cada mensaje al clan.')}</p>
           <input
             className="campo"
             value={cfg.bot_firma ?? ''}
@@ -104,8 +106,8 @@ export default function Bots({ d, demo = false, recargar }) {
           />
         </div>
         <div className="card">
-          <h3>Umbrales de aviso</h3>
-          <p className="sub">Horas antes del cierre en que avisa. Separadas por coma.</p>
+          <h3>{t('Umbrales de aviso')}</h3>
+          <p className="sub">{t('Horas antes del cierre en que avisa. Separadas por coma.')}</p>
           <input
             className="campo"
             value={(cfg.alerta_umbrales ?? []).join(', ')}
@@ -122,35 +124,35 @@ export default function Bots({ d, demo = false, recargar }) {
         </div>
       </div>
 
-      <h2 className="sec">Qué avisa</h2>
+      <h2 className="sec">{t('Qué avisa')}</h2>
       <div className="grid">
         <Interruptor
-          titulo="Ataques de CWL sin usar"
-          nota="Lo más valioso: avisa antes de perder la guerra."
+          titulo={t('Ataques de CWL sin usar')}
+          nota={t('Lo más valioso: avisa antes de perder la guerra.')}
           valor={cfg.alerta_cwl}
           alCambiar={(v) => set('alerta_cwl', v)}
         />
         <Interruptor
-          titulo="Ataques de guerra normal"
-          nota="Necesita que /currentwar responda. Correr el probe primero."
+          titulo={t('Ataques de guerra normal')}
+          nota={t('Necesita que /currentwar responda. Correr el probe primero.')}
           valor={cfg.alerta_guerra}
           alCambiar={(v) => set('alerta_guerra', v)}
         />
         <Interruptor
-          titulo="Resumen de Raid Weekend"
-          nota="Los ~24 ataques mensuales que hoy no mide nadie."
+          titulo={t('Resumen de Raid Weekend')}
+          nota={t('Los ~24 ataques mensuales que hoy no mide nadie.')}
           valor={cfg.alerta_raids}
           alCambiar={(v) => set('alerta_raids', v)}
         />
         <Interruptor
-          titulo="Reporte mensual de premios"
-          nota="La tabla de ganadores, el día 1."
+          titulo={t('Reporte mensual de premios')}
+          nota={t('La tabla de ganadores, el día 1.')}
           valor={cfg.reporte_mensual}
           alCambiar={(v) => set('reporte_mensual', v)}
         />
       </div>
 
-      <h2 className="sec">Por dónde avisa</h2>
+      <h2 className="sec">{t('Por dónde avisa')}</h2>
       <div className="grid">
         <div className="card">
           <h3>
@@ -160,7 +162,7 @@ export default function Bots({ d, demo = false, recargar }) {
             </span>
           </h3>
           <p className="sub">
-            Gratis, sin límites y sin riesgo de baneo. Lleva lo que no puede fallar.
+            {t('Gratis, sin límites y sin riesgo de baneo. Lleva lo que no puede fallar.')}
           </p>
           <p className="sub" style={{ marginTop: 8 }}>
             Última alerta:{' '}
@@ -181,7 +183,7 @@ export default function Bots({ d, demo = false, recargar }) {
               checked={Boolean(cfg.telegram_activo)}
               onChange={(e) => set('telegram_activo', e.target.checked)}
             />
-            <span>Mandar avisos por Telegram</span>
+            <span>{t('Mandar avisos por Telegram')}</span>
           </label>
         </div>
 
@@ -189,7 +191,7 @@ export default function Bots({ d, demo = false, recargar }) {
           <h3>
             WhatsApp{' '}
             <span className={`pill ${d.wa?.vinculado ? 'ok' : 'aviso'}`}>
-              {d.wa?.vinculado ? 'vinculado' : 'sin vincular'}
+              {d.wa?.vinculado ? t('vinculado') : t('sin vincular')}
             </span>
           </h3>
           <p className="sub">
@@ -207,38 +209,37 @@ export default function Bots({ d, demo = false, recargar }) {
               onChange={(e) => set('whatsapp_activo', e.target.checked)}
             />
             <span>
-              Mandar avisos por WhatsApp
-              {!d.wa?.vinculado && ' (hay que vincular primero)'}
+              {t('Mandar avisos por WhatsApp')}
+              {!d.wa?.vinculado && ' ' + t('(hay que vincular primero)')}
             </span>
           </label>
         </div>
 
         <div className="card">
-          <h3>Bandeja de salida</h3>
+          <h3>{t('Bandeja de salida')}</h3>
           <p className="big">{pendientes}</p>
           <p className="sub">
-            mensajes por enviar. Si ningún canal está activo, se copian a mano desde la pestaña
-            Mensajes — nunca se pierden.
+            {t('mensajes por enviar. Si ningún canal está activo, se copian a mano desde la pestaña Mensajes — nunca se pierden.')}
           </p>
         </div>
       </div>
 
-      <h2 className="sec">Comandos de Telegram</h2>
+      <h2 className="sec">{t('Comandos de Telegram')}</h2>
       <div className="tabla-scroll">
         <table>
           <thead>
             <tr>
-              <th>Comando</th>
-              <th>Qué devuelve</th>
+              <th>{t('Comando')}</th>
+              <th>{t('Qué devuelve')}</th>
             </tr>
           </thead>
           <tbody>
             {[
-              ['/faltan', 'Quién no ha atacado en la CWL en curso, con horas restantes'],
-              ['/estrellas', 'Tabla de estrellas de la temporada'],
-              ['/resumen', 'Estado de los clanes, último snapshot y jobs'],
-              ['/jugador <nombre>', 'Ficha con deltas de trofeos y estrellas'],
-              ['/reporte', 'Último mensaje generado, listo para pegar'],
+              ['/faltan', t('Quién no ha atacado en la CWL en curso, con horas restantes')],
+              ['/estrellas', t('Tabla de estrellas de la temporada')],
+              ['/resumen', t('Estado de los clanes, último snapshot y jobs')],
+              ['/jugador <nombre>', t('Ficha con deltas de trofeos y estrellas')],
+              ['/reporte', t('Último mensaje generado, listo para pegar')],
             ].map(([c, q]) => (
               <tr key={c}>
                 <td style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{c}</td>
@@ -253,15 +254,16 @@ export default function Bots({ d, demo = false, recargar }) {
 }
 
 function Interruptor({ titulo, nota, valor, alCambiar }) {
+  const t = useT();
   return (
     <div className="card">
       <h3>
-        {titulo} <span className={`pill ${valor ? 'ok' : 'aviso'}`}>{valor ? 'sí' : 'no'}</span>
+        {titulo} <span className={`pill ${valor ? 'ok' : 'aviso'}`}>{valor ? t('sí') : t('no')}</span>
       </h3>
       <p className="sub">{nota}</p>
       <label className="fila-check">
         <input type="checkbox" checked={Boolean(valor)} onChange={(e) => alCambiar(e.target.checked)} />
-        <span>Activado</span>
+        <span>{t('Activado')}</span>
       </label>
     </div>
   );

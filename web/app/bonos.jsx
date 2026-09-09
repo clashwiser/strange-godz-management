@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useT } from './idioma';
 
 const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas' };
 
@@ -23,6 +24,7 @@ const mesSiguiente = (mes) => {
 };
 
 export default function Bonos({ d, demo = false, recargar }) {
+  const t = useT();
   const [mes, setMes] = useState(d.temporada);
   const [filas, setFilas] = useState([]);
   const [presupuesto, setPresupuesto] = useState(80);
@@ -66,9 +68,9 @@ export default function Bonos({ d, demo = false, recargar }) {
   }
 
   async function guardar() {
-    if (demo) return aviso('En la demo no se guarda, pero así queda.');
+    if (demo) return aviso(t('En la demo no se guarda, pero así queda.'));
     const vacias = filas.filter((f) => !f.titulo.trim());
-    if (vacias.length) return aviso('Hay premios sin título.', true);
+    if (vacias.length) return aviso(t('Hay premios sin título.'), true);
 
     setOcupado(true);
     try {
@@ -99,7 +101,7 @@ export default function Bonos({ d, demo = false, recargar }) {
       }
       const quitados = borrados.length;
       setBorrados([]);
-      aviso(quitados ? `Guardado. ${quitados} premio(s) eliminado(s).` : 'Guardado.');
+      aviso(quitados ? `${t('Guardado.')} ${quitados} ${t('premio(s) eliminado(s).')}` : t('Guardado.'));
       recargar?.();
     } catch (e) {
       aviso(`Error: ${e.message}`, true);
@@ -126,7 +128,7 @@ export default function Bonos({ d, demo = false, recargar }) {
 
   async function publicar() {
     const cuerpo = textoMensaje();
-    if (!cuerpo) return aviso('No hay premios activos que publicar.', true);
+    if (!cuerpo) return aviso(t('No hay premios activos que publicar.'), true);
     if (demo) return aviso('En la demo no se envía. Así se vería:\n\n' + cuerpo);
 
     setOcupado(true);
@@ -137,7 +139,7 @@ export default function Bonos({ d, demo = false, recargar }) {
         clave_dedupe: `premios:${mes}:${Date.now()}`,
       });
       if (error) throw error;
-      aviso('Encolado. Sale por Telegram en la próxima corrida, y está en la pestaña Mensajes para copiar.');
+      aviso(t('Encolado. Sale por Telegram en la próxima corrida, y está en la pestaña Mensajes para copiar.'));
       recargar?.();
     } catch (e) {
       aviso(`Error: ${e.message}`, true);
@@ -146,8 +148,8 @@ export default function Bonos({ d, demo = false, recargar }) {
     }
   }
 
-  function aviso(t, malo = false) {
-    setMsg((malo ? 'Error: ' : '') + t.replace(/^Error: /, ''));
+  function aviso(texto, malo = false) {
+    setMsg((malo ? 'Error: ' : '') + texto.replace(/^Error: /, ''));
     setTimeout(() => setMsg(''), malo ? 5000 : 6000);
   }
 
@@ -176,8 +178,8 @@ export default function Bonos({ d, demo = false, recargar }) {
   }, [d.ataques, d.bonos, nombre, clanDe]);
 
   async function marcar(fila, entregado) {
-    if (demo) return aviso('En la demo no se guarda.');
-    if (!fila.clan_tag) return aviso('Ese jugador no tiene clan en el último snapshot.', true);
+    if (demo) return aviso(t('En la demo no se guarda.'));
+    if (!fila.clan_tag) return aviso(t('Ese jugador no tiene clan en el último snapshot.'), true);
     try {
       const { error } = await supabase.from('bonos').upsert(
         {
@@ -207,24 +209,24 @@ export default function Bonos({ d, demo = false, recargar }) {
           </option>
         </select>
         <span style={{ flex: 1 }} />
-        <button className="fantasma" onClick={agregar}>+ Premio</button>
-        <button className="fantasma" onClick={guardar} disabled={ocupado}>Guardar</button>
+        <button className="fantasma" onClick={agregar}>+ {t('Premio')}</button>
+        <button className="fantasma" onClick={guardar} disabled={ocupado}>{t('Guardar')}</button>
         <button className="accion" onClick={publicar} disabled={ocupado}>
-          Publicar por Telegram
+          {t('Publicar por Telegram')}
         </button>
       </div>
 
       {msg && <pre className={msg.startsWith('Error') ? 'msg error' : 'msg'}>{msg}</pre>}
       {borrados.length > 0 && (
         <p className="sub" style={{ color: 'var(--mal)', fontWeight: 600 }}>
-          {borrados.length} premio(s) quitado(s) — se borran al guardar. Recargá para deshacer.
+          {borrados.length} premio(s) quitado(s) — se borran al guardar. {t('Recarga para deshacer.')}
         </p>
       )}
 
       <div className="grid">
         <div className="card">
-          <h3>Presupuesto</h3>
-          <p className="sub">Tope que se reparte cada mes.</p>
+          <h3>{t('Presupuesto')}</h3>
+          <p className="sub">{t('Tope que se reparte cada mes.')}</p>
           <input
             className="campo"
             type="number"
@@ -234,21 +236,21 @@ export default function Bonos({ d, demo = false, recargar }) {
           />
         </div>
         <div className="card">
-          <h3>Asignado</h3>
+          <h3>{t('Asignado')}</h3>
           <p className="big">${asignado}</p>
           <p className="sub">{filas.filter((f) => f.activo).length} premios activos</p>
         </div>
         <div className="card">
-          <h3>{resto < 0 ? 'Te pasaste' : 'Queda'}</h3>
+          <h3>{resto < 0 ? t('Te pasaste') : t('Queda')}</h3>
           <p className="big" style={resto < 0 ? { color: 'var(--mal)' } : undefined}>
             ${Math.abs(resto)}
           </p>
           <p className="sub">
             {resto < 0
-              ? 'La suma supera el presupuesto.'
+              ? t('La suma supera el presupuesto.')
               : resto === 0
-                ? 'Justo en el tope.'
-                : 'Sin asignar.'}
+                ? t('Justo en el tope.')
+                : t('Sin asignar.')}
           </p>
         </div>
       </div>
@@ -258,11 +260,11 @@ export default function Bonos({ d, demo = false, recargar }) {
         <table>
           <thead>
             <tr>
-              <th>Premio</th>
-              <th>Cómo se gana</th>
-              <th className="num">Monto</th>
-              <th>Tipo</th>
-              <th>Activo</th>
+              <th>{t('Premio')}</th>
+              <th>{t('Cómo se gana')}</th>
+              <th className="num">{t('Monto')}</th>
+              <th>{t('Tipo')}</th>
+              <th>{t('Activo')}</th>
               <th></th>
             </tr>
           </thead>
@@ -274,7 +276,7 @@ export default function Bonos({ d, demo = false, recargar }) {
                     className="campo campo-corto"
                     style={{ marginTop: 0 }}
                     value={f.titulo}
-                    placeholder="Liga A 1º"
+                    placeholder={t('Liga A 1º')}
                     onChange={(e) => cambiar(i, 'titulo', e.target.value)}
                   />
                 </td>
@@ -283,7 +285,7 @@ export default function Bonos({ d, demo = false, recargar }) {
                     className="campo"
                     style={{ marginTop: 0 }}
                     value={f.criterio ?? ''}
-                    placeholder="Más estrellas en CWL"
+                    placeholder={t('Más estrellas en CWL')}
                     onChange={(e) => cambiar(i, 'criterio', e.target.value)}
                   />
                 </td>
@@ -304,9 +306,9 @@ export default function Bonos({ d, demo = false, recargar }) {
                     value={f.tipo}
                     onChange={(e) => cambiar(i, 'tipo', e.target.value)}
                   >
-                    <option value="efectivo">Efectivo</option>
-                    <option value="pase_oro">Pase de Oro</option>
-                    <option value="medallas">Medallas</option>
+                    <option value="efectivo">{t('Efectivo')}</option>
+                    <option value="pase_oro">{t('Pase de Oro')}</option>
+                    <option value="medallas">{t('Medallas')}</option>
                   </select>
                 </td>
                 <td>
@@ -323,7 +325,7 @@ export default function Bonos({ d, demo = false, recargar }) {
                   <button
                     className="fantasma borrar"
                     onClick={() => quitar(i)}
-                    title="Quitar este premio (se confirma al guardar)"
+                    title={t('Quitar este premio (se confirma al guardar)')}
                     aria-label={`Quitar ${f.titulo || 'premio'}`}
                   >
                     ✕
@@ -336,29 +338,29 @@ export default function Bonos({ d, demo = false, recargar }) {
       </div>
       {!filas.length && (
         <p className="vacio">
-          Sin premios para {mes}. Dale a <b>+ Premio</b> para armar el reparto.
+          {t('Sin premios para')} {mes}. {t('Pulsa')} <b>+ {t('Premio')}</b> {t('para armar el reparto.')}
         </p>
       )}
 
       <h2 className="sec">Medallas de CWL · {d.temporada}</h2>
       {!medallas.length ? (
         <p className="vacio">
-          Sin datos de CWL todavía. Corré <code>cwl:sync</code>.
+          {t('Sin datos de CWL todavía. Corre')} <code>cwl:sync</code>.
         </p>
       ) : (
         <>
           <p className="sub" style={{ color: 'var(--barra-texto)', marginTop: 0 }}>
-            Ordenado por estrellas, que es el criterio que ya usan. Marcá a quién se las diste.
+            {t('Ordenado por estrellas, que es el criterio que ya usan. Marca a quién se las diste.')}
           </p>
           <div className="tabla-scroll">
             <table>
               <thead>
                 <tr>
                   <th className="num">#</th>
-                  <th>Jugador</th>
-                  <th>Clan</th>
-                  <th className="num">Estrellas</th>
-                  <th>Entregado</th>
+                  <th>{t('Jugador')}</th>
+                  <th>{t('Clan')}</th>
+                  <th className="num">{t('Estrellas')}</th>
+                  <th>{t('Entregado')}</th>
                 </tr>
               </thead>
               <tbody>

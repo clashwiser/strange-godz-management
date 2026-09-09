@@ -9,6 +9,7 @@ import Bots from './bots';
 import Bases from './bases';
 import Bonos from './bonos';
 import Instalar from './instalar';
+import { SelectorIdioma, useT } from './idioma';
 
 const TABS = [
   ['resumen', 'Resumen'],
@@ -25,6 +26,7 @@ const temporadaActual = () => new Date().toISOString().slice(0, 7);
 const fmt = (d) => (d ? new Date(d).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
 export default function Panel() {
+  const t = useT();
   const [sesion, setSesion] = useState(undefined); // undefined = aun cargando
   const [tab, setTab] = useState('resumen');
   const [d, setD] = useState(null);
@@ -135,23 +137,22 @@ export default function Panel() {
       <div className="wrap">
         <div className="login card" style={{ textAlign: 'center' }}>
           <Mascota ancho={150} />
-          <h3>Todavía no hay base de datos</h3>
+          <h3>{t('Todavía no hay base de datos')}</h3>
           <p className="sub">
-            El panel real necesita Supabase conectado. Mientras tanto podés recorrer todo con datos
-            de ejemplo.
+            {t('El panel real necesita Supabase conectado. Mientras tanto puedes recorrer todo con datos de ejemplo.')}
           </p>
           <a href="/demo" style={{ textDecoration: 'none', display: 'inline-block', marginTop: 12 }}>
-            <button className="accion">Ver la demo</button>
+            <button className="accion">{t('Ver la demo')}</button>
           </a>
           <p className="sub" style={{ marginTop: 16, fontSize: 12, opacity: 0.75 }}>
-            Para activarlo: definí <code>NEXT_PUBLIC_SUPABASE_URL</code> y{' '}
+            {t('Para activarlo: define')} <code>NEXT_PUBLIC_SUPABASE_URL</code> y{' '}
             <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
           </p>
         </div>
       </div>
     );
   }
-  if (sesion === undefined) return <div className="vacio">Cargando…</div>;
+  if (sesion === undefined) return <div className="vacio">{t('Cargando…')}</div>;
   if (!sesion) return <Login />;
 
   return (
@@ -160,10 +161,11 @@ export default function Panel() {
         <h1>Strange Godz Alliance · Management</h1>
         <span className="sp" />
         <SelectorTema />
+        <SelectorIdioma />
         <Instalar />
         <span className="correo">{sesion.user.email}</span>
         <button className="fantasma" onClick={() => supabase.auth.signOut()}>
-          Salir
+          {t('Salir')}
         </button>
       </header>
 
@@ -171,17 +173,17 @@ export default function Panel() {
         <nav className="tabs">
           {TABS.map(([k, label]) => (
             <button key={k} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
-              {label}
+              {t(label)}
             </button>
           ))}
           <span style={{ flex: 1 }} />
           <button className="fantasma" onClick={cargar}>
-            Actualizar
+            {t('Actualizar')}
           </button>
         </nav>
 
-        {error && <p className="error">Error: {error}</p>}
-        {!d && !error && <p className="vacio">Cargando datos…</p>}
+        {error && <p className="error">{t('Error: ')}{error}</p>}
+        {!d && !error && <p className="vacio">{t('Cargando datos…')}</p>}
 
         {d && tab === 'resumen' && <Resumen d={d} />}
         {/* key: al cambiar de temporada se reinicia el estado local del tablero */}
@@ -199,6 +201,7 @@ export default function Panel() {
 
 // ---------------------------------------------------------------- Login
 function Login() {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -218,13 +221,14 @@ function Login() {
       <form className="login card" onSubmit={entrar}>
         <Mascota ancho={160} />
         <h3 style={{ textAlign: 'center' }}>Strange Godz Alliance</h3>
-        <p className="sub" style={{ textAlign: 'center' }}>Acceso solo para los líderes.</p>
-        <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
+        <p className="sub" style={{ textAlign: 'center' }}>{t('Acceso solo para los líderes.')}</p>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, margin: '10px 0', flexWrap: 'wrap' }}>
           <SelectorTema />
+          <SelectorIdioma />
         </div>
         <input
           type="email"
-          placeholder="correo"
+          placeholder={t('correo')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
@@ -232,14 +236,14 @@ function Login() {
         />
         <input
           type="password"
-          placeholder="contraseña"
+          placeholder={t('contraseña')}
           value={pass}
           onChange={(e) => setPass(e.target.value)}
           autoComplete="current-password"
           required
         />
         <button className="accion" style={{ width: '100%', marginTop: 8 }} disabled={cargando}>
-          {cargando ? 'Entrando…' : 'Entrar'}
+          {cargando ? t('Entrando…') : t('Entrar')}
         </button>
         {err && <p className="error">{err}</p>}
         {/* Tambien aca, no solo en la cabecera: en el telefono esta es la
@@ -255,6 +259,7 @@ function Login() {
 
 // -------------------------------------------------------------- Resumen
 export function Resumen({ d, demo = false }) {
+  const t = useT();
   // Ultima corrida de cada job: asi se ve de un vistazo si algo dejo de correr.
   const ultimos = useMemo(() => {
     const m = new Map();
@@ -274,54 +279,54 @@ export function Resumen({ d, demo = false }) {
         <Mascota ancho={168} redondo />
         <h2 className="heroe-nombre">Strange Godz Alliance</h2>
         <p className="heroe-sub">
-          {d.clans.length} {d.clans.length === 1 ? 'clan' : 'clanes'}
-          {miembros ? ` · ${miembros} miembros` : ''}
+          {d.clans.length} {d.clans.length === 1 ? t('clan') : t('clanes')}
+          {miembros ? ` · ${miembros} ${t('miembros')}` : ''}
         </p>
       </div>
 
-      <h2 className="sec">Nuestros clanes</h2>
+      <h2 className="sec">{t('Nuestros clanes')}</h2>
       <Clanes d={d} demo={demo} />
 
-      <h2 className="sec">Estado del sistema</h2>
+      <h2 className="sec">{t('Estado del sistema')}</h2>
       <div className="grid">
         <div className="card">
-          <h3>Mensajes por enviar</h3>
+          <h3>{t('Mensajes por enviar')}</h3>
           <p className="big">{pendientes}</p>
-          <p className="sub">se copian desde la pestaña Mensajes</p>
+          <p className="sub">{t('se copian desde la pestaña Mensajes')}</p>
         </div>
         <div className="card">
-          <h3>WhatsApp automático</h3>
+          <h3>{t('WhatsApp automático')}</h3>
           <p className="sub">
             {d.wa?.vinculado ? (
               <span className="pill ok">vinculado · {d.wa.numero ?? '?'}</span>
             ) : (
-              <span className="pill aviso">apagado</span>
+              <span className="pill aviso">{t('apagado')}</span>
             )}
           </p>
           <p className="sub" style={{ marginTop: 8 }}>
             {d.wa?.vinculado
               ? `último envío: ${fmt(d.wa.ultimo_ok)}`
-              : 'Sin número secundario. El reporte se copia y se pega a mano.'}
+              : t('Sin número secundario. El reporte se copia y se pega a mano.')}
           </p>
           {d.wa?.ultimo_error && <p className="error">{d.wa.ultimo_error}</p>}
         </div>
         <div className="card">
-          <h3>Último snapshot</h3>
+          <h3>{t('Último snapshot')}</h3>
           <p className="big" style={{ fontSize: 20 }}>{d.fechaSnap ?? '—'}</p>
           <p className="sub">{d.snaps.length} perfiles guardados</p>
         </div>
       </div>
 
-      <h2 className="sec">Últimas corridas</h2>
+      <h2 className="sec">{t('Últimas corridas')}</h2>
       <div className="tabla-scroll">
         <table>
           <thead>
             <tr>
               <th>Job</th>
-              <th>Cuándo</th>
-              <th>Estado</th>
-              <th className="num">Filas</th>
-              <th>Error</th>
+              <th>{t('Cuándo')}</th>
+              <th>{t('Estado')}</th>
+              <th className="num">{t('Filas')}</th>
+              <th>{t('Error')}</th>
             </tr>
           </thead>
           <tbody>
@@ -341,13 +346,14 @@ export function Resumen({ d, demo = false }) {
           </tbody>
         </table>
       </div>
-      {!ultimos.length && <p className="vacio">Todavía no corrió ningún job.</p>}
+      {!ultimos.length && <p className="vacio">{t('Todavía no corrió ningún job.')}</p>}
     </>
   );
 }
 
 // ------------------------------------------------------------------ CWL
 export function CWL({ d }) {
+  const t = useT();
   const nombre = useMemo(
     () => Object.fromEntries(d.players.map((p) => [p.player_tag, p.nombre_actual])),
     [d.players]
@@ -381,7 +387,7 @@ export function CWL({ d }) {
   }, [d.ataques]);
 
   if (!d.wars.length) {
-    return <p className="vacio">Sin datos de CWL para {d.temporada}. Corré el job <code>cwl:sync</code>.</p>;
+    return <p className="vacio">Sin datos de CWL para {d.temporada}. Corre el job <code>cwl:sync</code>.</p>;
   }
 
   return (
@@ -391,10 +397,10 @@ export function CWL({ d }) {
         <table>
           <thead>
             <tr>
-              <th className="num">Ronda</th>
-              <th>Rival</th>
-              <th className="num">Nosotros</th>
-              <th className="num">Ellos</th>
+              <th className="num">{t('Ronda')}</th>
+              <th>{t('Rival')}</th>
+              <th className="num">{t('Nosotros')}</th>
+              <th className="num">{t('Ellos')}</th>
               <th>Estado</th>
             </tr>
           </thead>
@@ -414,15 +420,15 @@ export function CWL({ d }) {
         </table>
       </div>
 
-      <h2 className="sec">Tabla de estrellas</h2>
+      <h2 className="sec">{t('Tabla de estrellas')}</h2>
       <div className="tabla-scroll">
         <table>
           <thead>
             <tr>
               <th className="num">#</th>
-              <th>Jugador</th>
-              <th className="num">Estrellas</th>
-              <th className="num">Ataques</th>
+              <th>{t('Jugador')}</th>
+              <th className="num">{t('Estrellas')}</th>
+              <th className="num">{t('Ataques')}</th>
               <th className="num">% destr. prom</th>
             </tr>
           </thead>
@@ -440,14 +446,14 @@ export function CWL({ d }) {
         </table>
       </div>
 
-      <h2 className="sec">Ataques sin usar (guerras cerradas)</h2>
+      <h2 className="sec">{t('Ataques sin usar (guerras cerradas)')}</h2>
       {fallados.length ? (
         <div className="tabla-scroll">
           <table>
             <thead>
               <tr>
-                <th>Jugador</th>
-                <th className="num">Fallados</th>
+                <th>{t('Jugador')}</th>
+                <th className="num">{t('Fallados')}</th>
               </tr>
             </thead>
             <tbody>
@@ -461,7 +467,7 @@ export function CWL({ d }) {
           </table>
         </div>
       ) : (
-        <p className="vacio">Nadie falló ataques. </p>
+        <p className="vacio">{t('Nadie falló ataques.')} </p>
       )}
     </>
   );
@@ -469,6 +475,7 @@ export function CWL({ d }) {
 
 // ------------------------------------------------------------ Jugadores
 export function Jugadores({ d }) {
+  const t = useT();
   const [q, setQ] = useState('');
   const nombre = useMemo(
     () => Object.fromEntries(d.players.map((p) => [p.player_tag, p.nombre_actual])),
@@ -487,12 +494,12 @@ export function Jugadores({ d }) {
       .sort((a, b) => (b.trofeos ?? 0) - (a.trofeos ?? 0));
   }, [d.snaps, nombre, q]);
 
-  if (!d.snaps.length) return <p className="vacio">Sin snapshots todavía. Corré <code>npm run snapshot</code>.</p>;
+  if (!d.snaps.length) return <p className="vacio">{t('Sin snapshots todavía. Corre')} <code>npm run snapshot</code>.</p>;
 
   return (
     <>
       <input
-        placeholder="Buscar jugador…"
+        placeholder={t('Buscar jugador…')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
         style={{
@@ -507,13 +514,13 @@ export function Jugadores({ d }) {
         <table>
           <thead>
             <tr>
-              <th>Jugador</th>
-              <th>Clan</th>
+              <th>{t('Jugador')}</th>
+              <th>{t('Clan')}</th>
               <th className="num">TH</th>
-              <th className="num">Trofeos</th>
-              <th>Liga</th>
-              <th className="num">Estrellas guerra</th>
-              <th className="num">Donaciones</th>
+              <th className="num">{t('Trofeos')}</th>
+              <th>{t('Liga')}</th>
+              <th className="num">{t('Estrellas guerra')}</th>
+              <th className="num">{t('Donaciones')}</th>
             </tr>
           </thead>
           <tbody>
@@ -537,6 +544,7 @@ export function Jugadores({ d }) {
 
 // ------------------------------------------------------------- Mensajes
 export function Mensajes({ d, recargar }) {
+  const t = useT();
   const [copiado, setCopiado] = useState(null);
 
   async function copiar(m) {
@@ -554,12 +562,12 @@ export function Mensajes({ d, recargar }) {
     }
   }
 
-  if (!d.outbox.length) return <p className="vacio">No hay mensajes generados todavía.</p>;
+  if (!d.outbox.length) return <p className="vacio">{t('No hay mensajes generados todavía.')}</p>;
 
   return (
     <>
       <p className="sub" style={{ color: 'var(--tenue)' }}>
-        Copiá y pegá en el grupo del clan. Al copiar, el mensaje se marca como compartido.
+        {t('Copia y pega en el grupo del clan. Al copiar, el mensaje se marca como compartido.')}
       </p>
       {d.outbox.map((m) => (
         <div className="card" key={m.id} style={{ marginBottom: 12 }}>

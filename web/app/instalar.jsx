@@ -20,6 +20,7 @@
 // prometer lo mismo a todos.
 
 import { useEffect, useState } from 'react';
+import { useT } from './idioma';
 
 /** iPhone/iPad. El iPad con iPadOS 13+ miente y dice ser un Mac: se lo
  *  reconoce porque un Mac de verdad no tiene pantalla tactil. */
@@ -39,6 +40,7 @@ function yaInstalada() {
 }
 
 export default function Instalar({ className = 'fantasma' }) {
+  const t = useT();
   const [evento, setEvento] = useState(null);
   const [instalada, setInstalada] = useState(false);
   const [ayuda, setAyuda] = useState(false);
@@ -93,8 +95,8 @@ export default function Instalar({ className = 'fantasma' }) {
 
   return (
     <>
-      <button className={className} onClick={instalar} title="Instalar el panel en el teléfono">
-        Descargar app
+      <button className={className} onClick={instalar} title={t('Instalar el panel en el teléfono')}>
+        {t('Descargar app')}
       </button>
 
       {ayuda && (
@@ -104,57 +106,54 @@ export default function Instalar({ className = 'fantasma' }) {
             style={{ maxWidth: 460, padding: 20 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginTop: 0 }}>Instalarla a mano</h3>
+            <h3 style={{ marginTop: 0 }}>{t('Instalarla a mano')}</h3>
 
             {ios ? (
               <>
                 <p className="sub">
-                  En iPhone y iPad, Apple no permite que una web se instale sola. Son tres toques
-                  y queda igual que una app.
+                  {t('En iPhone y iPad, Apple no permite que una web se instale sola. Son tres toques y queda igual que una app.')}
                 </p>
                 <ol className="pasos">
                   <li>
-                    Abrí esta página en <b>Safari</b>. Desde Chrome o desde el navegador de
-                    WhatsApp no aparece la opción.
+                    {t('Abre esta página en')} <b>Safari</b>.{' '}
+                    {t('Desde Chrome o desde el navegador de WhatsApp no aparece la opción.')}
                   </li>
                   <li>
-                    Tocá <b>Compartir</b>, el cuadrito con la flecha hacia arriba.
+                    {t('Toca')} <b>{t('Compartir')}</b>{t(', el cuadrito con la flecha hacia arriba.')}
                   </li>
                   <li>
-                    Bajá y elegí <b>Añadir a pantalla de inicio</b>.
+                    {t('Baja y elige')} <b>{t('Añadir a pantalla de inicio')}</b>.
                   </li>
                 </ol>
               </>
             ) : (
               <>
                 <p className="sub">
-                  Tu navegador no ofreció instalarla. Suele pasar cuando la página se abre dentro
-                  de otra app —WhatsApp, Instagram— en vez del navegador.
+                  {t('Tu navegador no ofreció instalarla. Suele pasar cuando la página se abre dentro de otra app —WhatsApp, Instagram— en vez del navegador.')}
                 </p>
                 <ol className="pasos">
                   <li>
-                    Abrila en <b>Chrome</b>. Si estás dentro de WhatsApp, usá <b>⋮</b> →{' '}
-                    <b>Abrir en el navegador</b>.
+                    {t('Ábrela en')} <b>Chrome</b>. {t('Si estás dentro de WhatsApp, usa')} <b>⋮</b> →{' '}
+                    <b>{t('Abrir en el navegador')}</b>.
                   </li>
                   <li>
-                    Tocá <b>⋮</b> arriba a la derecha.
+                    {t('Toca')} <b>⋮</b> {t('arriba a la derecha.')}
                   </li>
                   <li>
-                    Elegí <b>Instalar aplicación</b> o <b>Añadir a pantalla principal</b>.
+                    {t('Elige')} <b>{t('Instalar aplicación')}</b> o <b>{t('Añadir a pantalla principal')}</b>.
                   </li>
                 </ol>
               </>
             )}
 
             <p className="sub" style={{ fontSize: 12, opacity: 0.8 }}>
-              No se descarga nada ni ocupa espacio: queda el icono en la pantalla de inicio y
-              abre sin la barra de direcciones. Se actualiza sola.
+              {t('No se descarga nada ni ocupa espacio: queda el icono en la pantalla de inicio y abre sin la barra de direcciones. Se actualiza sola.')}
             </p>
 
             <div className="lupa-pie">
               <span style={{ flex: 1 }} />
               <button className="accion" onClick={() => setAyuda(false)}>
-                Entendido
+                {t('Entendido')}
               </button>
             </div>
           </div>

@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Resumen, CWL, Jugadores, Mensajes } from '../page';
 import Alineacion from '../alineacion';
 import SelectorTema from '../temas';
+import { SelectorIdioma, useT } from '../idioma';
 import Bots from '../bots';
 import Bases from '../bases';
 import Bonos from '../bonos';
@@ -135,24 +136,27 @@ const TABS = [
 ];
 
 export default function Demo() {
+  const t = useT();
   const [tab, setTab] = useState('resumen');
   return (
     <>
       <div className="banda-demo">
-        Vista de ejemplo · clanes reales, <b>números inventados</b> · aún no hay Supabase conectado
+        {t('Vista de ejemplo · clanes reales,')} <b>{t('números inventados')}</b>{' '}
+        {t('· aún no hay Supabase conectado')}
       </div>
       <header className="top">
         <h1>Strange Godz Alliance · Management</h1>
         <span className="sp" />
         <SelectorTema />
+        <SelectorIdioma />
         <span className="correo">cris@ejemplo.com</span>
-        <button className="fantasma">Salir</button>
+        <button className="fantasma">{t('Salir')}</button>
       </header>
       <div className="wrap">
         <nav className="tabs">
           {TABS.map(([k, l]) => (
             <button key={k} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
-              {l}
+              {t(l)}
             </button>
           ))}
         </nav>

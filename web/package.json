@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "idioma:faltan": "node scripts/faltan-en.mjs",
+    "idioma:ambito": "node scripts/t-sin-declarar.mjs",
+    "idioma:check": "npm run idioma:ambito && npm run idioma:faltan"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

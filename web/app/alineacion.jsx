@@ -11,11 +11,13 @@
 
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useT } from './idioma';
 
 const SIN = '__sin__';
 
 // `demo` = tablero jugable sin base de datos, para la vista de ejemplo.
 export default function Alineacion({ d, recargar, demo = false }) {
+  const t = useT();
   // Copia local para que la UI responda al instante y no espere a la base.
   const [asig, setAsig] = useState(() => {
     const m = {};
@@ -54,7 +56,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
     const clanes = [...(d.clans ?? [])].sort(
       (a, b) => (b.es_principal ? 1 : 0) - (a.es_principal ? 1 : 0) || (a.orden ?? 100) - (b.orden ?? 100)
     );
-    return [{ clan_tag: SIN, nombre: 'Sin asignar', cwl_tamano: null }, ...clanes];
+    return [{ clan_tag: SIN, nombre: t('Sin asignar'), cwl_tamano: null }, ...clanes];
   }, [d.clans]);
 
   const enColumna = (clanTag) =>
@@ -112,7 +114,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
       const cuerpo =
         `📋 *ALINEACIÓN CWL ${d.temporada}*\n\n` +
         bloques.join('\n\n') +
-        `\n\n_Si no podés jugar, avisá ANTES del día de batalla._`;
+        `\n\n_Si no puedes jugar, avisa ANTES del día de batalla._`;
 
       if (demo) {
         setMsg('Así quedaría el mensaje:\n\n' + cuerpo);
@@ -136,20 +138,20 @@ export default function Alineacion({ d, recargar, demo = false }) {
   }
 
   if (!candidatos.length) {
-    return <p className="vacio">Sin jugadores todavía. Corré el snapshot primero.</p>;
+    return <p className="vacio">{t('Sin jugadores todavía. Corre el snapshot primero.')}</p>;
   }
 
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-        <h2 className="sec" style={{ margin: 0 }}>Alineación · temporada {d.temporada}</h2>
+        <h2 className="sec" style={{ margin: 0 }}>{t('Alineación')} · {t('temporada')} {d.temporada}</h2>
         <span style={{ flex: 1 }} />
         <button className="accion" onClick={generarMensaje} disabled={guardando}>
-          {guardando ? 'Generando…' : 'Generar mensaje'}
+          {guardando ? t('Generando…') : t('Generar mensaje')}
         </button>
       </div>
       <p className="sub" style={{ color: 'var(--tenue)', fontSize: 13, marginTop: 0 }}>
-        Arrastrá los nombres entre clanes. En el teléfono usá el desplegable de cada tarjeta.
+        {t('Arrastra los nombres entre clanes. En el teléfono usa el desplegable de cada tarjeta.')}
       </p>
       {msg &&
         // Un mensaje de varias lineas dentro de un <p> colapsa los saltos y
@@ -184,7 +186,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
             >
               <div className="col-cab">
                 <strong>{c.nombre}</strong>
-                {c.es_principal && <span className="pill">principal</span>}
+                {c.es_principal && <span className="pill">{t('principal')}</span>}
                 <span style={{ flex: 1 }} />
                 <span className={lleno ? 'pill mal' : 'pill'}>
                   {lista.length}
@@ -212,7 +214,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
                     className="ficha-sel"
                     value={asig[p.tag] ?? SIN}
                     onChange={(e) => mover(p.tag, e.target.value)}
-                    aria-label={`Clan de ${p.nombre}`}
+                    aria-label={`${t('Clan de')} ${p.nombre}`}
                   >
                     {columnas.map((o) => (
                       <option key={o.clan_tag} value={o.clan_tag}>
@@ -223,7 +225,7 @@ export default function Alineacion({ d, recargar, demo = false }) {
                 </div>
               ))}
 
-              {!lista.length && <p className="col-vacia">soltá nombres acá</p>}
+              {!lista.length && <p className="col-vacia">{t('suelta nombres aquí')}</p>}
             </div>
           );
         })}

@@ -25,8 +25,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useT } from './idioma';
 
 export default function Clanes({ d, demo = false }) {
+  const t = useT();
   const [orden, setOrden] = useState(() => d.clans.map((c) => c.clan_tag));
   const [agarrado, setAgarrado] = useState(null);
   const [msg, setMsg] = useState('');
@@ -56,7 +58,7 @@ export default function Clanes({ d, demo = false }) {
       clearTimeout(temporizador.current);
       temporizador.current = setTimeout(async () => {
         if (demo) {
-          setMsg('Orden cambiado (en la demo no se guarda).');
+          setMsg(t('Orden cambiado (en la demo no se guarda).'));
           setTimeout(() => setMsg(''), 2500);
           return;
         }
@@ -66,10 +68,10 @@ export default function Clanes({ d, demo = false }) {
           const filas = nuevo.map((t, i) => ({ clan_tag: t, orden: i + 1 }));
           const { error } = await supabase.from('clans').upsert(filas, { onConflict: 'clan_tag' });
           if (error) throw error;
-          setMsg('Orden guardado.');
+          setMsg(t('Orden guardado.'));
           setTimeout(() => setMsg(''), 2000);
         } catch (e) {
-          setMsg(`No se pudo guardar: ${e.message}`);
+          setMsg(t('No se pudo guardar: ') + e.message);
           setOrden(d.clans.map((c) => c.clan_tag)); // volver a lo que dice la base
         }
       }, 600);
@@ -123,9 +125,9 @@ export default function Clanes({ d, demo = false }) {
   if (!d.clans.length) {
     return (
       <div className="card">
-        <h3>Sin clanes todavía</h3>
+        <h3>{t('Sin clanes todavía')}</h3>
         <p className="sub">
-          Falta cargar <code>CLAN_TAGS</code> y correr el snapshot por primera vez.
+          {t('Falta cargar')} <code>CLAN_TAGS</code> {t('y correr el snapshot por primera vez.')}
         </p>
       </div>
     );
@@ -134,9 +136,9 @@ export default function Clanes({ d, demo = false }) {
   return (
     <>
       <p className="sub pista-arrastre">
-        Cambiá el orden con <b>↑ ↓</b>, o arrastrá desde el asa <b>⠿</b>. Se guarda solo.
+        {t('Cambia el orden con')} <b>↑ ↓</b>{t(', o arrastra desde el asa')} <b>⠿</b>{t('. Se guarda solo.')}
       </p>
-      {msg && <p className={msg.startsWith('No se pudo') ? 'error' : 'sub'}>{msg}</p>}
+      {msg && <p className={msg.startsWith(t('No se pudo guardar: ')) ? 'error' : 'sub'}>{msg}</p>}
 
       <div className="grid">
         {orden.map((tag, i) => {
@@ -155,8 +157,8 @@ export default function Clanes({ d, demo = false }) {
                   className="fantasma mover"
                   onClick={() => mover(tag, -1)}
                   disabled={i === 0}
-                  aria-label={`Subir ${c.nombre}`}
-                  title="Subir"
+                  aria-label={`${t('Subir')} ${c.nombre}`}
+                  title={t('Subir')}
                 >
                   ↑
                 </button>
@@ -164,8 +166,8 @@ export default function Clanes({ d, demo = false }) {
                   className="fantasma mover"
                   onClick={() => mover(tag, 1)}
                   disabled={i === orden.length - 1}
-                  aria-label={`Bajar ${c.nombre}`}
-                  title="Bajar"
+                  aria-label={`${t('Bajar')} ${c.nombre}`}
+                  title={t('Bajar')}
                 >
                   ↓
                 </button>
@@ -174,7 +176,7 @@ export default function Clanes({ d, demo = false }) {
                   role="button"
                   tabIndex={-1}
                   aria-hidden="true"
-                  title="Arrastrar para reordenar"
+                  title={t('Arrastrar para reordenar')}
                   onPointerDown={(e) => {
                     // Capturar el puntero: a partir de aca todos los eventos
                     // del gesto llegan a este elemento aunque el dedo salga
@@ -193,12 +195,12 @@ export default function Clanes({ d, demo = false }) {
               <p className="posicion">#{i + 1}</p>
               <h3>
                 {c.nombre}{' '}
-                {c.escuadra && <span className="pill">escuadra {c.escuadra}</span>}{' '}
-                {c.es_principal && <span className="pill aviso">principal</span>}
+                {c.escuadra && <span className="pill">{t('escuadra')} {c.escuadra}</span>}{' '}
+                {c.es_principal && <span className="pill aviso">{t('principal')}</span>}
               </h3>
               <p className="sub">{c.clan_tag}</p>
               <p className="big">{n}</p>
-              <p className="sub">miembros en el último snapshot</p>
+              <p className="sub">{t('miembros en el último snapshot')}</p>
             </div>
           );
         })}
