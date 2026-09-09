@@ -379,7 +379,7 @@ async function cmdReporte() {
 // regalarlo: basta con que alguien reenvie el mensaje. Va de una en una y
 // con cupo diario. Ver sql/016_base_pedidos.sql.
 
-const CUPO_DIARIO = 2;
+const CUPO_DIARIO = 1;
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
@@ -415,10 +415,13 @@ async function cmdBase(arg, quien) {
   if (errCupo) throw errCupo;
 
   if ((llevaHoy ?? 0) >= CUPO_DIARIO) {
+    // El texto se adapta al cupo: con CUPO_DIARIO en 1, "tus 1 bases de hoy"
+    // canta a plantilla mal hecha, y el bot pierde toda la gracia.
+    const cuantas = CUPO_DIARIO === 1 ? 'tu <b>base de hoy</b>' : `tus <b>${CUPO_DIARIO} bases de hoy</b>`;
     return (
-      `📜 Ya pediste tus <b>${CUPO_DIARIO} bases de hoy</b>.\n\n` +
-      `Mañana tienes ${CUPO_DIARIO} más. El pack es de pago y las bases se ` +
-      `piden cuando se va a atacar, no para coleccionarlas.`
+      `📜 Ya pediste ${cuantas}.\n\n` +
+      `Mañana hay ${CUPO_DIARIO === 1 ? 'otra' : `${CUPO_DIARIO} más`}. El pack es de pago, y la base ` +
+      `se pide cuando se va a atacar — no para coleccionarlas.`
     );
   }
 
@@ -454,12 +457,16 @@ async function cmdBase(arg, quien) {
   });
 
   const quedan = CUPO_DIARIO - (llevaHoy ?? 0) - 1;
+  const cierre =
+    quedan === 0
+      ? 'Es tu base de hoy. Mañana hay otra.'
+      : `Te ${quedan === 1 ? 'queda' : 'quedan'} ${quedan} de hoy.`;
   const pie =
     `🏰 <b>TH${base.th ?? '?'} · ${base.tipo === 'WB' ? 'guerra' : 'aldea'}</b>` +
     (base.etiqueta ? ` · ${esc(base.etiqueta)}` : '') +
     (base.nota ? `\n\n🛡 <i>${esc(base.nota)}</i>` : '') +
     `\n\n<a href="${esc(base.url)}">Abrir en el juego</a>` +
-    `\n\n<i>Te ${quedan === 1 ? 'queda' : 'quedan'} ${quedan} de hoy.</i>`;
+    `\n\n<i>${cierre}</i>`;
 
   // Con miniatura si el pack la trae; los packs de solo texto no la tienen.
   if (base.preview) {
