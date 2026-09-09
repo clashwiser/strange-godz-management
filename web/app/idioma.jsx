@@ -285,6 +285,23 @@ export const EN = {
   'Ficha con deltas de trofeos y estrellas': 'Profile with trophy and star deltas',
   'Último mensaje generado, listo para pegar': 'Latest generated message, ready to paste',
 
+  // ---- Alta de clan ----
+  'Añadir clan': 'Add clan',
+  'Pega el tag del clan o el enlace de invitación que comparte el juego. Se comprueba contra Clash of Clans antes de guardarlo.':
+    'Paste the clan tag or the invite link the game shares. It is checked against Clash of Clans before saving.',
+  'Eso no parece un tag. Pega el tag del clan o su enlace de invitación.':
+    'That does not look like a tag. Paste the clan tag or its invite link.',
+  'Ese clan ya está en la alianza.': 'That clan is already in the alliance.',
+  'Buscar': 'Search',
+  'Buscando…': 'Searching…',
+  'nivel': 'level',
+  'Su registro de guerra está en privado: la guerra normal de este clan no se podrá medir hasta que lo abran.':
+    "Its war log is private: this clan's regular war cannot be measured until they open it.",
+  'Escuadra': 'Squad',
+  'Cupo de CWL': 'CWL slots',
+  'Cancelar': 'Cancel',
+  'Añadir a la alianza': 'Add to the alliance',
+
   // ---- Aviso legal ----
   'Este material no está creado ni respaldado por Supercell. Para más información, consulta la':
     'This material is not created by or endorsed by Supercell. For more information, see',

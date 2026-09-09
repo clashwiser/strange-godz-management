@@ -26,8 +26,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
+import AltaClan from './alta-clan';
 
-export default function Clanes({ d, demo = false }) {
+export default function Clanes({ d, demo = false, recargar }) {
   const t = useT();
   const [orden, setOrden] = useState(() => d.clans.map((c) => c.clan_tag));
   const [agarrado, setAgarrado] = useState(null);
@@ -135,6 +136,8 @@ export default function Clanes({ d, demo = false }) {
 
   return (
     <>
+      <AltaClan demo={demo} recargar={recargar} yaEstan={d.clans.map((c) => c.clan_tag)} />
+
       <p className="sub pista-arrastre">
         {t('Cambia el orden con')} <b>↑ ↓</b>{t(', o arrastra desde el asa')} <b>⠿</b>{t('. Se guarda solo.')}
       </p>

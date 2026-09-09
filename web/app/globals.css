@@ -803,3 +803,17 @@ td:has(.mini-base) { padding: 8px 10px; }
   opacity: .92;
 }
 /* La columna de destino ya se resalta con .col[data-sobre="1"] */
+
+/* ---------- Alta de clan ---------- */
+.campo-etiqueta {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: var(--tenue);
+  font-family: var(--fuente); letter-spacing: .5px;
+}
+.campo-etiqueta .campo { margin-top: 0; }
+/* El clan encontrado: se separa del formulario para que quede claro que es
+   el resultado de la busqueda y no otro campo mas que rellenar. */
+.hallado {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 3px solid var(--bronce);
+}

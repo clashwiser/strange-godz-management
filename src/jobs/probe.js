@@ -10,7 +10,7 @@
 
 import { getClan, getCurrentWar, getWarLog, getLeagueGroup, getLeagueWar,
          getCapitalRaids, getPlayer, logro, CocError } from '../lib/coc.js';
-import { CLANES } from '../lib/config.js';
+import { clanes } from '../lib/config.js';
 
 const marca = (ok) => (ok ? 'SI' : 'NO');
 
@@ -23,12 +23,13 @@ async function probar(fn) {
 }
 
 console.log(`Base URL: ${process.env.COC_BASE_URL || 'https://cocproxy.royaleapi.dev/v1'}`);
-console.log(`Clanes configurados: ${CLANES.map((c) => `${c.clan_tag} (${c.escuadra})`).join(', ')}\n`);
+const LISTA = await clanes();
+console.log(`Clanes configurados: ${LISTA.map((c) => `${c.clan_tag} (${c.escuadra})`).join(', ')}\n`);
 
 let fatal = false;
 let muestra = null; // un tag cualquiera, para inspeccionar el perfil
 
-for (const { clan_tag, escuadra } of CLANES) {
+for (const { clan_tag, escuadra } of LISTA) {
   console.log(`=== ${clan_tag}  escuadra ${escuadra} ===`);
 
   const clan = await probar(() => getClan(clan_tag));

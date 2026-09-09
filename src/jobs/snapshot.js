@@ -9,7 +9,7 @@
 
 import { getClan, getPlayer, mapLimit, logro } from '../lib/coc.js';
 import { db, chk, asegurarJugadores, correrJob } from '../lib/db.js';
-import { CLANES, hoyUTC } from '../lib/config.js';
+import { clanes, hoyUTC } from '../lib/config.js';
 
 const fecha = hoyUTC();
 
@@ -17,7 +17,7 @@ await correrJob('snapshot_diario', async () => {
   let filas = 0;
   const detalle = {};
 
-  for (const { clan_tag, escuadra } of CLANES) {
+  for (const { clan_tag, escuadra } of await clanes()) {
     const clan = await getClan(clan_tag);
 
     chk(

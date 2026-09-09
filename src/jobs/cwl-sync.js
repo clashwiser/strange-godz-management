@@ -9,13 +9,13 @@
 
 import { getClan, getLeagueGroup, getLeagueWar, parseCocDate, mapLimit, opcional } from '../lib/coc.js';
 import { db, chk, asegurarJugadores, correrJob } from '../lib/db.js';
-import { CLANES } from '../lib/config.js';
+import { clanes } from '../lib/config.js';
 
 await correrJob('sync_cwl', async () => {
   let filas = 0;
   const detalle = {};
 
-  for (const { clan_tag } of CLANES) {
+  for (const { clan_tag } of await clanes()) {
     const grupo = await opcional(getLeagueGroup(clan_tag));
     if (!grupo) {
       console.log(`  ${clan_tag}: sin CWL activa`);

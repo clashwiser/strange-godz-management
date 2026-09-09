@@ -185,7 +185,7 @@ export default function Panel() {
         {error && <p className="error">{t('Error: ')}{error}</p>}
         {!d && !error && <p className="vacio">{t('Cargando datos…')}</p>}
 
-        {d && tab === 'resumen' && <Resumen d={d} />}
+        {d && tab === 'resumen' && <Resumen d={d} recargar={cargar} />}
         {/* key: al cambiar de temporada se reinicia el estado local del tablero */}
         {d && tab === 'alineacion' && <Alineacion key={d.temporada} d={d} recargar={cargar} />}
         {d && tab === 'cwl' && <CWL d={d} />}
@@ -258,7 +258,7 @@ function Login() {
 }
 
 // -------------------------------------------------------------- Resumen
-export function Resumen({ d, demo = false }) {
+export function Resumen({ d, demo = false, recargar }) {
   const t = useT();
   // Ultima corrida de cada job: asi se ve de un vistazo si algo dejo de correr.
   const ultimos = useMemo(() => {
@@ -285,7 +285,7 @@ export function Resumen({ d, demo = false }) {
       </div>
 
       <h2 className="sec">{t('Nuestros clanes')}</h2>
-      <Clanes d={d} demo={demo} />
+      <Clanes d={d} demo={demo} recargar={recargar} />
 
       <h2 className="sec">{t('Estado del sistema')}</h2>
       <div className="grid">

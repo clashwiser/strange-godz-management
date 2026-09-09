@@ -10,7 +10,7 @@
 
 import { getCapitalRaids, parseCocDate, opcional } from '../lib/coc.js';
 import { db, chk, asegurarJugadores, correrJob } from '../lib/db.js';
-import { CLANES } from '../lib/config.js';
+import { clanes } from '../lib/config.js';
 
 const LIMITE = Number(process.env.RAIDS_LIMITE || 10);
 
@@ -18,7 +18,7 @@ await correrJob('raids_sync', async () => {
   let filas = 0;
   const detalle = {};
 
-  for (const { clan_tag } of CLANES) {
+  for (const { clan_tag } of await clanes()) {
     const res = await opcional(getCapitalRaids(clan_tag, LIMITE));
     if (!res) {
       console.log(`  ${clan_tag}: sin datos de raids`);

@@ -8,7 +8,7 @@
 // WhatsApp no borra el aviso: queda en el website para copiar y pegar.
 
 import { getClan, getLeagueGroup, getLeagueWar, parseCocDate, mapLimit, opcional } from '../lib/coc.js';
-import { CLANES, horasHasta } from '../lib/config.js';
+import { clanes, horasHasta } from '../lib/config.js';
 import { encolar, negrita, mono } from '../lib/outbox.js';
 import { correrJob } from '../lib/db.js';
 
@@ -34,7 +34,7 @@ await correrJob('alerta_cwl', async () => {
   let pendientesTotal = 0;
   let masUrgente = Infinity;
 
-  for (const { clan_tag, escuadra } of CLANES) {
+  for (const { clan_tag, escuadra } of await clanes()) {
     const grupo = await opcional(getLeagueGroup(clan_tag));
     if (!grupo) continue;
 

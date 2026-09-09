@@ -1,24 +1,68 @@
-// Configuracion de los clanes. Los tags viven en el entorno para no
-// commitearlos al repo publico de codigo.
+// De donde salen los clanes de la alianza.
 //
-// CLAN_TAGS = "#AAAA:A,#BBBB:B,#CCCC:C"   (tag:escuadra, separados por coma)
+// Antes salian SOLO de la variable CLAN_TAGS del entorno. Eso significaba
+// que anadir un clan obligaba a editar un secreto de GitHub, o sea que ni
+// Carlos ni Deibis podian hacerlo por su cuenta aunque fueran lideres. Y
+// peor: si daban de alta un clan desde el panel, los jobs seguian leyendo
+// los tags viejos y ese clan no se sincronizaba nunca. La pantalla decia
+// una cosa y el cron hacia otra.
+//
+// Ahora manda la BASE DE DATOS, que es lo que el panel escribe. El entorno
+// queda como respaldo de arranque: la primera vez la tabla `clans` esta
+// vacia y hay que sembrarla desde algun lado.
 
-const crudo = process.env.CLAN_TAGS || '';
+import { db } from './db.js';
 
-export const CLANES = crudo
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
-  .map((par) => {
-    const [tag, escuadra] = par.split(':').map((x) => x.trim());
-    if (!tag || !escuadra) {
-      throw new Error(`CLAN_TAGS mal formado en "${par}". Formato: #TAG:A`);
-    }
-    return { clan_tag: tag.toUpperCase(), escuadra: escuadra.toUpperCase() };
-  });
+/** "#AAAA:A,#BBBB:B" -> [{clan_tag, escuadra}] */
+function delEntorno() {
+  return (process.env.CLAN_TAGS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((par) => {
+      const [tag, escuadra] = par.split(':').map((x) => x.trim());
+      if (!tag) throw new Error(`CLAN_TAGS mal formado en "${par}". Formato: #TAG:A`);
+      return { clan_tag: tag.toUpperCase(), escuadra: (escuadra || 'A').toUpperCase() };
+    });
+}
 
-if (CLANES.length === 0) {
-  throw new Error('CLAN_TAGS vacio. Formato: "#AAAA:A,#BBBB:B,#CCCC:C"');
+/**
+ * Los clanes que hay que sincronizar, en orden.
+ *
+ * Solo los activos: retirar un clan es marcarlo `activo = false`, nunca
+ * borrarlo, porque borrarlo se lleva en cascada meses de snapshots y
+ * ataques que la API ya no devuelve.
+ */
+export async function clanes() {
+  const { data, error } = await db
+    .from('clans')
+    .select('clan_tag, escuadra, es_principal, cwl_tamano, activo')
+    .eq('activo', true)
+    .order('orden', { nullsFirst: false })
+    .order('clan_tag');
+
+  // Un fallo de red leyendo la tabla no debe dejar al cron sin hacer nada:
+  // se cae al entorno, que como minimo trae la alianza original.
+  if (error) {
+    console.warn(`[config] no se pudo leer clans (${error.message}); uso CLAN_TAGS`);
+    return validar(delEntorno());
+  }
+
+  if (data?.length) return data;
+
+  // Primer arranque: la tabla esta vacia y hay que sembrarla.
+  console.log('[config] tabla clans vacia; uso CLAN_TAGS del entorno');
+  return validar(delEntorno());
+}
+
+function validar(lista) {
+  if (!lista.length) {
+    throw new Error(
+      'No hay clanes. La tabla `clans` esta vacia y CLAN_TAGS tampoco trae nada. ' +
+        'Formato: "#AAAA:A,#BBBB:B,#CCCC:C"'
+    );
+  }
+  return lista;
 }
 
 /** Temporada de CWL en formato YYYY-MM segun la fecha UTC de hoy. */
