@@ -8,7 +8,8 @@
 //
 // Se puede mover un jugador de DOS formas, y las dos funcionan con el dedo:
 //
-//   Arrastrar desde el asa   con raton o con el dedo.
+//   Arrastrar la tarjeta     desde cualquier parte. Con raton, al instante;
+//                            con el dedo, manteniendo pulsado 250 ms.
 //   Desplegable de la ficha  un toque, sin gesto que pueda salir mal.
 //
 // Antes esto usaba la API de arrastre de HTML5 (draggable + onDrop). Esa API
@@ -17,10 +18,13 @@
 // mismo codigo sirve para los dos, que es lo que hace falta cuando los
 // lideres arman la CWL desde el movil.
 //
-// El asa lleva touch-action:none ella sola. Si se lo pusieramos a la ficha
-// entera, tocar un nombre bloquearia el scroll de la columna.
+// Por que el dedo necesita pulsacion larga y el raton no: si la tarjeta
+// capturase el gesto desde el primer contacto, tocar un nombre bloquearia el
+// scroll de la pagina. Es el mismo bug que tenian las tarjetas de clan. Con
+// la espera de 250 ms un deslizamiento rapido sigue siendo scroll, y solo un
+// gesto deliberado arrastra.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 
@@ -38,6 +42,11 @@ export default function Alineacion({ d, recargar, demo = false }) {
   const [arrastrando, setArrastrando] = useState(null);
   const [sobre, setSobre] = useState(null);
   const [msg, setMsg] = useState('');
+  // Pulsacion larga en curso. En una ref y no en estado: cambia dentro de
+  // un temporizador y no debe repintar nada.
+  const presion = useRef(null);
+  // Estable entre renders: hay que poder quitar el MISMO listener.
+  const frenar = useRef((e) => e.preventDefault()).current;
   const [guardando, setGuardando] = useState(false);
 
   const nombre = useMemo(
@@ -104,12 +113,64 @@ export default function Alineacion({ d, recargar, demo = false }) {
   }
 
   // ---- Arrastrar con raton o dedo ----
+  /**
+   * Empezar a arrastrar desde CUALQUIER parte de la ficha.
+   *
+   * Con raton arranca al instante. Con el dedo NO puede arrancar al
+   * instante, y esto es un conflicto real, no una pereza: si la ficha
+   * captura el gesto desde el primer contacto, deja de poder hacerse scroll
+   * — es exactamente el bug que tenian las tarjetas de clan, donde tocar
+   * cualquier parte bloqueaba la pagina.
+   *
+   * La salida estandar es la pulsacion larga: se espera 250 ms. Si el dedo
+   * se mueve mas de 10 px antes, era un scroll y se cancela. Si aguanta,
+   * empieza el arrastre y a partir de ahi se bloquea el scroll a mano con
+   * preventDefault, porque a esas alturas el navegador todavia no ha
+   * empezado a desplazar nada.
+   */
   function alAgarrar(e, tag) {
-    // Capturar el puntero: a partir de aqui todos los eventos del gesto
-    // llegan a este elemento aunque el dedo salga de la columna, asi que el
-    // 'pointerup' nunca se pierde y la ficha no queda pegada al dedo.
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    setArrastrando(tag);
+    const esRaton = e.pointerType === 'mouse';
+    const el = e.currentTarget;
+    const pid = e.pointerId;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+
+    const activar = () => {
+      el.setPointerCapture?.(pid);
+      setArrastrando(tag);
+      // Solo mientras se arrastra: bloquea el desplazamiento de la pagina
+      // sin quitarselo al resto del tiempo. Va como listener no pasivo
+      // porque uno pasivo no puede llamar a preventDefault.
+      document.addEventListener('touchmove', frenar, { passive: false });
+    };
+
+    if (esRaton) return activar();
+
+    presion.current = {
+      tag,
+      x0,
+      y0,
+      temporizador: setTimeout(() => {
+        presion.current = { ...presion.current, temporizador: null };
+        activar();
+      }, 250),
+    };
+  }
+
+  /** Cancela la pulsacion larga si el dedo se movio: era un scroll. */
+  function alTantear(e) {
+    const p = presion.current;
+    if (!p?.temporizador) return;
+    if (Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 10) {
+      clearTimeout(p.temporizador);
+      presion.current = null;
+    }
+  }
+
+  function soltarPresion() {
+    if (presion.current?.temporizador) clearTimeout(presion.current.temporizador);
+    presion.current = null;
+    document.removeEventListener('touchmove', frenar, { passive: false });
   }
 
   /** Columna que hay debajo del puntero. elementFromPoint hace su propia
@@ -119,11 +180,12 @@ export default function Alineacion({ d, recargar, demo = false }) {
     document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-col]')?.dataset.col ?? null;
 
   function alArrastrar(e) {
-    if (!arrastrando) return;
+    if (!arrastrando) return alTantear(e);
     setSobre(columnaBajo(e));
   }
 
   function alSoltar(e) {
+    soltarPresion();
     if (!arrastrando) return;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     const destino = columnaBajo(e);
@@ -229,18 +291,15 @@ export default function Alineacion({ d, recargar, demo = false }) {
                   key={p.tag}
                   className="ficha"
                   data-agarrada={arrastrando === p.tag ? '1' : '0'}
+                  title={t('Arrastra desde cualquier parte. En el teléfono, mantén pulsado.')}
+                  onPointerDown={(e) => alAgarrar(e, p.tag)}
+                  onPointerMove={alArrastrar}
+                  onPointerUp={alSoltar}
+                  onPointerCancel={alSoltar}
                 >
-                  <span
-                    className="asa asa-ficha"
-                    role="button"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    title={t('Arrastrar a otro clan')}
-                    onPointerDown={(e) => alAgarrar(e, p.tag)}
-                    onPointerMove={alArrastrar}
-                    onPointerUp={alSoltar}
-                    onPointerCancel={alSoltar}
-                  >
+                  {/* El asa se queda como pista visual de que la tarjeta se
+                      arrastra. Ya no es la unica zona que responde. */}
+                  <span className="asa asa-ficha" aria-hidden="true">
                     ⠿
                   </span>
                   <div className="ficha-nom">{p.nombre}</div>

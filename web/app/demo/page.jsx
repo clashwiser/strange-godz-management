@@ -126,8 +126,8 @@ const d = {
 
 const TABS = [
   ['resumen', 'Resumen'],
-  ['alineacion', 'Alineación'],
-  ['cwl', 'CWL'],
+  ['alineacion', 'Lista CWL'],
+  ['cwl', 'CWL Resultados'],
   ['jugadores', 'Jugadores'],
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
@@ -146,11 +146,12 @@ export default function Demo() {
       </div>
       <header className="top">
         <h1>Strange Godz Alliance · Management</h1>
-        <span className="sp" />
-        <SelectorTema />
-        <SelectorIdioma />
-        <span className="correo">cris@ejemplo.com</span>
-        <button className="fantasma">{t('Salir')}</button>
+        <div className="acciones-top">
+          <SelectorTema />
+          <SelectorIdioma />
+          <span className="correo">cris@ejemplo.com</span>
+          <button className="fantasma">{t('Salir')}</button>
+        </div>
       </header>
       <div className="wrap">
         <nav className="tabs">

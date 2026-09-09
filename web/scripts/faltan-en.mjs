@@ -40,7 +40,8 @@ for (const f of jsx(raiz)) {
 // Claves que se usan a traves de una variable -- t(label) en el menu de
 // pestanas -- y que el barrido por texto no puede ver.
 const DINAMICAS = new Set([
-  'Resumen', 'Alineación', 'CWL', 'Jugadores', 'Mensajes', 'Bases', 'Bonos', 'Bots',
+  'Resumen', 'Lista CWL', 'CWL Resultados', 'Jugadores', 'Mensajes', 'Bases', 'Bonos', 'Bots',
+  'Alineación', 'CWL',
   // t(TIPOS[b.tipo]) en bases.jsx: el codigo de la API se traduce al pintar.
   'Aldea', 'Guerra',
 ]);

@@ -25,6 +25,8 @@ export const EN = {
   'Salir': 'Sign out',
   'Actualizar': 'Refresh',
   'Resumen': 'Overview',
+  'Lista CWL': 'CWL Roster',
+  'CWL Resultados': 'CWL Results',
   'Alineación': 'Lineup',
   'CWL': 'CWL',
   'Jugadores': 'Players',
@@ -85,7 +87,8 @@ export const EN = {
   'Subir': 'Move up',
   'Bajar': 'Move down',
   'Arrastrar para reordenar': 'Drag to reorder',
-  'Arrastrar a otro clan': 'Drag to another clan',
+  'Arrastra desde cualquier parte. En el teléfono, mantén pulsado.':
+    'Drag from anywhere. On the phone, press and hold.',
   'Orden guardado.': 'Order saved.',
   'Orden cambiado (en la demo no se guarda).': 'Order changed (nothing is saved in the demo).',
   'No se pudo guardar: ': 'Could not save: ',
@@ -108,7 +111,6 @@ export const EN = {
   'Generar mensaje': 'Generate message',
   'Guardando…': 'Saving…',
   'Guardar cambios': 'Save changes',
-  'Sin asignar': 'Unassigned',
   'Sin asignar': 'Unassigned',
 
   // ---- Bases ----

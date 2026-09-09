@@ -27,12 +27,18 @@ export default function Bases({ d, demo = false, recargar }) {
   );
 
   const filtradas = useMemo(() => {
-    return (d.bases ?? []).filter(
-      (b) =>
-        (packSel === 'todos' || String(b.pack_id) === packSel) &&
-        (tipoSel === 'todos' || b.tipo === tipoSel) &&
-        (!soloLibres || !b.asignada_a)
-    );
+    return (d.bases ?? [])
+      .filter(
+        (b) =>
+          (packSel === 'todos' || String(b.pack_id) === packSel) &&
+          (tipoSel === 'todos' || b.tipo === tipoSel) &&
+          (!soloLibres || !b.asignada_a)
+      )
+      // Las que traen miniatura, primero: se eligen de un vistazo. Las de
+      // solo texto obligan a abrir el enlace en el juego para saber que son,
+      // asi que estorban arriba. Dentro de cada grupo se respeta el orden
+      // que trajo la consulta, que ya viene por TH descendente.
+      .sort((a, b) => (b.preview ? 1 : 0) - (a.preview ? 1 : 0));
   }, [d.bases, packSel, tipoSel, soloLibres]);
 
   useEffect(() => {

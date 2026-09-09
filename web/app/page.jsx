@@ -13,8 +13,8 @@ import { SelectorIdioma, useT } from './idioma';
 
 const TABS = [
   ['resumen', 'Resumen'],
-  ['alineacion', 'Alineación'],
-  ['cwl', 'CWL'],
+  ['alineacion', 'Lista CWL'],
+  ['cwl', 'CWL Resultados'],
   ['jugadores', 'Jugadores'],
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
@@ -159,14 +159,20 @@ export default function Panel() {
     <>
       <header className="top">
         <h1>Strange Godz Alliance · Management</h1>
-        <span className="sp" />
-        <SelectorTema />
-        <SelectorIdioma />
-        <Instalar />
-        <span className="correo">{sesion.user.email}</span>
-        <button className="fantasma" onClick={() => supabase.auth.signOut()}>
-          {t('Salir')}
-        </button>
+        {/* Los controles van juntos en su propia caja. Antes eran hermanos
+            sueltos del titulo y, cuando el titulo crecia -los temas Strange y
+            Godz usan Cinzel, mas ancha que Lilita One-, se iban a una segunda
+            linea y se pegaban a la IZQUIERDA. Agrupados y con margin-left
+            auto quedan siempre a la derecha, envuelvan o no. */}
+        <div className="acciones-top">
+          <SelectorTema />
+          <SelectorIdioma />
+          <Instalar />
+          <span className="correo">{sesion.user.email}</span>
+          <button className="fantasma" onClick={() => supabase.auth.signOut()}>
+            {t('Salir')}
+          </button>
+        </div>
       </header>
 
       <div className="wrap">
