@@ -113,7 +113,10 @@ export function mensajeDiaDeGuerra({ clan, liga, analisis }) {
       `Estamos a solo ${estrellas(a.margenSobreDescenso)} del puesto que baja ` +
         `(${a.primeroQueBaja?.nombre ?? '—'}). Riesgo de bajar: *${pct(a.probBajar)}*.`
     );
-    l.push('No se puede fallar ni un ataque. Usen los dos, y con calma.');
+    // En CWL es UN ataque por cabeza y por ronda, no dos: los dos son de la
+    // guerra normal. Decirlo mal aqui es peor que no decir nada, porque el
+    // que se lo crea se queda esperando un segundo ataque que no existe.
+    l.push('No se puede fallar ni un ataque. Aqui es uno por cabeza: úsenlo con calma.');
   } else if (a.probSubir >= 0.5) {
     l.push('🟢 *VAMOS DE SUBIDA*');
     l.push(`Con esto subimos: ${pct(a.probSubir)} de posibilidades. A no relajarse.`);
