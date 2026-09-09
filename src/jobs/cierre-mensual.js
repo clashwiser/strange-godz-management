@@ -10,11 +10,13 @@
 //
 // TRES DECISIONES QUE NO SON OBVIAS
 //
-// 1. Se agrupa por PERSONA, no por cuenta. Cris tiene tres cuentas: sin
-//    agrupar podria llevarse los tres primeros premios de x300 el solo. La
-//    tabla `owners` dice que cuentas son de quien, y para el reparto cada
-//    persona entra con su MEJOR cuenta, no con la suma: sumar premiaria
-//    tener muchas cuentas, no jugar bien.
+// 1. Compite CADA CUENTA, no cada persona. Quien tiene tres cuentas puede
+//    ganar tres premios: es la regla de la casa, cada cuenta se juega sus
+//    propios ataques. Yo lo habia hecho al reves -una persona entraba con
+//    su mejor cuenta- y estaba mal.
+//
+//    La tabla `owners` sigue haciendo falta, pero solo para lo otro: marcar
+//    quien NO compite.
 //
 // 2. Los tres lideres no compiten. Estan marcados elegible_premios=false.
 //    Deibis cobra 10 fijos por coordinar, que sale del presupuesto pero no
@@ -108,9 +110,7 @@ await correrJob('cierre_mensual', async () => {
   ]).then((rs) => rs.map((r, i) => chk(r, ['roster', 'ataques', 'jugadores', 'personas', 'clanes'][i])));
 
   const nombre = Object.fromEntries(players.map((p) => [p.player_tag, p.nombre_actual]));
-  const duenoDe = Object.fromEntries(players.map((p) => [p.player_tag, p.owner_id]));
   const elegible = Object.fromEntries(players.map((p) => [p.player_tag, p.elegible_premios !== false]));
-  const persona = Object.fromEntries(owners.map((o) => [o.id, o]));
   const clanNombre = Object.fromEntries(clans.map((c) => [c.clan_tag, c.nombre]));
   const escuadraDe = Object.fromEntries(clans.map((c) => [c.clan_tag, c.escuadra]));
 
@@ -201,24 +201,17 @@ await correrJob('cierre_mensual', async () => {
   const paraGuardar = filas.map(({ orden_prom, ...resto }) => resto);
   chk(await db.from('monthly_stats').upsert(paraGuardar, { onConflict: 'mes,player_tag' }), 'guardar stats');
 
-  // ---- Ganadores, por PERSONA y por clan ----
-  // Sin dueno asignado, cada cuenta es su propia persona. Es lo correcto
-  // mientras no se sepa lo contrario: agrupar a ciegas seria peor.
-  const clave = (tag) => (duenoDe[tag] ? `o${duenoDe[tag]}` : `t${tag}`);
-  const comoSeLlama = (tag) => (duenoDe[tag] ? persona[duenoDe[tag]].nombre : nombre[tag] ?? tag);
-
+  // ---- Ganadores: una fila por CUENTA, agrupadas por clan ----
+  // Cada cuenta compite sola y puede ganar su propio premio, aunque tres
+  // sean del mismo jugador: cada cuenta se jugo sus propios ataques. Solo
+  // se descartan las de los lideres, que no compiten.
   const porClan = {};
   for (const f of filas) {
     if (!f.elegible) continue;
     if (!f.cwl_ataques_totales) continue; // no jugo CWL este mes
     const clan = stat[f.player_tag].clan_tag;
     (porClan[clan] ??= {});
-    const k = clave(f.player_tag);
-    const previo = porClan[clan][k];
-    // Cada persona entra con su MEJOR cuenta, no con la suma.
-    if (!previo || f.cwl_estrellas > previo.cwl_estrellas) {
-      porClan[clan][k] = { ...f, quien: comoSeLlama(f.player_tag), cuenta: nombre[f.player_tag] };
-    }
+    porClan[clan][f.player_tag] = { ...f, quien: nombre[f.player_tag] ?? f.player_tag };
   }
 
   console.log(`\n=== ${MES} · ${wars.length} rondas cerradas ===\n`);
@@ -240,8 +233,7 @@ await correrJob('cierre_mensual', async () => {
         `  ${String(i + 1).padStart(2)}. ${String(x.quien).padEnd(22)}` +
           `${String(x.cwl_estrellas).padStart(3)}★  ${usados.padEnd(7)}` +
           `${x.cwl_destruccion_prom ?? '—'}%`.padEnd(9) +
-          `atacó #${x.orden_prom ?? '—'}` +
-          (x.quien !== x.cuenta ? `   (${x.cuenta})` : '')
+          `atacó #${x.orden_prom ?? '—'}`
       );
     });
     console.log('');
@@ -306,21 +298,9 @@ await correrJob('cierre_mensual', async () => {
       });
     }
 
-    // Dos premios a la misma persona con cuentas distintas. Se comprueba
-    // AQUI y no fuera porque aqui ya esta resuelto que cuenta gano cada
-    // puesto; calcularlo por separado obliga a repetir el ranking y es
-    // facil equivocarse al derivar el clan de cada jugador.
-    const porRaiz = {};
-    for (const g of pagos) (porRaiz[raizNombre(nombre[g.player_tag] ?? '')] ??= []).push(g);
-    const dobles = Object.values(porRaiz).filter((v) => v.length > 1);
-    if (dobles.length) {
-      console.log('');
-      console.log('  !! Dos premios a cuentas con el mismo nombre de base:');
-      for (const v of dobles) {
-        for (const g of v) console.log(`       ${g.premio}  ->  ${nombre[g.player_tag]}  (${g.player_tag})`);
-      }
-      console.log('     Si son la misma persona, agrupalas en `owners` y vuelve a correr.');
-    }
+    // Aqui iba un aviso de "dos premios a la misma persona". Se quito: con
+    // la regla de la casa, ganar con dos cuentas distintas es exactamente lo
+    // permitido, no un problema que avisar.
     console.log('');
 
     for (const o of owners.filter((x) => x.pago_fijo_usd)) {
@@ -335,12 +315,10 @@ await correrJob('cierre_mensual', async () => {
     }
   }
 
-  // ---- Aviso: cuentas que parecen de la misma persona ----
-  // Cada cuenta suelta compite por separado. Si tres son del mismo jugador,
-  // esa persona puede quedarse con varios premios del mismo clan. Solo se
-  // avisa: agrupar por parecido de nombre y equivocarse le costaria un
-  // premio a alguien, asi que la decision es de los lideres y se carga en
-  // la tabla `owners`.
+  // ---- Informativo: quien tiene varias cuentas ----
+  // No es un problema: cada cuenta compite y cobra por separado, esa es la
+  // regla de la casa. Se lista solo para que los lideres sepan cuando un
+  // mismo jugador ocupa varios puestos de la tabla.
   const grupos = {};
   for (const p of players) {
     if (p.owner_id) continue;
@@ -350,8 +328,8 @@ await correrJob('cierre_mensual', async () => {
   }
   const sospechosas = Object.values(grupos).filter((v) => v.length > 1);
   if (sospechosas.length) {
-    console.log('--- Cuentas que parecen de la misma persona ---');
-    console.log('    (compiten por separado hasta que se agrupen en `owners`)');
+    console.log('--- Jugadores con varias cuentas ---');
+    console.log('    (cada cuenta compite y cobra por separado; es la regla de la casa)');
     for (const v of sospechosas) console.log(`  ${v.join('  =  ')}`);
     console.log('');
   }
