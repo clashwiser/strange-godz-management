@@ -41,34 +41,71 @@ export function aHtmlTelegram(texto) {
     .join('');
 }
 
+// El sitio publicado. De aqui salen las imagenes de Heraldo: Telegram las
+// descarga solas si le pasas la URL, asi que no hay que subir nada.
+const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
+
+// Un pie de foto de Telegram tope a 1024 caracteres. Los partes rondan los
+// 500, pero uno largo -siete clanes en zona de descenso- podria pasarse, y
+// entonces sendPhoto falla ENTERO y el aviso no llega. Se comprueba antes.
+const TOPE_PIE = 1024;
+
 /**
  * Manda un mensaje. Si Telegram no esta configurado, lo escribe en el log
  * y sigue: nunca debe tumbar un job de ingesta por un fallo de aviso.
+ *
+ * Con `pose`, va como FOTO con el texto de pie: Heraldo anunciando lo que
+ * toca. Es lo que hace que el parte se lea como algo que dice alguien y no
+ * como otra notificacion mas del monton.
  */
-export async function avisar(texto, { silencioso = false } = {}) {
+export async function avisar(texto, { silencioso = false, pose = null } = {}) {
   if (!telegramConfigurado) {
     console.log('[telegram] no configurado, mensaje no enviado:\n' + texto);
     return false;
   }
+  const html = aHtmlTelegram(texto);
+  // Con foto solo si el pie cabe; si no, mensaje normal y no se pierde nada.
+  const conFoto = pose && html.length <= TOPE_PIE;
   try {
-    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+    const res = await fetch(
+      `https://api.telegram.org/bot${TOKEN}/${conFoto ? 'sendPhoto' : 'sendMessage'}`,
+      {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: aHtmlTelegram(texto),
-        parse_mode: 'HTML',
-        disable_notification: silencioso,
-      }),
+      body: JSON.stringify(
+        conFoto
+          ? {
+              chat_id: CHAT_ID,
+              photo: `${SITIO}/heraldo-${pose}.jpg`,
+              caption: html,
+              parse_mode: 'HTML',
+              disable_notification: silencioso,
+            }
+          : {
+              chat_id: CHAT_ID,
+              text: html,
+              parse_mode: 'HTML',
+              disable_notification: silencioso,
+            }
+      ),
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      console.error('[telegram] error', res.status, await res.text().catch(() => ''));
+      const detalle = await res.text().catch(() => '');
+      console.error('[telegram] error', res.status, detalle);
+      // Si lo que fallo fue la FOTO, el parte se reintenta como texto. Sin
+      // esto, un despliegue a medias -la imagen todavia no publicada- se
+      // lleva por delante el aviso del dia entero, y en silencio.
+      if (conFoto) {
+        console.error('[telegram] reintento sin foto');
+        return await avisar(texto, { silencioso });
+      }
       return false;
     }
     return true;
   } catch (err) {
     console.error('[telegram] fallo el envio:', err);
+    if (conFoto) return await avisar(texto, { silencioso });
     return false;
   }
 }

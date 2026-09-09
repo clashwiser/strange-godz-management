@@ -188,7 +188,28 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
   return (
     <div className="heraldo">
       <div className="heraldo-cab">
-        <img src="/heraldo.png" alt="" width="28" height="28" className="heraldo-cara" />
+        {/* Video y no imagen, pero SOLO aca dentro: este nodo existe nada mas
+            con el panel abierto, asi que el clip no se descarga hasta que
+            alguien va a mirarlo. En la burbuja iria animandose todo el rato
+            en una esquina, gastando datos de gente que paga el megabyte.
+
+            poster: mientras carga se ve la imagen fija en vez de un hueco
+            negro. Y si el video no carga -o el navegador no lo reproduce
+            solo-, lo que queda es la imagen, que es exactamente lo que
+            habia antes. */}
+        <video
+          className="heraldo-cara heraldo-video"
+          src="/heraldo-lee.mp4"
+          poster="/heraldo.png"
+          width={38}
+          height={38}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="none"
+          aria-hidden="true"
+        />
         <strong>{nombreBot}</strong>
         <span className="sub">{t('responde de la base, sin inventar')}</span>
         <span style={{ flex: 1 }} />

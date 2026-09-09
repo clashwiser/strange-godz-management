@@ -1017,6 +1017,12 @@ button.enlace-clave:hover { color: var(--texto); transform: none; }
    escala no se distinguia de un emoji cualquiera. */
 .heraldo-burbuja img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .heraldo-cara { border-radius: 50%; flex: 0 0 auto; }
+/* El retrato animado de la cabecera del chat. object-fit:cover porque el
+   clip es cuadrado y el circulo tiene que quedar lleno. */
+.heraldo-video {
+  width: 38px; height: 38px; object-fit: cover;
+  border: 2px solid var(--bronce); background: var(--panel-2);
+}
 .heraldo-burbuja {
   position: fixed; right: 16px; bottom: 16px; z-index: 90;
   width: 84px; height: 84px; border-radius: 50%;

@@ -205,3 +205,33 @@ export function mensajeDelDia({ clan, liga, analisis, promueven = 2, descienden 
   if (f === 'final') return mensajeFinal({ clan, liga, analisis });
   return mensajeDiaDeGuerra({ clan, liga, analisis });
 }
+
+/**
+ * Que cara pone Heraldo en cada anuncio.
+ *
+ * El parte va a Telegram como FOTO con el texto de pie, y la pose cambia
+ * segun lo que toque decir: no es adorno, es la primera lectura. En una
+ * lista de notificaciones, la foto se ve antes que la primera palabra, y
+ * la alarma roja tiene que distinguirse del parte de rutina sin leer nada.
+ *
+ * Los nombres corresponden a web/public/heraldo-<pose>.png.
+ */
+export function poseDelDia({ analisis, fase }) {
+  const f = fase ?? faseDe(analisis);
+
+  // Dia de preparacion: llamar a todo el mundo. Corneta.
+  if (f === 'preparacion') return 'corneta';
+  if (!analisis) return 'lee';
+
+  const a = analisis;
+  if (f === 'final') {
+    if (a.enAscenso) return 'corneta';   // celebrar tambien es tocar la corneta
+    if (a.enDescenso) return 'alarma';
+    return 'lee';
+  }
+
+  // Dia de guerra: alarma solo cuando de verdad hay que gritar. Si la
+  // alarma sale todos los dias, deja de significar nada.
+  if (a.enDescenso || a.probBajar >= 0.25) return 'alarma';
+  return 'lee';
+}

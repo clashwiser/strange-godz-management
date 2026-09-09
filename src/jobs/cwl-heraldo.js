@@ -26,7 +26,7 @@ import { db, chk, correrJob } from '../lib/db.js';
 import { encolar } from '../lib/outbox.js';
 import { clanes } from '../lib/config.js';
 import { analizar } from '../lib/cwl-analisis.js';
-import { faseDe, mensajeDelDia } from '../lib/cwl-mensajes.js';
+import { faseDe, mensajeDelDia, poseDelDia } from '../lib/cwl-mensajes.js';
 
 const CUPO_POR_DEFECTO = { promueven: 2, descienden: 2 };
 
@@ -105,7 +105,7 @@ ${cuerpo}
       detalle[s.clan_tag] = { fase, ronda: a.rondaActual, puesto: a.yo.puesto, seco: true };
       continue;
     }
-    const nuevo = await encolar({ tipo: 'cwl_heraldo', cuerpo, clave });
+    const nuevo = await encolar({ tipo: 'cwl_heraldo', cuerpo, clave, pose: poseDelDia({ analisis: a, fase }) });
 
     if (nuevo) enviados += 1;
     detalle[s.clan_tag] = {
