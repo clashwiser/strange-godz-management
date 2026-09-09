@@ -115,10 +115,21 @@ export async function POST(request) {
     comando = crudo.slice(1).split('@')[0].toLowerCase();
     arg = resto.join(' ');
   } else {
-    // Sin barra: nadie escribe comandos, la gente pregunta. Con el modo
-    // privacidad puesto, Telegram solo nos manda los mensajes que mencionan
-    // al bot o que responden a uno suyo — asi que si esto llego, nos
-    // estaban hablando a nosotros.
+    // Sin barra: nadie escribe comandos, la gente pregunta.
+    //
+    // Pero solo si nos estan hablando A NOSOTROS. Con el modo privacidad
+    // QUITADO -que es lo que hace falta para que funcione sin @- Telegram
+    // nos entrega TODO lo que se escriba en el grupo, y "aldea" o "base"
+    // son palabras normales en una conversacion de Clash: "voy a mejorar mi
+    // aldea" acabaria gastandole a alguien su base del dia sin que la
+    // pidiera.
+    //
+    // Cuenta como dirigido a nosotros: que nombren a Heraldo, que usen el
+    // @usuario, o que respondan a un mensaje suyo.
+    const respondeAlBot = msg.reply_to_message?.from?.is_bot === true;
+    const nombrado = /heraldo/i.test(texto);
+    if (!respondeAlBot && !nombrado) return Response.json({ ok: true });
+
     const leido = entender(texto);
     if (!leido) return Response.json({ ok: true });
     ({ comando, arg } = leido);
@@ -416,12 +427,12 @@ async function cmdBase(arg, quien) {
 
   if ((llevaHoy ?? 0) >= CUPO_DIARIO) {
     // El texto se adapta al cupo: con CUPO_DIARIO en 1, "tus 1 bases de hoy"
-    // canta a plantilla mal hecha, y el bot pierde toda la gracia.
-    const cuantas = CUPO_DIARIO === 1 ? 'tu <b>base de hoy</b>' : `tus <b>${CUPO_DIARIO} bases de hoy</b>`;
+    // canta a plantilla mal hecha y el bot pierde toda la gracia.
+    const cuantas =
+      CUPO_DIARIO === 1 ? 'una base por día' : `${CUPO_DIARIO} bases por día`;
     return (
-      `📜 Ya pediste ${cuantas}.\n\n` +
-      `Mañana hay ${CUPO_DIARIO === 1 ? 'otra' : `${CUPO_DIARIO} más`}. El pack es de pago, y la base ` +
-      `se pide cuando se va a atacar — no para coleccionarlas.`
+      `📜 Ya alcanzaste tu límite de <b>${cuantas}</b>, pipo.\n\n` +
+      `Mañana puedes pedir ${CUPO_DIARIO === 1 ? 'otra' : 'más'}.`
     );
   }
 
@@ -456,17 +467,16 @@ async function cmdBase(arg, quien) {
     dia: hoy,
   });
 
-  const quedan = CUPO_DIARIO - (llevaHoy ?? 0) - 1;
-  const cierre =
-    quedan === 0
-      ? 'Es tu base de hoy. Mañana hay otra.'
-      : `Te ${quedan === 1 ? 'queda' : 'quedan'} ${quedan} de hoy.`;
+  // Sin recordarle el cupo al final. Cada mensaje diciendo "mañana hay otra"
+  // es publicidad del limite: pone el foco en lo que NO puede pedir en vez
+  // de en la base que acaba de recibir. El limite ya se dice cuando toca,
+  // que es al llegar a el.
   const pie =
     `🏰 <b>TH${base.th ?? '?'} · ${base.tipo === 'WB' ? 'guerra' : 'aldea'}</b>` +
     (base.etiqueta ? ` · ${esc(base.etiqueta)}` : '') +
     (base.nota ? `\n\n🛡 <i>${esc(base.nota)}</i>` : '') +
     `\n\n<a href="${esc(base.url)}">Abrir en el juego</a>` +
-    `\n\n<i>${cierre}</i>`;
+    `\n\nAquí tienes tu base. Coméntame si te funcionó.`;
 
   // Con miniatura si el pack la trae; los packs de solo texto no la tienen.
   if (base.preview) {
