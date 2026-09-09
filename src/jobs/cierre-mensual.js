@@ -32,11 +32,24 @@ const args = process.argv.slice(2);
 const MES = args.find((a) => /^\d{4}-\d{2}$/.test(a)) || temporadaActual();
 const GUARDAR_PREMIOS = args.includes('--guardar-premios');
 
-/** Dos jugadores que los datos no pueden separar. */
+/**
+ * Dos jugadores que los datos no pueden separar.
+ *
+ * El ultimo criterio es quien ataco primero, que es la regla que pusieron
+ * los lideres. Se calcula con el campo `order` de la API: el puesto del
+ * ataque dentro de la guerra, contando los de los dos clanes intercalados.
+ * Es orden cronologico real, pero RELATIVO a cada ronda: la API no expone
+ * ninguna hora, asi que se compara el promedio a lo largo del mes. Un
+ * jugador que ataca de los primeros todas las rondas tiene promedio bajo.
+ *
+ * No se sabe que usa el juego para ordenar SU tabla cuando hay empate, y
+ * no se intenta imitar: con lo que la API entrega no es reproducible.
+ */
 const mismoNivel = (a, b) =>
   a.cwl_estrellas === b.cwl_estrellas &&
   a.cwl_ataques_usados === b.cwl_ataques_usados &&
-  Number(a.cwl_destruccion_prom ?? 0) === Number(b.cwl_destruccion_prom ?? 0);
+  Number(a.cwl_destruccion_prom ?? 0) === Number(b.cwl_destruccion_prom ?? 0) &&
+  Number(a.orden_prom ?? 0) === Number(b.orden_prom ?? 0);
 
 /**
  * Raiz de un nombre para detectar la misma persona con varias cuentas.
@@ -88,7 +101,7 @@ await correrJob('cierre_mensual', async () => {
 
   const [roster, ataques, players, owners, clans] = await Promise.all([
     db.from('cwl_roster').select('war_id, player_tag').in('war_id', warIds),
-    db.from('cwl_attacks').select('war_id, player_tag, estrellas, destruccion_pct').in('war_id', warIds),
+    db.from('cwl_attacks').select('war_id, player_tag, estrellas, destruccion_pct, orden').in('war_id', warIds),
     db.from('players').select('player_tag, nombre_actual, owner_id, elegible_premios'),
     db.from('owners').select('id, nombre, cobra_premios, pago_fijo_usd'),
     db.from('clans').select('clan_tag, nombre, escuadra'),
@@ -138,6 +151,7 @@ await correrJob('cierre_mensual', async () => {
         cwl_ataques_usados: 0,
         cwl_ataques_totales: 0,
         destruccion: [],
+        ordenes: [],
       };
     }
     return stat[tag];
@@ -151,6 +165,7 @@ await correrJob('cierre_mensual', async () => {
     s.cwl_estrellas += a.estrellas ?? 0;
     s.cwl_ataques_usados += 1;
     if (a.destruccion_pct != null) s.destruccion.push(Number(a.destruccion_pct));
+    if (a.orden != null) s.ordenes.push(Number(a.orden));
   }
 
   const filas = Object.values(stat).map((s) => {
@@ -166,6 +181,13 @@ await correrJob('cierre_mensual', async () => {
       cwl_destruccion_prom: s.destruccion.length
         ? Number((s.destruccion.reduce((a, b) => a + b, 0) / s.destruccion.length).toFixed(2))
         : null,
+      // Promedio del puesto de ataque a lo largo del mes. Cuanto MENOR,
+      // antes ataca. Es el desempate acordado y no se guarda en
+      // monthly_stats: la tabla no tiene esa columna y anadirla obligaria a
+      // otra migracion para un dato que solo se usa aqui.
+      orden_prom: s.ordenes.length
+        ? Number((s.ordenes.reduce((a, b) => a + b, 0) / s.ordenes.length).toFixed(2))
+        : null,
       trofeos_inicio: p?.trofeos ?? null,
       trofeos_fin: u?.trofeos ?? null,
       delta_trofeos: p && u ? u.trofeos - p.trofeos : null,
@@ -174,7 +196,10 @@ await correrJob('cierre_mensual', async () => {
     };
   });
 
-  chk(await db.from('monthly_stats').upsert(filas, { onConflict: 'mes,player_tag' }), 'guardar stats');
+  // orden_prom se usa solo para desempatar; monthly_stats no tiene esa
+  // columna y no vale otra migracion por un dato de calculo.
+  const paraGuardar = filas.map(({ orden_prom, ...resto }) => resto);
+  chk(await db.from('monthly_stats').upsert(paraGuardar, { onConflict: 'mes,player_tag' }), 'guardar stats');
 
   // ---- Ganadores, por PERSONA y por clan ----
   // Sin dueno asignado, cada cuenta es su propia persona. Es lo correcto
@@ -204,7 +229,9 @@ await correrJob('cierre_mensual', async () => {
       (a, b) =>
         b.cwl_estrellas - a.cwl_estrellas ||
         b.cwl_ataques_usados - a.cwl_ataques_usados ||
-        (b.cwl_destruccion_prom ?? 0) - (a.cwl_destruccion_prom ?? 0)
+        (b.cwl_destruccion_prom ?? 0) - (a.cwl_destruccion_prom ?? 0) ||
+        // Ascendente: puesto de ataque mas bajo = ataco antes.
+        (a.orden_prom ?? 99) - (b.orden_prom ?? 99)
     );
     console.log(`${clanNombre[clan] ?? clan}  (${clan})`);
     tabla.slice(0, 5).forEach((x, i) => {
@@ -212,7 +239,8 @@ await correrJob('cierre_mensual', async () => {
       console.log(
         `  ${String(i + 1).padStart(2)}. ${String(x.quien).padEnd(22)}` +
           `${String(x.cwl_estrellas).padStart(3)}★  ${usados.padEnd(7)}` +
-          `${x.cwl_destruccion_prom ?? '—'}%` +
+          `${x.cwl_destruccion_prom ?? '—'}%`.padEnd(9) +
+          `atacó #${x.orden_prom ?? '—'}` +
           (x.quien !== x.cuenta ? `   (${x.cuenta})` : '')
       );
     });
@@ -277,6 +305,23 @@ await correrJob('cierre_mensual', async () => {
         nota: `${g.cwl_estrellas} estrellas en ${g.cwl_ataques_usados}/${g.cwl_ataques_totales} ataques`,
       });
     }
+
+    // Dos premios a la misma persona con cuentas distintas. Se comprueba
+    // AQUI y no fuera porque aqui ya esta resuelto que cuenta gano cada
+    // puesto; calcularlo por separado obliga a repetir el ranking y es
+    // facil equivocarse al derivar el clan de cada jugador.
+    const porRaiz = {};
+    for (const g of pagos) (porRaiz[raizNombre(nombre[g.player_tag] ?? '')] ??= []).push(g);
+    const dobles = Object.values(porRaiz).filter((v) => v.length > 1);
+    if (dobles.length) {
+      console.log('');
+      console.log('  !! Dos premios a cuentas con el mismo nombre de base:');
+      for (const v of dobles) {
+        for (const g of v) console.log(`       ${g.premio}  ->  ${nombre[g.player_tag]}  (${g.player_tag})`);
+      }
+      console.log('     Si son la misma persona, agrupalas en `owners` y vuelve a correr.');
+    }
+    console.log('');
 
     for (const o of owners.filter((x) => x.pago_fijo_usd)) {
       console.log(`  ${('Fijo · ' + o.nombre).padEnd(32)} $${String(o.pago_fijo_usd).padStart(5)}   por coordinar`);

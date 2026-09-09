@@ -123,7 +123,22 @@ await correrJob('sync_cwl', async () => {
           destruccion_pct: a.destructionPercentage ?? null,
           // Nunca null: en un unique, null no colisiona con null y el upsert
           // duplicaria la fila en cada corrida. En CWL es 1 ataque por ronda.
+          //
+          // `order` es el puesto del ataque dentro de la guerra contando los
+          // de los DOS clanes intercalados, o sea orden cronologico: la API
+          // no expone ninguna hora. Es lo unico con lo que se puede
+          // desempatar por quien ataco primero.
           orden: a.order ?? 1,
+          // DESACTIVADO hasta correr sql/013_duracion_ataque.sql.
+          //
+          // La API tambien devuelve `a.duration` -segundos que duro el
+          // ataque- y merece la pena guardarlo: no se usa todavia, pero
+          // cuando la temporada pase la API deja de darlo. Escribir una
+          // columna que aun no existe haria fallar el upsert entero, y este
+          // job corre cada 2 horas durante la CWL: preferible perder un dato
+          // que no usamos a romper la sincronizacion de los que si.
+          // Descomentar en cuanto la migracion este aplicada.
+          // duracion_seg: a.duration ?? null,
           th_atacante: thPorTag.get(m.tag) ?? null,
           th_defensor: thRival.get(a.defenderTag) ?? null,
         }))
