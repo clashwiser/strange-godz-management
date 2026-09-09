@@ -26,17 +26,40 @@ const esc = (s) =>
 
 const temporadaActual = () => new Date().toISOString().slice(0, 7);
 
-async function responder(chatId, texto) {
-  await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: texto,
-      parse_mode: 'HTML',
-      link_preview_options: { is_disabled: true },
-    }),
-  });
+// El propio sitio. De aqui salen las miniaturas de las bases, que Telegram
+// descarga solo con pasarle la URL.
+const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
+
+/**
+ * Manda la respuesta. Si el comando devolvio {foto, pie} va como imagen con
+ * el texto de pie: una base sin ver la mini obliga a abrir el enlace en el
+ * juego solo para saber si sirve.
+ */
+async function responder(chatId, respuesta) {
+  const conFoto = respuesta && typeof respuesta === 'object' && respuesta.foto;
+  const cuerpo = conFoto
+    ? { chat_id: chatId, photo: respuesta.foto, caption: respuesta.pie, parse_mode: 'HTML' }
+    : {
+        chat_id: chatId,
+        text: String(respuesta),
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+      };
+
+  const res = await fetch(
+    `https://api.telegram.org/bot${TOKEN}/${conFoto ? 'sendPhoto' : 'sendMessage'}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo),
+    }
+  );
+
+  // Si falla la foto -miniatura no publicada todavia- se manda el texto, que
+  // lleva el enlace. Perder la respuesta entera por la imagen seria absurdo.
+  if (!res.ok && conFoto) {
+    await responder(chatId, respuesta.pie);
+  }
 }
 
 export async function POST(request) {
@@ -67,7 +90,7 @@ export async function POST(request) {
   const chatId = msg?.chat?.id;
   const texto = (msg?.text || '').trim();
 
-  if (!chatId || !texto.startsWith('/')) return Response.json({ ok: true });
+  if (!chatId || !texto) return Response.json({ ok: true });
 
   // Sin "PERMITIDOS.length &&": la lista vacia ya se rechaza arriba con 503,
   // asi que aca un chat que no este en la lista blanca siempre se corta.
@@ -76,18 +99,72 @@ export async function POST(request) {
     return Response.json({ ok: true });
   }
 
-  // "/jugador@x300bot Cris" -> comando "jugador", argumento "Cris"
-  const [crudo, ...resto] = texto.split(/\s+/);
-  const comando = crudo.slice(1).split('@')[0].toLowerCase();
-  const arg = resto.join(' ');
+  // Quien pregunta. El id numerico no cambia aunque se cambie el @usuario,
+  // y es lo que usa el cupo diario de bases.
+  const quien = {
+    id: msg.from?.id ?? chatId,
+    nombre: msg.from?.first_name || msg.from?.username || null,
+  };
+
+  let comando;
+  let arg;
+
+  if (texto.startsWith('/')) {
+    // "/jugador@x300bot Cris" -> comando "jugador", argumento "Cris"
+    const [crudo, ...resto] = texto.split(/\s+/);
+    comando = crudo.slice(1).split('@')[0].toLowerCase();
+    arg = resto.join(' ');
+  } else {
+    // Sin barra: nadie escribe comandos, la gente pregunta. Con el modo
+    // privacidad puesto, Telegram solo nos manda los mensajes que mencionan
+    // al bot o que responden a uno suyo — asi que si esto llego, nos
+    // estaban hablando a nosotros.
+    const leido = entender(texto);
+    if (!leido) return Response.json({ ok: true });
+    ({ comando, arg } = leido);
+  }
 
   try {
-    await responder(chatId, await ejecutar(comando, arg));
+    await responder(chatId, await ejecutar(comando, arg, quien));
   } catch (e) {
     await responder(chatId, `⚠️ Error: <code>${esc(e.message)}</code>`);
   }
 
   return Response.json({ ok: true });
+}
+
+/**
+ * Traduce una frase suelta a un comando.
+ *
+ *   "@Heraldo me puedes dar una base buena para guerra"  ->  base, "guerra"
+ *
+ * A proposito NO es un modelo de lenguaje: costaria dinero todos los meses
+ * y aqui hay cinco intenciones contadas. Los patrones son laxos porque la
+ * gente escribe como habla, sin tildes y con faltas.
+ */
+export function entender(texto) {
+  const q = texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/@\w+/g, ' ');
+
+  // La base va primero: es lo que mas se pide, y "guerra" aparece tambien
+  // en las frases de las otras intenciones.
+  if (/\b(base|bases|dise|layout|aldea)\b/.test(q)) return { comando: 'base', arg: q };
+  if (/(falta|sin atacar|no\s+(ha\s+|han\s+)?atac|quien debe|pendiente)/.test(q))
+    return { comando: 'faltan', arg: '' };
+  if (/(estrella|tabla|ranking|quien va gan|mejor)/.test(q)) return { comando: 'estrellas', arg: '' };
+  if (/(resumen|como vamos|estado|situacion)/.test(q)) return { comando: 'resumen', arg: '' };
+
+  const m = /(?:jugador|ficha|quien es|como va)\s+(.+)/.exec(q);
+  if (m) return { comando: 'jugador', arg: m[1].trim() };
+
+  // Si nos hablaron pero no se entiende, mejor decirlo que callar: en un
+  // grupo, un bot que ignora una mencion parece roto.
+  if (/(heraldo|hola|ayuda|que sabes|puedes)/.test(q)) return { comando: 'ayuda', arg: '' };
+
+  return null;
 }
 
 // Telegram reintenta si no recibe 200; responder rapido evita duplicados.
@@ -96,7 +173,7 @@ export async function GET() {
 }
 
 // ------------------------------------------------------------- Comandos
-async function ejecutar(comando, arg) {
+async function ejecutar(comando, arg, quien = { id: 0, nombre: null }) {
   switch (comando) {
     case 'start':
     case 'ayuda':
@@ -107,7 +184,7 @@ async function ejecutar(comando, arg) {
         `/faltan — quién no ha atacado en la CWL de ahora\n` +
         `/estrellas — tabla de estrellas de la temporada\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
-        `/base [th] [guerra|aldea] — enlaces de bases del pack\n` +
+        `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp`
       );
 
@@ -121,7 +198,7 @@ async function ejecutar(comando, arg) {
       return await cmdJugador(arg);
     case 'base':
     case 'bases':
-      return await cmdBases(arg);
+      return await cmdBase(arg, quien);
     case 'reporte':
       return await cmdReporte();
     default:
@@ -297,54 +374,96 @@ async function cmdReporte() {
   return `<b>${esc(m.tipo)}</b> · ${esc(m.estado)}\n\n<pre>${esc(m.cuerpo)}</pre>`;
 }
 
+// ---------------------------------------------------------- Bases
+// El pack es contenido PAGADO. Soltar los diecisiete enlaces de golpe es
+// regalarlo: basta con que alguien reenvie el mensaje. Va de una en una y
+// con cupo diario. Ver sql/016_base_pedidos.sql.
+
+const CUPO_DIARIO = 2;
+
+/** El dia de hoy en Cuba, que es donde vive la gente que pide. */
+const diaCuba = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
+
 /**
- * Bases del pack, con el enlace que abre el juego.
+ * Una base al azar, con su miniatura y con lo que hay que donarle al
+ * castillo.
  *
- * Es la peticion mas repetida del grupo y hasta ahora se contestaba a mano
- * buscando el PDF. Acepta filtros sueltos y en cualquier orden:
- *
- *   /base            las ultimas que haya
- *   /base 17         solo TH17
- *   /base guerra     solo bases de guerra
- *   /base 17 guerra  las dos cosas
- *
- * Va con la nota del proveedor -que donar en el castillo- porque es la
- * mitad del valor del pack y es justo lo que se pregunta despues.
+ * Evita repetir: primero busca entre las que esa persona NO ha pedido nunca.
+ * Solo si ya las pidio todas vuelve a entrar en el saco completo — asi el
+ * que pide dos al dia durante una semana ve catorce distintas, no la misma
+ * tres veces.
  */
-async function cmdBases(arg) {
+async function cmdBase(arg, quien) {
   const texto = (arg || '').toLowerCase();
-  // Un numero suelto es el ayuntamiento, con o sin "th" delante.
-  const th = Number((/(?:th)?\s*(\d{1,2})/.exec(texto) || [])[1]) || null;
-  const tipo = /guerra|war|wb/.test(texto) ? 'WB' : /aldea|home|hv/.test(texto) ? 'HV' : null;
+  // El ayuntamiento vale si lleva "th"/"ayuntamiento" delante, o si es un
+  // numero suelto en rango de ayuntamiento. Sin lo segundo, "dame 2 bases"
+  // se leia como TH2 y no devolvia nada: el numero de la frase no siempre
+  // es un nivel.
+  const conPrefijo = /(?:th|ayuntamiento)\s*(\d{1,2})/.exec(texto);
+  const suelto = /\b(\d{1,2})\b/.exec(texto);
+  const candidato = Number(conPrefijo?.[1] ?? suelto?.[1]);
+  const th = candidato >= 6 && candidato <= 20 ? candidato : null;
+  const tipo = /guerra|war|cwl|wb/.test(texto) ? 'WB' : /aldea|home|hv/.test(texto) ? 'HV' : null;
 
-  let q = admin
-    .from('bases')
-    .select('url, th, tipo, etiqueta, nota')
-    .order('th', { ascending: false })
-    .limit(10);
-  if (th) q = q.eq('th', th);
-  if (tipo) q = q.eq('tipo', tipo);
+  const hoy = diaCuba();
+  const { count: llevaHoy, error: errCupo } = await admin
+    .from('base_pedidos')
+    .select('id', { count: 'exact', head: true })
+    .eq('tg_user_id', quien.id)
+    .eq('dia', hoy);
+  if (errCupo) throw errCupo;
 
-  const { data, error } = await q;
-  if (error) throw error;
-
-  if (!data?.length) {
-    const filtro = [th ? `TH${th}` : null, tipo === 'WB' ? 'guerra' : tipo === 'HV' ? 'aldea' : null]
-      .filter(Boolean)
-      .join(' ');
-    return `No hay bases${filtro ? ' de ' + esc(filtro) : ''} en el pack.\nPrueba <code>/base</code> a secas.`;
+  if ((llevaHoy ?? 0) >= CUPO_DIARIO) {
+    return (
+      `📜 Ya pediste tus <b>${CUPO_DIARIO} bases de hoy</b>.\n\n` +
+      `Mañana tienes ${CUPO_DIARIO} más. El pack es de pago y las bases se ` +
+      `piden cuando se va a atacar, no para coleccionarlas.`
+    );
   }
 
-  const linea = (b, i) => {
-    const cabeza =
-      `${i + 1}. <b>TH${b.th ?? '?'}</b> · ${b.tipo === 'WB' ? 'guerra' : 'aldea'}` +
-      (b.etiqueta ? ` · ${esc(b.etiqueta)}` : '');
-    // El enlace va como <a>: pegar la URL cruda llena el chat de texto y
-    // dentro de una lista no siempre queda tocable.
-    const enlace = `<a href="${esc(b.url)}">abrir en el juego</a>`;
-    const nota = b.nota ? `\n   <i>${esc(b.nota)}</i>` : '';
-    return `${cabeza} — ${enlace}${nota}`;
-  };
+  let q = admin.from('bases').select('id, url, th, tipo, etiqueta, nota, preview');
+  if (th) q = q.eq('th', th);
+  if (tipo) q = q.eq('tipo', tipo);
+  const { data: todas, error } = await q;
+  if (error) throw error;
 
-  return `<b>Bases del pack</b> (${data.length})\n\n` + data.map(linea).join('\n\n');
+  if (!todas?.length) {
+    const filtro = [th ? `TH${th}` : null, tipo === 'WB' ? 'de guerra' : tipo === 'HV' ? 'de aldea' : null]
+      .filter(Boolean)
+      .join(' ');
+    return `No tengo ninguna base ${esc(filtro)} en el pack.\nPrueba <code>/base</code> a secas.`;
+  }
+
+  // Las que esta persona ya vio, para no repetirselas mientras haya nuevas.
+  const { data: vistas } = await admin
+    .from('base_pedidos')
+    .select('base_id')
+    .eq('tg_user_id', quien.id);
+  const yaVio = new Set((vistas ?? []).map((v) => v.base_id));
+  const nuevas = todas.filter((b) => !yaVio.has(b.id));
+  const saco = nuevas.length ? nuevas : todas;
+
+  const base = saco[Math.floor(Math.random() * saco.length)];
+
+  await admin.from('base_pedidos').insert({
+    tg_user_id: quien.id,
+    tg_nombre: quien.nombre ?? null,
+    base_id: base.id,
+    dia: hoy,
+  });
+
+  const quedan = CUPO_DIARIO - (llevaHoy ?? 0) - 1;
+  const pie =
+    `🏰 <b>TH${base.th ?? '?'} · ${base.tipo === 'WB' ? 'guerra' : 'aldea'}</b>` +
+    (base.etiqueta ? ` · ${esc(base.etiqueta)}` : '') +
+    (base.nota ? `\n\n🛡 <i>${esc(base.nota)}</i>` : '') +
+    `\n\n<a href="${esc(base.url)}">Abrir en el juego</a>` +
+    `\n\n<i>Te ${quedan === 1 ? 'queda' : 'quedan'} ${quedan} de hoy.</i>`;
+
+  // Con miniatura si el pack la trae; los packs de solo texto no la tienen.
+  if (base.preview) {
+    return { foto: `${SITIO}${base.preview}`, pie };
+  }
+  return pie;
 }
