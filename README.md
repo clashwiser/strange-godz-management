@@ -267,7 +267,7 @@ En la pestana **Variables** (no Secrets):
 | Variable | Valor |
 |---|---|
 | `COC_BASE_URL` | `https://cocproxy.royaleapi.dev/v1` |
-| `ALERTA_HORAS` | `6` |
+| `ALERTA_UMBRALES` | `6,3,1` |
 
 Despues, en **Actions**, correr *Snapshot diario* a mano una vez para confirmar que
 escribe en Supabase.

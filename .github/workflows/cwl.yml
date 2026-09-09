@@ -2,7 +2,7 @@ name: CWL - sync y alerta
 
 # La CWL corre del dia 1 al ~9. Damos margen hasta el 11 por si se corre.
 # Cada 2 horas: baja rondas y ataques, y avisa de ataques sin usar cuando
-# faltan menos de ALERTA_HORAS para el cierre.
+# faltan menos horas que el primer umbral de ALERTA_UMBRALES.
 on:
   schedule:
     - cron: '0 */2 1-11 * *'
@@ -29,7 +29,10 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      ALERTA_HORAS: ${{ vars.ALERTA_HORAS || '6' }}
+      # El codigo lee ALERTA_UMBRALES, no ALERTA_HORAS: son las horas antes
+      # del cierre en que avisa, de mayor a menor. Pasar la otra no hacia
+      # nada, asi que cambiarla en Variables no tenia ningun efecto.
+      ALERTA_UMBRALES: ${{ vars.ALERTA_UMBRALES || '6,3,1' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
