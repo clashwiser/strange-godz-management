@@ -6,8 +6,19 @@
 // El roster NO se carga a mano: sale del ultimo snapshot, que la API baja
 // todos los dias. Aca solo se arrastra.
 //
-// Arrastrar no funciona en telefonos, asi que cada tarjeta lleva ademas un
-// desplegable. Misma accion, dos formas.
+// Se puede mover un jugador de DOS formas, y las dos funcionan con el dedo:
+//
+//   Arrastrar desde el asa   con raton o con el dedo.
+//   Desplegable de la ficha  un toque, sin gesto que pueda salir mal.
+//
+// Antes esto usaba la API de arrastre de HTML5 (draggable + onDrop). Esa API
+// NO dispara en pantallas tactiles: en el telefono el arrastre no hacia
+// absolutamente nada y solo servia el desplegable. Con eventos de puntero el
+// mismo codigo sirve para los dos, que es lo que hace falta cuando los
+// lideres arman la CWL desde el movil.
+//
+// El asa lleva touch-action:none ella sola. Si se lo pusieramos a la ficha
+// entera, tocar un nombre bloquearia el scroll de la columna.
 
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -92,6 +103,36 @@ export default function Alineacion({ d, recargar, demo = false }) {
     }
   }
 
+  // ---- Arrastrar con raton o dedo ----
+  function alAgarrar(e, tag) {
+    // Capturar el puntero: a partir de aqui todos los eventos del gesto
+    // llegan a este elemento aunque el dedo salga de la columna, asi que el
+    // 'pointerup' nunca se pierde y la ficha no queda pegada al dedo.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setArrastrando(tag);
+  }
+
+  /** Columna que hay debajo del puntero. elementFromPoint hace su propia
+   *  prueba de impacto sobre el documento: la captura del puntero no le
+   *  afecta, por eso sigue viendo lo que hay debajo. */
+  const columnaBajo = (e) =>
+    document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-col]')?.dataset.col ?? null;
+
+  function alArrastrar(e) {
+    if (!arrastrando) return;
+    setSobre(columnaBajo(e));
+  }
+
+  function alSoltar(e) {
+    if (!arrastrando) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    const destino = columnaBajo(e);
+    const tag = arrastrando;
+    setArrastrando(null);
+    setSobre(null);
+    if (destino) mover(tag, destino);
+  }
+
   async function generarMensaje() {
     setGuardando(true);
     setMsg('');
@@ -170,19 +211,8 @@ export default function Alineacion({ d, recargar, demo = false }) {
             <div
               key={c.clan_tag}
               className="col"
+              data-col={c.clan_tag}
               data-sobre={sobre === c.clan_tag ? '1' : '0'}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setSobre(c.clan_tag);
-              }}
-              onDragLeave={() => setSobre((s) => (s === c.clan_tag ? null : s))}
-              onDrop={(e) => {
-                e.preventDefault();
-                setSobre(null);
-                const tag = arrastrando || e.dataTransfer.getData('text/plain');
-                if (tag) mover(tag, c.clan_tag);
-                setArrastrando(null);
-              }}
             >
               <div className="col-cab">
                 <strong>{c.nombre}</strong>
@@ -198,14 +228,21 @@ export default function Alineacion({ d, recargar, demo = false }) {
                 <div
                   key={p.tag}
                   className="ficha"
-                  draggable
-                  onDragStart={(e) => {
-                    setArrastrando(p.tag);
-                    e.dataTransfer.setData('text/plain', p.tag);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onDragEnd={() => setArrastrando(null)}
+                  data-agarrada={arrastrando === p.tag ? '1' : '0'}
                 >
+                  <span
+                    className="asa asa-ficha"
+                    role="button"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    title={t('Arrastrar a otro clan')}
+                    onPointerDown={(e) => alAgarrar(e, p.tag)}
+                    onPointerMove={alArrastrar}
+                    onPointerUp={alSoltar}
+                    onPointerCancel={alSoltar}
+                  >
+                    ⠿
+                  </span>
                   <div className="ficha-nom">{p.nombre}</div>
                   <div className="ficha-sub">
                     TH{p.th ?? '?'} · {p.trofeos} 🏆

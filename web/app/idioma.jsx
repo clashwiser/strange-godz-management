@@ -85,6 +85,7 @@ export const EN = {
   'Subir': 'Move up',
   'Bajar': 'Move down',
   'Arrastrar para reordenar': 'Drag to reorder',
+  'Arrastrar a otro clan': 'Drag to another clan',
   'Orden guardado.': 'Order saved.',
   'Orden cambiado (en la demo no se guarda).': 'Order changed (nothing is saved in the demo).',
   'No se pudo guardar: ': 'Could not save: ',

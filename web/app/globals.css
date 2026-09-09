@@ -165,7 +165,8 @@ a { color: var(--oro-hondo); }
 /* paint-order pinta el trazo DETRAS del relleno; sin el, el contorno se
    come las letras desde afuera y quedan ilegibles. */
 header.top h1, .card h3, .card .big, h2.sec,
-nav.tabs button[data-on="1"], button.accion, th, .col-cab strong, .tema-nombre {
+nav.tabs button[data-on="1"], button.accion, th, .col-cab strong, .tema-nombre,
+.idioma button[data-on="1"] {
   paint-order: stroke fill;
 }
 
@@ -546,8 +547,14 @@ tbody tr:hover { transform: translateX(3px); }
 
 /* Controles de la esquina: subir, bajar y el asa de arrastre. */
 .mando {
-  position: absolute; top: 8px; right: 10px;
-  display: flex; align-items: center; gap: 4px; z-index: 2;
+  /* Fila propia, no flotando en la esquina. Reservar hueco con padding-right
+     no alcanza: los tres controles miden 150px, y a un nombre como
+     "STRANGE - WORLD" con sus pildoras no le queda sitio, asi que se metia
+     por debajo de los botones. Se vio en un Galaxy Fold abierto, a 900px:
+     justo el ancho que no cubria ni la regla de escritorio ni la de movil. */
+  display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+  margin-bottom: 8px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--bronce);
 }
 .mover {
   /* 44px de lado es el minimo que piden Apple y Android para algo que se
@@ -772,8 +779,27 @@ td:has(.mini-base) { padding: 8px 10px; }
 .idioma button[data-on="1"] {
   background: linear-gradient(180deg, var(--accion-a), var(--accion-b));
   border-color: var(--accion-bord); color: #fff;
-  -webkit-text-stroke: 2px var(--accion-bord);
+  -webkit-text-stroke: 1.5px var(--accion-bord);
 }
 .idioma button[data-on="0"] { opacity: .65; }
 .idioma button[data-on="0"]:hover { opacity: 1; }
 @media (max-width: 640px) { .idioma button { min-height: 40px; } }
+
+/* ---------- Asa de la ficha de jugador ---------- */
+/* La ficha ya no es draggable de HTML5 (esa API no dispara con el dedo).
+   Se arrastra desde el asa, que es lo unico con touch-action:none: asi la
+   columna sigue haciendose scroll al tocar cualquier otra parte. */
+.ficha { padding-right: 46px; }
+.asa-ficha {
+  position: absolute; top: 50%; right: 4px;
+  transform: translateY(-50%);
+  min-width: 38px; min-height: 38px;
+  font-size: 17px;
+}
+.ficha[data-agarrada="1"] {
+  transform: scale(1.04) rotate(-1deg);
+  border-color: var(--oro);
+  box-shadow: 0 0 0 2px var(--oro), 0 10px 22px rgba(0,0,0,.55);
+  opacity: .92;
+}
+/* La columna de destino ya se resalta con .col[data-sobre="1"] */
