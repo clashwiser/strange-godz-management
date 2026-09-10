@@ -15,6 +15,7 @@
     "cwl:heraldo": "node --env-file-if-exists=.env src/jobs/cwl-heraldo.js",
     "lider:alta": "node --env-file-if-exists=.env src/jobs/alta-lider.js",
     "youtube": "node --env-file-if-exists=.env src/jobs/youtube.js",
+    "youtube:suscribir": "node --env-file-if-exists=.env src/jobs/youtube-suscribir.js",
     "wa:vincular": "node --env-file-if-exists=.env src/jobs/wa-vincular.js",
     "wa:enviar": "node --env-file-if-exists=.env src/jobs/wa-enviar.js",
     "tg:webhook": "node --env-file-if-exists=.env src/jobs/tg-webhook.js",

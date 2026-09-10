@@ -1,8 +1,14 @@
-name: YouTube - videos nuevos de Clash
+name: YouTube - avisos instantaneos y red de seguridad
 
-# Dos veces al dia: por la mañana y a la tarde-noche de Cuba, que es cuando
-# hay gente conectada. De madrugada no lo lee nadie y ademas chocaria con
-# los jobs de datos.
+# Los videos ya NO llegan por aqui en el caso normal: YouTube nos avisa al
+# instante en /api/youtube (WebSub). Este workflow hace dos cosas:
+#
+#   1. Renueva la suscripcion. Caduca a los cinco dias y el hub deja de
+#      avisar SIN decir nada, que es la peor forma de romperse.
+#   2. Es la red debajo. WebSub es "mejor esfuerzo" y pierde avisos de vez
+#      en cuando; el repaso de la mañana y la noche recoge lo que se cayo.
+#
+# Los dos caminos deduplican por videoId, asi que nada sale dos veces.
 #
 # Las horas de GitHub son UTC y Cuba cambia de hora en noviembre, asi que
 # esto se corre a las 12:00 y 23:30 UTC: en verano son las 8:00 y las 19:30
@@ -42,7 +48,12 @@ jobs:
           cache: npm
       - run: npm ci --omit=dev
 
-      - name: Buscar videos nuevos
+      # Primero renovar: si la suscripcion caduco, cuanto antes vuelva mejor.
+      - name: Renovar la suscripcion instantanea
+        run: npm run youtube:suscribir
+
+      - name: Repaso por si se perdio algun aviso
+        if: ${{ always() }}
         run: npm run youtube
 
       # Lo que quede en el outbox sale por WhatsApp tambien.
