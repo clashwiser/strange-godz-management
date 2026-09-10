@@ -9,7 +9,7 @@
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_SECRET_TOKEN, TELEGRAM_CHAT_ID
 
 import { admin } from '../../../lib/supabase-admin';
-import { charlar } from '../../../lib/charla';
+import { charlar, cierreBase } from '../../../lib/charla';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,6 +169,15 @@ export function entender(texto) {
   if (/(estrella|tabla|ranking|quien va gan|mejor)/.test(q)) return { comando: 'estrellas', arg: '' };
   if (/(resumen|como vamos|estado|situacion)/.test(q)) return { comando: 'resumen', arg: '' };
 
+  // "pa que clan voy yo", "a donde me toca", "en que clan estoy"
+  if (/\b(pa que clan|para que clan|que clan voy|donde me toca|donde juego|en que clan|mi clan|a que clan)\b/.test(q))
+    return { comando: 'miclan', arg: '' };
+
+  // "yo soy Anabolic Batman" — antes que la ficha de jugador, que usa
+  // "quien es" y se lo comeria.
+  const soy = /\b(?:yo soy|me llamo|soy)\s+(.{2,40})$/.exec(q);
+  if (soy) return { comando: 'soy', arg: soy[1].trim() };
+
   const m = /(?:jugador|ficha|quien es|como va)\s+(.+)/.exec(q);
   if (m) return { comando: 'jugador', arg: m[1].trim() };
 
@@ -202,6 +211,10 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/faltan — quién no ha atacado en la CWL de ahora\n` +
         `/estrellas — tabla de estrellas de la temporada\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
+        `/miclan — a qué clan te toca ir esta CWL
+` +
+        `/soy &lt;tu nombre del juego&gt; — para que te reconozca
+` +
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp`
       );
@@ -221,6 +234,10 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     case 'base':
     case 'bases':
       return await cmdBase(arg, quien);
+    case 'soy':
+      return await cmdSoy(arg, quien);
+    case 'miclan':
+      return await cmdMiClan(quien);
     case 'reporte':
       // Vuelca el ultimo mensaje generado, y ahi puede ir el cierre del mes
       // con quien cobra cuanto. En un grupo con el clan entero eso son
@@ -512,7 +529,7 @@ async function cmdBase(arg, quien) {
     (base.etiqueta ? ` · ${esc(base.etiqueta)}` : '') +
     (base.nota ? `\n\n🛡 <i>${esc(base.nota)}</i>` : '') +
     `\n\n<a href="${esc(base.url)}">Abrir en el juego</a>` +
-    `\n\nAquí tienes tu base. Coméntame si te funcionó.`;
+    `\n\n${cierreBase()}`;
 
   // Con miniatura si el pack la trae; los packs de solo texto no la tienen.
   if (base.preview) {
@@ -543,4 +560,109 @@ async function esLider(chatId, userId) {
   } catch {
     return false;
   }
+}
+
+// ------------------------------------------------- Quien soy / mi clan
+//
+// Heraldo lo sabe todo del clan menos quien le esta hablando. Para
+// contestar "¿pa que clan voy yo?" hay que atar la cuenta de Telegram con
+// la de Clash, y eso no se adivina: el nombre de Telegram y el del juego
+// casi nunca coinciden. Se ata una vez y ya. Ver sql/017_tg_vinculos.sql.
+
+/** Quita tildes y mayusculas para comparar nombres escritos a la carrera. */
+const plano = (s) =>
+  String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+/** "Heraldo yo soy Anabolic Batman" -> ata esa cuenta con ese jugador. */
+async function cmdSoy(arg, quien) {
+  const buscado = plano(arg);
+  if (!buscado) {
+    return 'Dime tu nombre del juego, mi hermano: <code>/soy Anabolic Batman</code>';
+  }
+
+  const { data: jugadores, error } = await admin
+    .from('players')
+    .select('player_tag, nombre_actual');
+  if (error) throw error;
+
+  const hallados = (jugadores ?? []).filter((p) => plano(p.nombre_actual).includes(buscado));
+
+  if (!hallados.length) {
+    return (
+      `No encuentro a nadie que se llame "${esc(arg)}" en los clanes, asere.\n` +
+      `Escríbelo igualito que en el juego.`
+    );
+  }
+  if (hallados.length > 1) {
+    // Con varios no se elige por el bot: elegir mal es peor que no elegir,
+    // porque despues le responde la alineacion de otro.
+    return (
+      `Hay ${hallados.length} con ese nombre:\n` +
+      hallados.slice(0, 6).map((p) => `• ${esc(p.nombre_actual)}`).join('\n') +
+      `\n\nEscríbelo completo para saber cuál eres.`
+    );
+  }
+
+  const p = hallados[0];
+  await admin
+    .from('tg_vinculos')
+    .upsert(
+      { tg_user_id: quien.id, player_tag: p.player_tag, tg_nombre: quien.nombre ?? null },
+      { onConflict: 'tg_user_id' }
+    );
+
+  return `Anotado: tú eres <b>${esc(p.nombre_actual)}</b>. Ya te reconozco. 📜`;
+}
+
+/**
+ * "¿Pa que clan voy yo?" — la alineacion de CWL de quien pregunta, con el
+ * enlace para entrar al clan.
+ */
+async function cmdMiClan(quien) {
+  const { data: vinculo } = await admin
+    .from('tg_vinculos')
+    .select('player_tag')
+    .eq('tg_user_id', quien.id)
+    .maybeSingle();
+
+  if (!vinculo) {
+    return (
+      `Todavía no sé quién eres en el juego, mi hermano.\n\n` +
+      `Dime <code>/soy TuNombreDelJuego</code> y te reconozco para siempre.`
+    );
+  }
+
+  const temporada = temporadaActual();
+  const { data: alin } = await admin
+    .from('alineaciones')
+    .select('clan_tag')
+    .eq('temporada', temporada)
+    .eq('player_tag', vinculo.player_tag)
+    .maybeSingle();
+
+  if (!alin) {
+    return (
+      `Todavía no estás puesto en ninguna lista de ${temporada}, asere.\n` +
+      `Los líderes la arman en el panel. Pregúntales.`
+    );
+  }
+
+  const { data: clan } = await admin
+    .from('clans')
+    .select('nombre, clan_tag, escuadra')
+    .eq('clan_tag', alin.clan_tag)
+    .maybeSingle();
+
+  const nombre = clan?.nombre ?? alin.clan_tag;
+  // El enlace de clan lo arma el propio juego a partir del tag; no hay que
+  // guardarlo en ningun sitio.
+  const enlace = `https://link.clashofclans.com/en?action=OpenClanProfile&tag=${encodeURIComponent(alin.clan_tag)}`;
+
+  return (
+    `🛡 Este mes vas para <b>${esc(nombre)}</b>` +
+    (clan?.escuadra ? ` (escuadra ${esc(clan.escuadra)})` : '') +
+    `\n<code>${esc(alin.clan_tag)}</code>\n\n` +
+    `<a href="${enlace}">Entrar al clan</a>\n\n` +
+    `Múdate antes de que empiece la liga, que después no entras.`
+  );
 }
