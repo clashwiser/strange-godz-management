@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, configurado, hayHuella } from '../lib/supabase';
 import Alineacion from './alineacion';
 import SelectorTema, { Mascota } from './temas';
@@ -774,6 +774,62 @@ export function Mensajes({ d, recargar }) {
   const [copiado, setCopiado] = useState(null);
   const [enviando, setEnviando] = useState(null);
   const [err, setErr] = useState('');
+  const [borrando, setBorrando] = useState(null);
+  // Cuanto lleva desplazada la tarjeta que se esta arrastrando.
+  const [desliz, setDesliz] = useState({ id: null, dx: 0 });
+  const gesto = useRef(null);
+
+  // Cuanto hay que arrastrar para que pregunte. Corto de mas y se dispara
+  // al hacer scroll de lado en la tabla; largo de mas y no llega el pulgar.
+  const UMBRAL = 90;
+
+  function alTocar(e, m) {
+    // Los botones y el texto seleccionable no arrancan el gesto: si no, no
+    // se puede seleccionar el cuerpo del mensaje para copiarlo a mano.
+    if (e.target.closest('button, a, pre')) return;
+    gesto.current = { id: m.id, x0: e.clientX, y0: e.clientY, decidido: false };
+  }
+
+  function alDeslizar(e) {
+    const g = gesto.current;
+    if (!g) return;
+    const dx = e.clientX - g.x0;
+    const dy = e.clientY - g.y0;
+
+    // Hasta que no se ve claro si el dedo va de lado o hacia abajo, no se
+    // toca nada: robarle el gesto al scroll vertical es lo que hace que una
+    // lista se sienta rota.
+    if (!g.decidido) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      if (Math.abs(dy) > Math.abs(dx)) return void (gesto.current = null);
+      g.decidido = true;
+    }
+
+    // Solo hacia la derecha, y con freno al pasarse.
+    const mov = dx <= 0 ? 0 : dx > UMBRAL ? UMBRAL + (dx - UMBRAL) * 0.25 : dx;
+    setDesliz({ id: g.id, dx: mov });
+  }
+
+  function alSoltar() {
+    const g = gesto.current;
+    gesto.current = null;
+    if (!g?.decidido) return setDesliz({ id: null, dx: 0 });
+    if (desliz.id === g.id && desliz.dx >= UMBRAL) setBorrando(g.id);
+    setDesliz({ id: null, dx: 0 });
+  }
+
+  async function borrar(m) {
+    setErr('');
+    try {
+      const { error } = await supabase.from('outbox').delete().eq('id', m.id);
+      if (error) throw error;
+      setBorrando(null);
+      recargar();
+    } catch (e) {
+      setErr(`${t('No se pudo borrar: ')}${e.message}`);
+      setBorrando(null);
+    }
+  }
 
   /**
    * Que lo mande Heraldo al grupo.
@@ -825,9 +881,39 @@ export function Mensajes({ d, recargar }) {
       <p className="sub" style={{ color: 'var(--tenue)' }}>
         {t('Dale a Enviar y Heraldo lo publica en el grupo, o cópialo y pégalo tú.')}
       </p>
+      <p className="sub" style={{ color: 'var(--tenue)', fontSize: 12, marginTop: -6 }}>
+        {t('Para borrar uno: arrástralo a la derecha o usa la papelera.')}
+      </p>
       {err && <p className="error">{err}</p>}
       {d.outbox.map((m) => (
-        <div className="card" key={m.id} style={{ marginBottom: 12 }}>
+        // La caja de fuera no se mueve: dentro va la tarjeta, que se desliza
+        // y deja ver el rojo de debajo. Sin envoltorio, la tarjeta al
+        // desplazarse se saldria del ancho y empujaria la pagina de lado.
+        <div className="msg-caja" key={m.id}>
+          <div className="msg-fondo" aria-hidden="true">🗑</div>
+          <div
+            className="card msg-tarjeta"
+            style={{ transform: `translateX(${desliz.id === m.id ? desliz.dx : 0}px)` }}
+            onPointerDown={(e) => alTocar(e, m)}
+            onPointerMove={alDeslizar}
+            onPointerUp={alSoltar}
+            onPointerCancel={alSoltar}
+          >
+          {borrando === m.id && (
+            // La confirmacion va DENTRO de la tarjeta y no en un dialogo del
+            // navegador: en el telefono un confirm() nativo sale arriba del
+            // todo, lejos del dedo que acaba de deslizar.
+            <div className="msg-confirmar">
+              <span>{t('¿Borrar este mensaje?')}</span>
+              <span style={{ flex: 1 }} />
+              <button className="boton-borrar" onClick={() => borrar(m)}>
+                {t('Sí, borrar')}
+              </button>
+              <button className="fantasma" onClick={() => setBorrando(null)}>
+                {t('Cancelar')}
+              </button>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <strong>{m.tipo}</strong>
             <span className={`pill ${m.estado === 'enviado' || m.estado === 'copiado' ? 'ok' : m.estado === 'fallido' ? 'mal' : 'aviso'}`}>
@@ -850,9 +936,20 @@ export function Mensajes({ d, recargar }) {
             <button className="fantasma" onClick={() => copiar(m)}>
               {copiado === m.id ? '¡Copiado!' : copiado === -1 ? 'Error' : 'Copiar'}
             </button>
+            {/* La papelera, siempre visible: deslizar esta bien en el
+                telefono, pero con raton nadie arrastra una tarjeta. */}
+            <button
+              className="boton-borrar"
+              title={t('Borrar este mensaje')}
+              aria-label={t('Borrar este mensaje')}
+              onClick={() => setBorrando(m.id)}
+            >
+              🗑
+            </button>
           </div>
           <pre className="msg">{m.cuerpo}</pre>
           {m.error && <p className="error">{m.error}</p>}
+          </div>
         </div>
       ))}
     </>

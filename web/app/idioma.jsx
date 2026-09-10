@@ -106,6 +106,12 @@ export const EN = {
   'Generando…': 'Generating…',
   'Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.':
     'Drag names between clans. On the phone press and hold a card, then drag it; the dropdown works too.',
+  // ---- Borrar un mensaje ----
+  'Para borrar uno: arrástralo a la derecha o usa la papelera.': 'To delete one: drag it to the right or use the bin.',
+  '¿Borrar este mensaje?': 'Delete this message?',
+  'Sí, borrar': 'Yes, delete it',
+  'Borrar este mensaje': 'Delete this message',
+  'No se pudo borrar: ': 'Could not delete: ',
   // ---- Mandarle la base al jugador ----
   'Enviar al jugador': 'Send to the player',
   'Enviada': 'Sent',
