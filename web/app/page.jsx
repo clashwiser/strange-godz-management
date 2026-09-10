@@ -9,6 +9,7 @@ import Bots from './bots';
 import Bases from './bases';
 import GrupoCWL from './grupo-cwl';
 import Salud from './salud';
+import Solicitudes from './solicitudes';
 import { AvisoHuella, GestorHuellas } from './huella';
 import Bonos from './bonos';
 import Heraldo from './heraldo';
@@ -21,6 +22,7 @@ const TABS = [
   ['cwl', 'CWL Resultados'],
   ['jugadores', 'Jugadores'],
   ['salud', 'Salud'],
+  ['solicitudes', 'Solicitudes'],
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
   ['bonos', 'Bonos'],
@@ -49,7 +51,8 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, membres] = await Promise.all([
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres] =
+        await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
         supabase.from('outbox').select('*').order('creado_en', { ascending: false }).limit(30),
@@ -67,6 +70,13 @@ export default function Panel() {
         // Entradas y salidas del clan. Llevaba guardandose desde el primer
         // dia y no lo miraba nadie: si alguien se va a mitad de CWL, la
         // alineacion queda con un hueco y te enteras al perder la ronda.
+        // Quien quiere entrar. Las llena el webhook de Telegram con la
+        // service_role; desde aqui solo se leen y se deciden.
+        supabase
+          .from('solicitudes')
+          .select('*')
+          .order('creado_en', { ascending: false })
+          .limit(60),
         supabase
           .from('memberships')
           .select('player_tag, clan_tag, desde, hasta, rol')
@@ -138,6 +148,7 @@ export default function Panel() {
         grupo,
         ligas: ligas.data ?? [],
         memberships: membres.data ?? [],
+        solicitudes: soli.data ?? [],
         snaps,
         players: players ?? [],
         alineaciones: alin.data ?? [],
@@ -243,6 +254,7 @@ export default function Panel() {
         {d && tab === 'jugadores' && <Jugadores d={d} />}
         {d && tab === 'mensajes' && <Mensajes d={d} recargar={cargar} />}
         {d && tab === 'salud' && <Salud d={d} />}
+        {d && tab === 'solicitudes' && <Solicitudes d={d} recargar={cargar} />}
         {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
         {d && tab === 'bots' && (

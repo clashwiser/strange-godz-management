@@ -14,6 +14,7 @@ import Bots from '../bots';
 import Bases from '../bases';
 import Bonos from '../bonos';
 import Salud from '../salud';
+import Solicitudes from '../solicitudes';
 import Heraldo from '../heraldo';
 
 const d = {
@@ -93,6 +94,41 @@ const d = {
   roster: [1, 2].flatMap((w) =>
     ['#P1', '#P2', '#P3', '#P4', '#P6', '#P7'].map((p) => ({ war_id: w, player_tag: p }))
   ),
+  solicitudes: [
+    {
+      id: 1, tg_user_id: 111, tg_nombre: 'Yandiel', tg_username: 'yandiel_cu',
+      player_tag: '#PP0RJ2C', estado: 'pendiente', paso: 'listo',
+      creado_en: '2026-09-10T14:20:00Z',
+      perfil: {
+        tag: '#PP0RJ2C', nombre: 'Yandiel', th: 16, nivel: 191, trofeos: 4210,
+        mejorTrofeos: 5120, guerraEncendida: true, donadoVida: 412300,
+        guerraVida: 3110, cwlVida: 940, juegosVida: 188400, capital: 421000,
+        etiquetas: ['Clan Wars', 'Clan War League', 'Active Daily'], clan: null, rol: null,
+      },
+      respuestas: { cuenta: 'Soy de Santiago, juego de noche despues del trabajo. Vengo del clan de un primo que se disolvio y quiero guerra en serio.' },
+    },
+    {
+      id: 2, tg_user_id: 222, tg_nombre: 'Miguel', tg_username: null,
+      player_tag: '#LQ9CGY2', estado: 'pendiente', paso: 'listo',
+      creado_en: '2026-09-10T09:05:00Z',
+      perfil: {
+        tag: '#LQ9CGY2', nombre: 'MiguelitoTH13', th: 13, nivel: 52, trofeos: 2100,
+        mejorTrofeos: 2680, guerraEncendida: false, donadoVida: 3100,
+        guerraVida: 180, cwlVida: 0, juegosVida: 4200, capital: 12000,
+        etiquetas: ['Farming', 'Friendly'],
+        clan: { tag: '#ABC', nombre: 'Los Panas', nivel: 3 }, rol: 'member',
+      },
+      respuestas: { cuenta: 'quiero entrar' },
+    },
+    {
+      id: 3, tg_user_id: 333, tg_nombre: 'Rey', tg_username: 'reyduro',
+      player_tag: '#2QYU0LP', estado: 'prueba', paso: 'listo',
+      clan_destino: '#2GC', creado_en: '2026-09-09T18:00:00Z',
+      perfil: null,
+      respuestas: { cuenta: 'Juego desde 2019, TH17, busco CWL competitiva.' },
+      nota: 'Lo trajo Reyniel. Falta la amistosa.',
+    },
+  ],
   memberships: [
     { player_tag: '#P8', clan_tag: '#JUYP2PL',   desde: '2026-08-01', hasta: null,         rol: 'member' },
     { player_tag: '#P5', clan_tag: '#228QU9Q8',  desde: '2026-09-05', hasta: null,         rol: 'member' },
@@ -181,6 +217,7 @@ const TABS = [
   ['cwl', 'CWL Resultados'],
   ['jugadores', 'Jugadores'],
   ['salud', 'Salud'],
+  ['solicitudes', 'Solicitudes'],
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
   ['bonos', 'Bonos'],
@@ -226,6 +263,7 @@ export default function Demo() {
         )}
         {tab === 'jugadores' && <Jugadores d={d} />}
         {tab === 'salud' && <Salud d={d} />}
+        {tab === 'solicitudes' && <Solicitudes d={d} demo />}
         {tab === 'mensajes' && <Mensajes d={d} recargar={() => {}} />}
         {tab === 'bases' && <Bases d={d} demo />}
         {tab === 'bonos' && <Bonos d={d} demo />}
