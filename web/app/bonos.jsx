@@ -39,6 +39,11 @@ export default function Bonos({ d, demo = false, recargar }) {
     [d.config]
   );
 
+  const nombre = useMemo(
+    () => Object.fromEntries((d.players ?? []).map((p) => [p.player_tag, p.nombre_actual])),
+    [d.players]
+  );
+
   useEffect(() => {
     setFilas((d.premiosPlan ?? []).filter((p) => p.mes === mes).sort((a, b) => a.orden - b.orden));
     setBorrados([]);
@@ -126,6 +131,79 @@ export default function Bonos({ d, demo = false, recargar }) {
     );
   }
 
+  // ---- Felicitar al que se lo ganó ----
+  //
+  // Publicar la tabla de premios dice QUE se reparte. Esto dice A QUIEN, y
+  // es la mitad que faltaba: el mes cerraba sin que nadie anunciara al
+  // ganador, y un premio que no se celebra en publico no tira de nadie el
+  // mes siguiente.
+  //
+  // Va al outbox y NO se manda solo, a proposito: desde la pestaña Mensajes
+  // se retoca -un apodo, una coña- y de ahi sale con el boton de Heraldo.
+
+  /** Quien puede ganar: los del ultimo snapshot, que son los que estan hoy. */
+  const candidatos = useMemo(() => {
+    const clanNombre = Object.fromEntries((d.clans ?? []).map((c) => [c.clan_tag, c.nombre]));
+    return (d.snaps ?? [])
+      .map((s) => ({
+        tag: s.player_tag,
+        nombre: nombre[s.player_tag] ?? s.player_tag,
+        clan: clanNombre[s.clan_tag] ?? null,
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [d.snaps, d.clans, nombre]);
+
+  // Por fila, no uno solo: se pueden preparar los tres puestos de una tirada
+  // sin que elegir el segundo borre el primero.
+  const [ganador, setGanador] = useState({});
+  const claveFila = (f, i) => f.id ?? `n${i}`;
+
+  function textoFelicitacion(f, jugador) {
+    const premio =
+      f.tipo === 'efectivo'
+        ? `$${Number(f.monto_usd)}`
+        : f.tipo === 'pase_oro'
+          ? 'un Pase de Oro'
+          : 'las Medallas de CWL';
+    const donde = jugador.clan ? ` en el clan *${jugador.clan}*` : '';
+    const firma = cfg.bot_firma ? `\n\n${cfg.bot_firma}` : '';
+    return (
+      `🏆 *${jugador.nombre}*\n\n` +
+      `¡Felicidades por tu performance en *${f.titulo.trim()}*${donde}!\n\n` +
+      `Te ganaste *${premio}*.\n\n` +
+      `Escríbele a Cris o a Carlos para reclamar tu premio lo antes posible.\n\n` +
+      `¡Felicidades de nuevo! 🎉${firma}`
+    );
+  }
+
+  async function felicitar(f, i) {
+    const tag = ganador[claveFila(f, i)];
+    const jugador = candidatos.find((c) => c.tag === tag);
+    if (!jugador) return aviso(t('Elige primero al jugador que se lo ganó.'), true);
+    if (!f.titulo.trim()) return aviso(t('Ese premio no tiene título todavía.'), true);
+
+    const cuerpo = textoFelicitacion(f, jugador);
+    if (demo) return aviso('En la demo no se encola. Así se vería:\n\n' + cuerpo);
+
+    setOcupado(true);
+    try {
+      const { error } = await supabase.from('outbox').insert({
+        tipo: 'felicitacion',
+        cuerpo,
+        // Con la marca de tiempo a proposito: si se genera dos veces es
+        // porque se quiere corregir algo, no por error.
+        clave_dedupe: `felicitacion:${mes}:${tag}:${Date.now()}`,
+      });
+      if (error) throw error;
+      aviso(`${t('Mensaje listo en la pestaña Mensajes para')} ${jugador.nombre}.`);
+      recargar?.();
+    } catch (e) {
+      aviso(`Error: ${e.message}`, true);
+    } finally {
+      setOcupado(false);
+    }
+  }
+
   async function publicar() {
     const cuerpo = textoMensaje();
     if (!cuerpo) return aviso(t('No hay premios activos que publicar.'), true);
@@ -154,10 +232,6 @@ export default function Bonos({ d, demo = false, recargar }) {
   }
 
   // ---- Medallas de CWL ----
-  const nombre = useMemo(
-    () => Object.fromEntries((d.players ?? []).map((p) => [p.player_tag, p.nombre_actual])),
-    [d.players]
-  );
   const clanDe = useMemo(
     () => Object.fromEntries((d.snaps ?? []).map((s) => [s.player_tag, s.clan_tag])),
     [d.snaps]
@@ -265,6 +339,7 @@ export default function Bonos({ d, demo = false, recargar }) {
               <th className="num">{t('Monto')}</th>
               <th>{t('Tipo')}</th>
               <th>{t('Activo')}</th>
+              <th>{t('Se lo ganó')}</th>
               <th></th>
             </tr>
           </thead>
@@ -320,6 +395,35 @@ export default function Bonos({ d, demo = false, recargar }) {
                     />
                     <span>{f.activo ? 'sí' : 'no'}</span>
                   </label>
+                </td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <select
+                    className="campo campo-corto"
+                    style={{ marginTop: 0, minWidth: 150 }}
+                    value={ganador[claveFila(f, i)] ?? ''}
+                    onChange={(e) =>
+                      setGanador((g) => ({ ...g, [claveFila(f, i)]: e.target.value }))
+                    }
+                  >
+                    <option value="">{t('— elige jugador —')}</option>
+                    {candidatos.map((c) => (
+                      <option key={c.tag} value={c.tag}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Gris hasta que hay a quien felicitar, verde en cuanto lo
+                      hay: el mismo gesto que el boton de mandarle la base a
+                      un jugador, para no tener que aprenderse dos. */}
+                  <button
+                    className={ganador[claveFila(f, i)] ? 'accion' : 'fantasma'}
+                    style={{ marginLeft: 6 }}
+                    disabled={ocupado || !ganador[claveFila(f, i)]}
+                    onClick={() => felicitar(f, i)}
+                    title={t('Crea el mensaje de felicitación en la pestaña Mensajes')}
+                  >
+                    🎉 {t('Felicitar')}
+                  </button>
                 </td>
                 <td>
                   <button

@@ -56,6 +56,49 @@ export const CIERRES_BASE = [
 export const cierreBase = () => AL_AZAR(CIERRES_BASE);
 
 // ---------------------------------------------------------------------
+// Bienvenida a quien entra al grupo.
+//
+// Los dos primeros minutos deciden si alguien se queda o mira y se va. Un
+// grupo donde entras y nadie dice nada parece muerto aunque tenga sesenta
+// personas dentro.
+//
+// El {quien} se cambia por una mencion de verdad -tg://user?id=N-, que le
+// hace vibrar el telefono aunque no tenga @usuario puesto.
+//
+// NO hay @everyone: Telegram no lo tiene, ni para bots ni para nadie. Eso
+// es de Discord. Lo unico que se puede tocar de verdad es al que acaba de
+// entrar, y es justo al que interesa enganchar.
+//
+// Se le pide el nombre del juego con /soy porque es la barra la que
+// siempre llega: sin barra, el bot solo escucha si lo nombran o si le
+// responden al mensaje, y nadie se sabe esa regla el primer dia.
+// ---------------------------------------------------------------------
+export const BIENVENIDAS = [
+  '📯 ¡Escuchen todos! Acaba de entrar {quien}.\n\nSoy Heraldo, el que da los partes por aquí. Bienvenido, mi hermano. Dime cómo te llamas en el juego y te anoto en mi pergamino:\n<code>/soy TuNombre</code>',
+  '📯 Toque de corneta: llegó {quien}.\n\nDenle la bienvenida, que uno más somos. Yo soy Heraldo y llevo la lista. Pásame tu nombre del juego con <code>/soy TuNombre</code> y ya te tengo fichado.',
+  '📯 Abran paso, que entró {quien}.\n\nBienvenido a la comunidad, asere. Soy Heraldo, el mensajero de esta gente. Escríbeme <code>/soy TuNombre</code> con tu nombre del juego para guardarte en mis contactos.',
+  '📯 Nuevo en el castillo: {quien}.\n\nBienvenido, mi hermano. Soy Heraldo y me encargo de los avisos. Dime cómo te llamas en Clash —<code>/soy TuNombre</code>— y así te aviso cuando te toque atacar.',
+  '📯 ¡Miren quién llegó! {quien} está con nosotros.\n\nSaludos de parte de Heraldo. Pon <code>/soy TuNombre</code> con tu nombre del juego, que si no te tengo apuntado no te puedo avisar de nada.',
+  '📯 Se anuncia la llegada de {quien}.\n\nBienvenido a Strange Godz. Soy Heraldo, pregúntame lo que quieras. Primero lo primero: <code>/soy TuNombre</code>, tu nombre del juego, para el pergamino.',
+  '📯 Uno más para la guerra: bienvenido {quien}.\n\nAquí Heraldo, a la orden. Dame tu nombre de Clash con <code>/soy TuNombre</code> y te empiezo a mandar tus estrellas, tu clan de CWL y hasta bases.',
+  '📯 {quien} acaba de cruzar la puerta.\n\nBienvenido, socio. Soy Heraldo y esto es la comunidad de Strange Godz. Escribe <code>/soy TuNombre</code> con tu nombre del juego y quedas registrado.',
+  '📯 Atención la tropa: entró {quien}.\n\nBienvenido. Yo soy Heraldo, el que avisa cuando falta poco para que cierre la guerra. Ponme <code>/soy TuNombre</code> para saber quién eres en el juego.',
+  '📯 Recibimos a {quien}. ¡Bienvenido!\n\nSoy Heraldo, el heraldo de la alianza. Con <code>/soy TuNombre</code> me dices tu nombre del juego y ya te reconozco para siempre.',
+];
+
+// Cuando entran varios de golpe -pasa cada vez que se comparte el enlace-
+// las frases de arriba cojean: "Pepe, Juan esta con nosotros". Son tres
+// lineas y no diez porque el caso es raro; lo que no puede es sonar mal.
+export const BIENVENIDAS_VARIOS = [
+  '📯 ¡Escuchen todos! Acaban de entrar {quien}.\n\nBienvenidos, mis hermanos. Soy Heraldo, el que da los partes por aquí. Cada uno dígame su nombre del juego con <code>/soy TuNombre</code> y los anoto en el pergamino.',
+  '📯 Toque de corneta: llegaron {quien}.\n\nDenles la bienvenida, que somos más. Yo soy Heraldo y llevo la lista: pásenme su nombre de Clash con <code>/soy TuNombre</code>.',
+  '📯 Abran paso, que entraron {quien}.\n\nBienvenidos a Strange Godz. Soy Heraldo, el mensajero de esta gente. Escríbanme <code>/soy TuNombre</code> para tenerlos fichados.',
+];
+
+export const bienvenida = (varios = false) =>
+  AL_AZAR(varios ? BIENVENIDAS_VARIOS : BIENVENIDAS);
+
+// ---------------------------------------------------------------------
 // Las categorias de charla.
 // ---------------------------------------------------------------------
 const CHARLA = [

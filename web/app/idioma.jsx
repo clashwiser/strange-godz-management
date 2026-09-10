@@ -134,6 +134,14 @@ export const EN = {
   'no dona': 'no donations',
   'sin señales': 'no sign of life',
   'falló': 'missed',
+  // ---- Felicitar al ganador de un premio ----
+  'Se lo ganó': 'Winner',
+  '— elige jugador —': '- pick a player -',
+  'Felicitar': 'Congratulate',
+  'Crea el mensaje de felicitación en la pestaña Mensajes': 'Creates the congratulation message in the Messages tab',
+  'Elige primero al jugador que se lo ganó.': 'Pick the player who won it first.',
+  'Ese premio no tiene título todavía.': 'That prize has no title yet.',
+  'Mensaje listo en la pestaña Mensajes para': 'Message ready in the Messages tab for',
   // ---- Borrar un mensaje ----
   'Para borrar uno: arrástralo a la derecha o usa la papelera.': 'To delete one: drag it to the right or use the bin.',
   '¿Borrar este mensaje?': 'Delete this message?',

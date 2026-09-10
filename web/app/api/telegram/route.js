@@ -9,7 +9,7 @@
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_SECRET_TOKEN, TELEGRAM_CHAT_ID
 
 import { admin } from '../../../lib/supabase-admin';
-import { charlar, cierreBase } from '../../../lib/charla';
+import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,14 +91,28 @@ export async function POST(request) {
   const chatId = msg?.chat?.id;
   const texto = (msg?.text || '').trim();
 
-  if (!chatId || !texto) return Response.json({ ok: true });
+  if (!chatId) return Response.json({ ok: true });
 
   // Sin "PERMITIDOS.length &&": la lista vacia ya se rechaza arriba con 503,
   // asi que aca un chat que no este en la lista blanca siempre se corta.
   if (!PERMITIDOS.includes(String(chatId))) {
-    await responder(chatId, `Este bot es privado.\nTu chat id es <code>${chatId}</code>.`);
+    // Solo si escribieron algo. Los avisos de servicio -alguien entro,
+    // alguien salio- no llevan texto, y contestarles seria ponerse a hablar
+    // solo en un grupo ajeno.
+    if (texto) {
+      await responder(chatId, `Este bot es privado.\nTu chat id es <code>${chatId}</code>.`);
+    }
     return Response.json({ ok: true });
   }
+
+  // Alguien acaba de entrar al grupo. Va antes de exigir texto porque este
+  // aviso no trae ninguno: viene en new_chat_members.
+  if (msg.new_chat_members?.length) {
+    await darBienvenida(chatId, msg.new_chat_members);
+    return Response.json({ ok: true });
+  }
+
+  if (!texto) return Response.json({ ok: true });
 
   // Quien pregunta. El id numerico no cambia aunque se cambie el @usuario,
   // y es lo que usa el cupo diario de bases.
@@ -204,6 +218,37 @@ export function entender(texto) {
 // Telegram reintenta si no recibe 200; responder rapido evita duplicados.
 export async function GET() {
   return Response.json({ ok: true, bot: 'x300' });
+}
+
+// --------------------------------------------------------- Bienvenida
+/**
+ * Saluda a quien acaba de entrar al grupo.
+ *
+ * Los dos primeros minutos deciden si alguien se queda o mira y se va, y
+ * hasta ahora entrar aqui era entrar a un cuarto en silencio.
+ *
+ * Tres detalles que no son adorno:
+ *
+ * - Se filtran los bots. Cuando alguien AÑADE a Heraldo a un grupo, el
+ *   propio Heraldo llega en new_chat_members: sin este filtro se daria la
+ *   bienvenida a si mismo el dia que lo metan en otro chat.
+ * - Si entran varios de golpe -pasa cuando se comparte el enlace- va UN
+ *   mensaje con todos, no uno por cabeza.
+ * - La mencion es tg://user?id=N y no @usuario: la mitad del clan no tiene
+ *   @usuario puesto, y asi igual le vibra el telefono.
+ */
+async function darBienvenida(chatId, nuevos) {
+  const gente = (nuevos || []).filter((u) => u && !u.is_bot);
+  if (!gente.length) return;
+
+  const nombra = (u) =>
+    `<a href="tg://user?id=${u.id}">${esc(u.first_name || u.username || 'el nuevo')}</a>`;
+  const quien =
+    gente.length > 1
+      ? `${gente.slice(0, -1).map(nombra).join(', ')} y ${nombra(gente[gente.length - 1])}`
+      : nombra(gente[0]);
+
+  await responder(chatId, bienvenida(gente.length > 1).replace('{quien}', quien));
 }
 
 // ------------------------------------------------------------- Comandos
