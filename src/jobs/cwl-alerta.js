@@ -105,6 +105,9 @@ await correrJob('alerta_cwl', async () => {
     tipo: 'alerta_cwl',
     cuerpo,
     clave: `cwl:${claves.sort().join('|')}`,
+    // Heraldo dando la alarma, en video: un aviso que parece una alarma se
+    // lee; uno que parece otra notificacion mas, no.
+    pose: 'alarma',
     // Los que no atacaron, mencionados: asi les suena el telefono en vez de
     // salir en una lista que no van a leer.
     menciones: await mencionesDe(tagsSinAtacar),

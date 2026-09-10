@@ -54,9 +54,15 @@ const TOPE_PIE = 1024;
  * Manda un mensaje. Si Telegram no esta configurado, lo escribe en el log
  * y sigue: nunca debe tumbar un job de ingesta por un fallo de aviso.
  *
- * Con `pose`, va como FOTO con el texto de pie: Heraldo anunciando lo que
- * toca. Es lo que hace que el parte se lea como algo que dice alguien y no
- * como otra notificacion mas del monton.
+ * Con `pose`, va con Heraldo EN VIDEO -cinco segundos leyendo, tocando la
+ * corneta o dando la alarma- y el texto de pie. Es lo que hace que el
+ * parte se lea como algo que dice alguien y no como otra notificacion mas
+ * del monton.
+ *
+ * Es sendAnimation y no sendVideo a proposito: un MP4 sin sonido Telegram
+ * lo trata como GIF, arranca solo y se repite. La escalera de respaldo es
+ * video -> foto -> texto: un despliegue a medias, o un pie de mas de 1024
+ * caracteres, nunca se lleva por delante el aviso.
  */
 export async function avisar(texto, { silencioso = false, pose = null, menciones = [] } = {}) {
   if (!telegramConfigurado) {
@@ -81,48 +87,39 @@ export async function avisar(texto, { silencioso = false, pose = null, menciones
 
 👉 ${enlaces}`;
   }
-  // Con foto solo si el pie cabe; si no, mensaje normal y no se pierde nada.
-  const conFoto = pose && html.length <= TOPE_PIE;
-  try {
-    const res = await fetch(
-      `https://api.telegram.org/bot${TOKEN}/${conFoto ? 'sendPhoto' : 'sendMessage'}`,
-      {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(
-        conFoto
-          ? {
-              chat_id: CHAT_ID,
-              photo: `${SITIO}/heraldo-${pose}.jpg`,
-              caption: html,
-              parse_mode: 'HTML',
-              disable_notification: silencioso,
-            }
-          : {
-              chat_id: CHAT_ID,
-              text: html,
-              parse_mode: 'HTML',
-              disable_notification: silencioso,
-            }
-      ),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) {
+  // Con Heraldo delante solo si el pie cabe; si no, texto y no se pierde nada.
+  const conPose = Boolean(pose) && html.length <= TOPE_PIE;
+
+  // La escalera: video, foto, texto. Cada peldaño solo se prueba si el
+  // anterior fallo, y el ultimo no puede fallar por la imagen.
+  const intentos = conPose
+    ? [
+        ['sendAnimation', { animation: `${SITIO}/heraldo-${pose}.mp4`, caption: html }],
+        ['sendPhoto', { photo: `${SITIO}/heraldo-${pose}.jpg`, caption: html }],
+        ['sendMessage', { text: html }],
+      ]
+    : [['sendMessage', { text: html }]];
+
+  for (const [metodo, cuerpo] of intentos) {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: CHAT_ID,
+          parse_mode: 'HTML',
+          disable_notification: silencioso,
+          ...cuerpo,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) return true;
       const detalle = await res.text().catch(() => '');
-      console.error('[telegram] error', res.status, detalle);
-      // Si lo que fallo fue la FOTO, el parte se reintenta como texto. Sin
-      // esto, un despliegue a medias -la imagen todavia no publicada- se
-      // lleva por delante el aviso del dia entero, y en silencio.
-      if (conFoto) {
-        console.error('[telegram] reintento sin foto');
-        return await avisar(texto, { silencioso, menciones });
-      }
-      return false;
+      console.error(`[telegram] ${metodo} error`, res.status, detalle);
+    } catch (err) {
+      console.error(`[telegram] ${metodo} fallo:`, err);
     }
-    return true;
-  } catch (err) {
-    console.error('[telegram] fallo el envio:', err);
-    if (conFoto) return await avisar(texto, { silencioso, menciones });
-    return false;
+    if (metodo !== 'sendMessage') console.error('[telegram] reintento con el siguiente peldaño');
   }
+  return false;
 }

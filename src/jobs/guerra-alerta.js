@@ -118,6 +118,7 @@ await correrJob('alerta_guerra', async () => {
     tipo: 'alerta_guerra',
     cuerpo,
     clave: `guerra:${claves.sort().join('|')}`,
+    pose: 'alarma',
     menciones: await mencionesDe(tagsFlojos),
   });
 

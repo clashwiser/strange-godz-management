@@ -62,7 +62,7 @@ export async function POST(request) {
 
   const { data: msg } = await admin
     .from('outbox')
-    .select('id, cuerpo, estado')
+    .select('id, tipo, cuerpo, estado')
     .eq('id', id)
     .maybeSingle();
   if (!msg) return Response.json({ ok: false, error: 'no existe' }, { status: 404 });
@@ -71,24 +71,41 @@ export async function POST(request) {
   }
 
   const html = aHtml(msg.cuerpo);
-  // Con foto si cabe en el pie; si no, texto. Igual que los partes diarios.
-  const conFoto = html.length <= 1024;
 
-  const r = await fetch(
-    `https://api.telegram.org/bot${TOKEN}/${conFoto ? 'sendPhoto' : 'sendMessage'}`,
-    {
+  // Heraldo en video, con la pose que pide el mensaje: una felicitacion o
+  // los premios se anuncian con corneta; la alineacion o un aviso suelto se
+  // leen del pergamino. Es sendAnimation y no sendVideo a proposito: un MP4
+  // sin sonido Telegram lo trata como GIF, arranca solo y se repite.
+  //
+  // Escalera de respaldo: video -> foto -> texto. Un pie de mas de 1024
+  // caracteres o una imagen sin publicar nunca se llevan por delante el
+  // mensaje. Igual que src/lib/telegram.js.
+  const pose = /premio|felicitacion|bono/.test(msg.tipo ?? '') ? 'corneta' : 'lee';
+  const intentos =
+    html.length <= 1024
+      ? [
+          ['sendAnimation', { animation: `${SITIO}/heraldo-${pose}.mp4`, caption: html }],
+          ['sendPhoto', { photo: `${SITIO}/heraldo-${pose}.jpg`, caption: html }],
+          ['sendMessage', { text: html }],
+        ]
+      : [['sendMessage', { text: html }]];
+
+  let detalle = '';
+  let enviado = false;
+  for (const [metodo, cuerpo] of intentos) {
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(
-        conFoto
-          ? { chat_id: CHAT_ID, photo: `${SITIO}/heraldo-lee.jpg`, caption: html, parse_mode: 'HTML' }
-          : { chat_id: CHAT_ID, text: html, parse_mode: 'HTML' }
-      ),
+      body: JSON.stringify({ chat_id: CHAT_ID, parse_mode: 'HTML', ...cuerpo }),
+    }).catch(() => null);
+    if (r?.ok) {
+      enviado = true;
+      break;
     }
-  );
+    detalle = r ? (await r.text().catch(() => '')).slice(0, 200) : 'sin respuesta de Telegram';
+  }
 
-  if (!r.ok) {
-    const detalle = (await r.text().catch(() => '')).slice(0, 200);
+  if (!enviado) {
     // Queda escrito el porque: si no, el lider ve "fallido" y no sabe nada.
     await admin.from('outbox').update({ estado: 'fallido', error: detalle }).eq('id', id);
     return Response.json({ ok: false, error: detalle }, { status: 502 });
