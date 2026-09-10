@@ -42,23 +42,33 @@ await correrJob('youtube_suscribir', async () => {
       'hub.lease_seconds': '432000',
     });
 
-    try {
-      const r = await fetch(HUB, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: cuerpo,
-        signal: AbortSignal.timeout(20000),
-      });
-      const texto = await r.text().catch(() => '');
-      // 202 = aceptado para verificar. 204 tambien vale en algunos hubs.
-      const bien = r.status === 202 || r.status === 204;
-      if (bien) ok += 1;
-      detalle[c.nombre] = r.status;
-      console.log(`  ${c.nombre}: ${r.status}${bien ? '' : ' — ' + texto.slice(0, 120)}`);
-    } catch (e) {
-      detalle[c.nombre] = e.message;
-      console.log(`  ${c.nombre}: fallo — ${e.message}`);
+    // Con reintentos: el hub de Google contesta "Transient error" con un 503
+    // cada cierto tiempo, y con un solo intento la renovacion de ese dia se
+    // perderia entera. Es exactamente lo que paso al montar esto.
+    let estado = null;
+    let detalleError = '';
+    for (let intento = 1; intento <= 4; intento++) {
+      try {
+        const r = await fetch(HUB, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: cuerpo,
+          signal: AbortSignal.timeout(30000),
+        });
+        estado = r.status;
+        if (r.status === 202 || r.status === 204) break;
+        detalleError = (await r.text().catch(() => '')).slice(0, 90);
+      } catch (e) {
+        estado = 'sin red';
+        detalleError = e.message;
+      }
+      if (intento < 4) await new Promise((z) => setTimeout(z, intento * 5000));
     }
+
+    const bien = estado === 202 || estado === 204;
+    if (bien) ok += 1;
+    detalle[c.nombre] = estado;
+    console.log(`  ${c.nombre}: ${estado}${bien ? '' : ' — ' + detalleError}`);
   }
 
   console.log(`  callback: ${callback}`);
