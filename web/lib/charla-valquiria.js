@@ -127,3 +127,32 @@ export const presentaElegido = (nombre, th) =>
     `⚔️ Miren quién llegó: <b>${nombre}</b>, TH${th}. Pasó por mi puerta. Ahora que pase por la amistosa.`,
     `⚔️ <b>${nombre}</b>, TH${th}. Lo vi pelear y me gustó. Denle la bienvenida, mi gente.`,
   ]);
+
+// ---------------------------------------------------------------------
+// La bienvenida a quien entra al grupo. La da ella y no Heraldo: es la
+// que elige quien entra, asi que es la que recibe. El {quien} se cambia
+// por una mencion de verdad (tg://user?id=N), que le hace vibrar el
+// telefono aunque no tenga @usuario.
+//
+// Le pide el nombre del juego con /soy, que es de Heraldo: ella no
+// atiende comandos, pero el si, y asi los dos quedan presentados.
+// ---------------------------------------------------------------------
+export const BIENVENIDAS_VALQUIRIA = [
+  `⚔️ Miren quién cruzó la puerta: {quien}.\n\nBienvenido, mi cielo. Soy Valquiria, la que elige quién entra aquí. Dile a Heraldo tu nombre del juego con <code>/soy TuNombre</code> y quedas en la lista.`,
+  `⚔️ Llegó {quien}. Denle la bienvenida, mi gente.\n\nYo soy Valquiria, mi vida, y aquí se entra por mi puerta. Preséntate con <code>/soy TuNombre</code> para que Heraldo te tenga fichado.`,
+  `⚔️ {quien} está con nosotros desde hoy.\n\nBienvenido, mi corazón. Soy Valquiria: yo recibo y Heraldo anuncia. Escribe <code>/soy TuNombre</code> con tu nombre de Clash y ya estás dentro de verdad.`,
+  `⚔️ Se abre la puerta para {quien}.\n\nBienvenido a Strange Godz, cariño. Soy Valquiria y llevo la cuenta de los guerreros. Pon <code>/soy TuNombre</code> y te apunto.`,
+  `⚔️ Uno más para la guerra: {quien}.\n\nBienvenido, mi cielo. Aquí Valquiria. Dime tu nombre del juego con <code>/soy TuNombre</code>, que sin eso no te puedo avisar cuando te toque atacar.`,
+  `⚔️ {quien}, bienvenido.\n\nSoy Valquiria, mi vida: la que elige quién entra al ejército de los Godz. Preséntate con <code>/soy TuNombre</code> y Heraldo te anota en el pergamino.`,
+];
+
+// Cuando entran varios de golpe. Tres y no seis porque el caso es raro;
+// lo que no puede es sonar mal.
+export const BIENVENIDAS_VALQUIRIA_VARIOS = [
+  `⚔️ Miren quiénes cruzaron la puerta: {quien}.\n\nBienvenidos, mis cielos. Soy Valquiria, la que elige quién entra aquí. Cada uno dígale a Heraldo su nombre del juego con <code>/soy TuNombre</code>.`,
+  `⚔️ Llegaron {quien}. Denles la bienvenida, mi gente.\n\nYo soy Valquiria, y aquí se entra por mi puerta. Preséntense con <code>/soy TuNombre</code> para quedar en la lista.`,
+  `⚔️ Se abre la puerta para {quien}.\n\nBienvenidos a Strange Godz. Soy Valquiria y llevo la cuenta de los guerreros. Pongan <code>/soy TuNombre</code> y los apunto.`,
+];
+
+export const bienvenidaValquiria = (varios = false) =>
+  AL_AZAR(varios ? BIENVENIDAS_VALQUIRIA_VARIOS : BIENVENIDAS_VALQUIRIA);

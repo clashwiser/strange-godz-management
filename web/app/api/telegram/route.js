@@ -115,8 +115,12 @@ export async function POST(request) {
 
   // Alguien acaba de entrar al grupo. Va antes de exigir texto porque este
   // aviso no trae ninguno: viene en new_chat_members.
+  //
+  // La bienvenida la da Valquiria -es la que elige quien entra, asi que es
+  // la que recibe-. Heraldo solo la da si ella no esta configurada: dos
+  // saludos seguidos es ruido, y ninguno es peor.
   if (msg.new_chat_members?.length) {
-    await darBienvenida(chatId, msg.new_chat_members);
+    if (!process.env.RECLUTA_BOT_TOKEN) await darBienvenida(chatId, msg.new_chat_members);
     return Response.json({ ok: true });
   }
 

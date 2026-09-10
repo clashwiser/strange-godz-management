@@ -161,6 +161,32 @@ export async function decirCon(token, chatId, texto) {
 }
 
 /**
+ * Manda un video corto con el texto de pie. Es sendAnimation y no
+ * sendVideo a proposito: un MP4 sin sonido Telegram lo trata como GIF,
+ * arranca solo y se repite, que es lo que quiere una mascota que saluda.
+ *
+ * Si Telegram no puede con el video -la URL todavia no esta publicada, o
+ * pesa de mas- sale el texto solo. Perder la bienvenida entera por la
+ * imagen seria absurdo.
+ */
+export async function decirConVideo(token, chatId, urlVideo, pie) {
+  if (!token) return false;
+  if (urlVideo && pie.length <= 1024) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${token}/sendAnimation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, animation: urlVideo, caption: pie, parse_mode: 'HTML' }),
+      });
+      if (r.ok) return true;
+    } catch {
+      /* al texto */
+    }
+  }
+  return decirCon(token, chatId, pie);
+}
+
+/**
  * Un mensaje de alguien de fuera. Devuelve el texto a contestar, o null
  * para no contestar nada. El que llama lo manda con SU token.
  *

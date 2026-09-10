@@ -24,12 +24,19 @@
 //   RECLUTA_SECRET_TOKEN   uno inventado, el mismo que lleva el webhook
 
 import { admin } from '../../../lib/supabase-admin';
-import { flujoSolicitud, decirCon, esc } from '../../../lib/solicitud';
-import { entenderValquiria, cuantosEsperan, presentaElegido } from '../../../lib/charla-valquiria';
+import { flujoSolicitud, decirCon, decirConVideo, esc } from '../../../lib/solicitud';
+import {
+  entenderValquiria,
+  cuantosEsperan,
+  presentaElegido,
+  bienvenidaValquiria,
+} from '../../../lib/charla-valquiria';
 
 export const dynamic = 'force-dynamic';
 
 const TOKEN = process.env.RECLUTA_BOT_TOKEN;
+// El propio sitio: de aqui se descarga Telegram el video de la bienvenida.
+const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
 const SECRETO = process.env.RECLUTA_SECRET_TOKEN;
 
 // Su propio id de usuario: es la parte del token antes de los dos puntos.
@@ -73,20 +80,40 @@ export async function POST(request) {
   // ---- En un grupo: solo en el nuestro ----
   if (String(chatId) !== String(GRUPO)) return Response.json({ ok: true });
 
-  // Alguien entro. Si lo eligio ella, lo presenta; si no, se calla: la
-  // bienvenida general ya la da Heraldo y dos saludos seguidos es ruido.
+  // Alguien entro. La bienvenida la da ELLA -es la que elige quien entra,
+  // asi que es la que recibe- y sale con su video saludando. Heraldo se
+  // calla mientras Valquiria exista: dos saludos seguidos es ruido.
+  //
+  // Se filtran los bots: cuando la añaden a un grupo, ella misma llega en
+  // new_chat_members y se daria la bienvenida sola.
   if (msg.new_chat_members?.length) {
-    const ids = msg.new_chat_members.filter((u) => !u.is_bot).map((u) => u.id);
-    if (ids.length) {
-      const { data: elegidos } = await admin
-        .from('solicitudes')
-        .select('tg_user_id, perfil')
-        .in('tg_user_id', ids)
-        .in('estado', ['prueba', 'aceptada']);
-      for (const s of elegidos ?? []) {
-        const nombre = s.perfil?.nombre ?? msg.new_chat_members.find((u) => u.id === s.tg_user_id)?.first_name ?? 'el nuevo';
-        await decirCon(TOKEN, chatId, presentaElegido(esc(nombre), s.perfil?.th ?? '?'));
-      }
+    const gente = msg.new_chat_members.filter((u) => u && !u.is_bot);
+    if (!gente.length) return Response.json({ ok: true });
+
+    const nombra = (u) =>
+      `<a href="tg://user?id=${u.id}">${esc(u.first_name || u.username || 'el nuevo')}</a>`;
+    const quien =
+      gente.length > 1
+        ? `${gente.slice(0, -1).map(nombra).join(', ')} y ${nombra(gente[gente.length - 1])}`
+        : nombra(gente[0]);
+
+    await decirConVideo(
+      TOKEN,
+      chatId,
+      `${SITIO}/valquiria-saluda.mp4`,
+      bienvenidaValquiria(gente.length > 1).replace('{quien}', quien)
+    );
+
+    // Y si a alguno lo eligio ella, lo dice: es su carta de presentacion
+    // ante el clan, y el que lo va a retar en amistosa ya sabe a quien.
+    const { data: elegidos } = await admin
+      .from('solicitudes')
+      .select('tg_user_id, perfil')
+      .in('tg_user_id', gente.map((u) => u.id))
+      .in('estado', ['prueba', 'aceptada']);
+    for (const s of elegidos ?? []) {
+      const nombre = s.perfil?.nombre ?? gente.find((u) => u.id === s.tg_user_id)?.first_name ?? 'el nuevo';
+      await decirCon(TOKEN, chatId, presentaElegido(esc(nombre), s.perfil?.th ?? '?'));
     }
     return Response.json({ ok: true });
   }

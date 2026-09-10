@@ -1164,8 +1164,8 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
   display: flex; align-items: center; gap: 12px;
   margin: 18px 0 10px;
 }
-.valquiria-cab img {
-  width: 72px; height: 72px; border-radius: 50%;
+.valquiria-cab img, .valquiria-cab video {
+  width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
   border: 3px solid var(--oro); box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
   flex: none;
 }

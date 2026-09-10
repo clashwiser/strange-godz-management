@@ -118,7 +118,18 @@ export default function Solicitudes({ d, demo = false, recargar }) {
       {/* Valquiria es la dueña de esta pestaña: la que elige a los guerreros
           para el ejercito de los dioses. Heraldo anuncia; ella recluta. */}
       <div className="valquiria-cab">
-        <img src="/valquiria.png" alt="Valquiria" width="72" height="72" />
+        {/* El mismo video que manda por Telegram al dar la bienvenida. Con
+            poster para que, mientras carga, se vea su cara y no un hueco. */}
+        <video
+          src="/valquiria-saluda.mp4"
+          poster="/valquiria.png"
+          width="72"
+          height="72"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
         <div>
           <h2 className="sec" style={{ margin: 0 }}>
             {t('Solicitudes')}
