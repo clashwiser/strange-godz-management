@@ -106,6 +106,12 @@ export const EN = {
   'Generando…': 'Generating…',
   'Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.':
     'Drag names between clans. On the phone press and hold a card, then drag it; the dropdown works too.',
+  // ---- Enviar con Heraldo ----
+  'Dale a Enviar y Heraldo lo publica en el grupo, o cópialo y pégalo tú.': 'Hit Send and Heraldo posts it to the group, or copy it and paste it yourself.',
+  'No se pudo enviar: ': 'Could not send: ',
+  'Heraldo lo envió': 'Heraldo sent it',
+  'Enviando…': 'Sending…',
+  'Enviar con Heraldo': 'Send with Heraldo',
   // ---- Entrar con la huella ----
   'Entrar con huella o PIN': 'Sign in with fingerprint or PIN',
   'No se pudo entrar con la huella: ': 'Could not sign in with fingerprint: ',

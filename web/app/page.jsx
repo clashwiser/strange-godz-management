@@ -772,6 +772,36 @@ export function Jugadores({ d }) {
 export function Mensajes({ d, recargar }) {
   const t = useT();
   const [copiado, setCopiado] = useState(null);
+  const [enviando, setEnviando] = useState(null);
+  const [err, setErr] = useState('');
+
+  /**
+   * Que lo mande Heraldo al grupo.
+   *
+   * Hasta ahora los mensajes que generaba un lider a mano se quedaban aqui
+   * esperando a que alguien los copiara, mientras que los de los jobs
+   * salian solos. Nada en la pantalla explicaba la diferencia.
+   */
+  async function enviar(m) {
+    setEnviando(m.id);
+    setErr('');
+    try {
+      const { data: sesion } = await supabase.auth.getSession();
+      const token = sesion?.session?.access_token;
+      const r = await fetch('/api/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: m.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) throw new Error(j.error ?? `error ${r.status}`);
+      recargar();
+    } catch (e) {
+      setErr(`${t('No se pudo enviar: ')}${e.message}`);
+    } finally {
+      setEnviando(null);
+    }
+  }
 
   async function copiar(m) {
     try {
@@ -793,8 +823,9 @@ export function Mensajes({ d, recargar }) {
   return (
     <>
       <p className="sub" style={{ color: 'var(--tenue)' }}>
-        {t('Copia y pega en el grupo del clan. Al copiar, el mensaje se marca como compartido.')}
+        {t('Dale a Enviar y Heraldo lo publica en el grupo, o cópialo y pégalo tú.')}
       </p>
+      {err && <p className="error">{err}</p>}
       {d.outbox.map((m) => (
         <div className="card" key={m.id} style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -803,8 +834,20 @@ export function Mensajes({ d, recargar }) {
               {m.estado}
             </span>
             <span className="sub" style={{ color: 'var(--tenue)', fontSize: 12 }}>{fmt(m.creado_en)}</span>
+            {/* Cuando lo mando Heraldo. Sin esta linea no habia forma de
+                saber si un mensaje ya salio al grupo o sigue esperando. */}
+            {m.estado === 'enviado' && m.enviado_en && (
+              <span className="sub" style={{ fontSize: 12 }}>
+                🎺 {t('Heraldo lo envió')} {fmt(m.enviado_en)}
+              </span>
+            )}
             <span style={{ flex: 1 }} />
-            <button className="accion" onClick={() => copiar(m)}>
+            {m.estado !== 'enviado' && (
+              <button className="accion" onClick={() => enviar(m)} disabled={enviando === m.id}>
+                {enviando === m.id ? t('Enviando…') : `🎺 ${t('Enviar con Heraldo')}`}
+              </button>
+            )}
+            <button className="fantasma" onClick={() => copiar(m)}>
               {copiado === m.id ? '¡Copiado!' : copiado === -1 ? 'Error' : 'Copiar'}
             </button>
           </div>

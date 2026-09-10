@@ -10,7 +10,7 @@ import { avisar as avisarTelegram, telegramConfigurado } from './telegram.js';
  * aviso: si ya existe una fila con esa clave, no se inserta otra.
  * Devuelve true si el mensaje es nuevo.
  */
-export async function encolar({ tipo, cuerpo, clave = null, destino = 'grupo_clan', pose = null }) {
+export async function encolar({ tipo, cuerpo, clave = null, destino = 'grupo_clan', pose = null, menciones = [] }) {
   const { data, error } = await db
     .from('outbox')
     .upsert(
@@ -32,7 +32,7 @@ export async function encolar({ tipo, cuerpo, clave = null, destino = 'grupo_cla
   // Telegram es opcional y secundario: si esta configurado, duplica el aviso.
   // Un fallo aca nunca debe tumbar el job. Con `pose`, va como foto de
   // Heraldo con el texto de pie.
-  if (telegramConfigurado) await avisarTelegram(cuerpo, { pose }).catch(() => {});
+  if (telegramConfigurado) await avisarTelegram(cuerpo, { pose, menciones }).catch(() => {});
 
   return true;
 }

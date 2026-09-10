@@ -11,6 +11,7 @@ import { getClan, getLeagueGroup, getLeagueWar, parseCocDate, mapLimit, opcional
 import { clanes, horasHasta } from '../lib/config.js';
 import { encolar, negrita, mono } from '../lib/outbox.js';
 import { correrJob } from '../lib/db.js';
+import { mencionesDe } from '../lib/menciones.js';
 
 // Avisos escalonados. El cron corre cada 2h, pero solo se encola un mensaje
 // nuevo al cruzar cada umbral: sin esto el grupo recibe el mismo aviso 3 veces.
@@ -33,6 +34,7 @@ await correrJob('alerta_cwl', async () => {
   const claves = [];
   let pendientesTotal = 0;
   let masUrgente = Infinity;
+  const tagsSinAtacar = [];
 
   for (const { clan_tag, escuadra } of await clanes()) {
     const grupo = await opcional(getLeagueGroup(clan_tag));
@@ -67,6 +69,7 @@ await correrJob('alerta_cwl', async () => {
       }
 
       pendientesTotal += sinAtacar.length;
+      tagsSinAtacar.push(...sinAtacar.map((m) => m.tag));
       masUrgente = Math.min(masUrgente, restan);
       claves.push(`${g.wt}:${umbral}`);
 
@@ -91,12 +94,20 @@ await correrJob('alerta_cwl', async () => {
   const cuerpo =
     `⚔️ ${negrita('ATAQUES DE CWL SIN USAR')}\n\n` +
     bloques.join('\n\n') +
-    `\n\n_Si avisaste antes del dia de batalla, dilo y no cuenta como fallo._`;
+    // En CWL no hay excusa que valga y decir lo contrario hace daño: a la
+    // liga solo se lleva a quien VA a atacar, la alineacion se arma a mano
+    // y cada ataque que falta es una guerra que se pierde. La linea de "si
+    // avisaste no cuenta como fallo" es de la guerra normal, donde si tiene
+    // sentido; aqui estaba dandole a la gente una salida que no existe.
+    `\n\n${negrita('¡ATACA!')}`;
 
   const nuevo = await encolar({
     tipo: 'alerta_cwl',
     cuerpo,
     clave: `cwl:${claves.sort().join('|')}`,
+    // Los que no atacaron, mencionados: asi les suena el telefono en vez de
+    // salir en una lista que no van a leer.
+    menciones: await mencionesDe(tagsSinAtacar),
   });
 
   return {

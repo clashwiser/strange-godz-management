@@ -25,6 +25,7 @@ import { getClan, getCurrentWar, parseCocDate, opcional } from '../lib/coc.js';
 import { clanes, horasHasta } from '../lib/config.js';
 import { encolar, negrita, mono } from '../lib/outbox.js';
 import { correrJob } from '../lib/db.js';
+import { mencionesDe } from '../lib/menciones.js';
 
 // Mismos umbrales que la CWL. Ascendente: hay que devolver el MAS CHICO que
 // todavia contiene a `horas`; al reves, todo lo menor a 6h daba 6 y los
@@ -42,6 +43,7 @@ await correrJob('alerta_guerra', async () => {
   const claves = [];
   let pendientesTotal = 0;
   let masUrgente = Infinity;
+  const tagsFlojos = [];
 
   for (const { clan_tag, escuadra } of await clanes()) {
     const w = await opcional(getCurrentWar(clan_tag));
@@ -75,6 +77,7 @@ await correrJob('alerta_guerra', async () => {
     }
 
     const sinUsar = flojos.reduce((n, m) => n + (porCabeza - m.hechos), 0);
+    tagsFlojos.push(...flojos.map((m) => m.tag));
     pendientesTotal += sinUsar;
     masUrgente = Math.min(masUrgente, restan);
     // La clave lleva el fin de la guerra y el umbral: asi cada guerra avisa
@@ -103,12 +106,19 @@ await correrJob('alerta_guerra', async () => {
   const cuerpo =
     `⚔️ ${negrita('ATAQUES DE GUERRA SIN USAR')}\n\n` +
     bloques.join('\n\n') +
-    `\n\nEl numero de al lado es cuantos le faltan a cada uno.`;
+    `\n\nEl numero de al lado es cuantos le faltan a cada uno.` +
+    // Aqui SI aplica, al reves que en CWL. En guerra normal, cuando hay 39
+    // en verde y la guerra es de 40, se mete a alguien solo para completar
+    // el numero; a ese se le dijo que no hacia falta que atacara. Y una
+    // guerra de 40 se suele limpiar con 50-55 ataques de los 80, asi que
+    // tampoco hace falta que ataquen todos.
+    `\n_Si te dijeron que entrabas solo para completar, tranquilo. Si no, ataca._`;
 
   const nuevo = await encolar({
     tipo: 'alerta_guerra',
     cuerpo,
     clave: `guerra:${claves.sort().join('|')}`,
+    menciones: await mencionesDe(tagsFlojos),
   });
 
   return {

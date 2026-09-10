@@ -58,12 +58,29 @@ const TOPE_PIE = 1024;
  * toca. Es lo que hace que el parte se lea como algo que dice alguien y no
  * como otra notificacion mas del monton.
  */
-export async function avisar(texto, { silencioso = false, pose = null } = {}) {
+export async function avisar(texto, { silencioso = false, pose = null, menciones = [] } = {}) {
   if (!telegramConfigurado) {
     console.log('[telegram] no configurado, mensaje no enviado:\n' + texto);
     return false;
   }
-  const html = aHtmlTelegram(texto);
+  let html = aHtmlTelegram(texto);
+
+  // Menciones al final, DESPUES de convertir. aHtmlTelegram escapa < y >,
+  // asi que un enlace metido en el texto de origen saldria como texto
+  // literal. Va aparte y en crudo.
+  //
+  // El formato tg://user?id= funciona aunque la persona no tenga @usuario
+  // puesto, que es lo normal, y le hace sonar el telefono de verdad. Sin
+  // esto el aviso es una lista de nombres que nadie lee: el que no ataco
+  // es justo el que no esta mirando el grupo.
+  if (menciones.length) {
+    const enlaces = menciones
+      .map((m) => `<a href="tg://user?id=${m.id}">${aHtmlTelegram(m.nombre).replace(/<[^>]*>/g, '')}</a>`)
+      .join(' ');
+    html += `
+
+👉 ${enlaces}`;
+  }
   // Con foto solo si el pie cabe; si no, mensaje normal y no se pierde nada.
   const conFoto = pose && html.length <= TOPE_PIE;
   try {
@@ -98,14 +115,14 @@ export async function avisar(texto, { silencioso = false, pose = null } = {}) {
       // lleva por delante el aviso del dia entero, y en silencio.
       if (conFoto) {
         console.error('[telegram] reintento sin foto');
-        return await avisar(texto, { silencioso });
+        return await avisar(texto, { silencioso, menciones });
       }
       return false;
     }
     return true;
   } catch (err) {
     console.error('[telegram] fallo el envio:', err);
-    if (conFoto) return await avisar(texto, { silencioso });
+    if (conFoto) return await avisar(texto, { silencioso, menciones });
     return false;
   }
 }
