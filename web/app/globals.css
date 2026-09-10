@@ -1169,3 +1169,15 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
   border: 3px solid var(--oro); box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
   flex: none;
 }
+
+/* ---------- Bots: las dos caras ---------- */
+.bots-grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.bot-cab { display: flex; align-items: center; gap: 14px; }
+.bot-cab img {
+  width: 84px; height: 84px; border-radius: 50%; flex: none;
+  border: 3px solid var(--oro); box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+}
+.bot-estado {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  margin-top: 10px; font-size: 13px;
+}
