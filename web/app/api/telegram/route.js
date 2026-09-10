@@ -9,6 +9,7 @@
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_SECRET_TOKEN, TELEGRAM_CHAT_ID
 
 import { admin } from '../../../lib/supabase-admin';
+import { charlar } from '../../../lib/charla';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,7 +137,7 @@ export async function POST(request) {
   }
 
   try {
-    await responder(chatId, await ejecutar(comando, arg, quien));
+    await responder(chatId, await ejecutar(comando, arg, quien, chatId));
   } catch (e) {
     await responder(chatId, `⚠️ Error: <code>${esc(e.message)}</code>`);
   }
@@ -171,6 +172,12 @@ export function entender(texto) {
   const m = /(?:jugador|ficha|quien es|como va)\s+(.+)/.exec(q);
   if (m) return { comando: 'jugador', arg: m[1].trim() };
 
+  // Charla: va DESPUES de los datos -si alguien pide una base, se le da la
+  // base, no un chiste- y ANTES del "no entendi". Es lo que hace que
+  // conteste como uno del grupo cuando le tiran un cabo.
+  const suelta = charlar(q);
+  if (suelta) return { comando: 'decir', arg: suelta };
+
   // Si nos hablaron pero no se entiende, mejor decirlo que callar: en un
   // grupo, un bot que ignora una mencion parece roto.
   if (/(heraldo|hola|ayuda|que sabes|puedes)/.test(q)) return { comando: 'ayuda', arg: '' };
@@ -184,7 +191,7 @@ export async function GET() {
 }
 
 // ------------------------------------------------------------- Comandos
-async function ejecutar(comando, arg, quien = { id: 0, nombre: null }) {
+async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = null) {
   switch (comando) {
     case 'start':
     case 'ayuda':
@@ -199,6 +206,10 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }) {
         `/reporte — último mensaje generado, para pegar en WhatsApp`
       );
 
+    // Charla suelta: la frase ya viene elegida, aca solo se dice.
+    case 'decir':
+      return arg;
+
     case 'resumen':
       return await cmdResumen();
     case 'faltan':
@@ -211,6 +222,12 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }) {
     case 'bases':
       return await cmdBase(arg, quien);
     case 'reporte':
+      // Vuelca el ultimo mensaje generado, y ahi puede ir el cierre del mes
+      // con quien cobra cuanto. En un grupo con el clan entero eso son
+      // cuentas de los lideres a la vista de todos.
+      if (!(await esLider(chatId, quien.id))) {
+        return 'Eso es de los líderes, mi hermano. Prueba /resumen o /estrellas.';
+      }
       return await cmdReporte();
     default:
       return `No conozco <code>/${esc(comando)}</code>. Prueba /ayuda.`;
@@ -391,6 +408,11 @@ async function cmdReporte() {
 // con cupo diario. Ver sql/016_base_pedidos.sql.
 
 const CUPO_DIARIO = 1;
+// Tope de TODO el grupo por dia. El pack trae unas 32 bases y en el grupo
+// esta el clan entero: con una por cabeza, cuarenta personas lo vacian en
+// una tarde. Esto reparte el pack a lo largo del mes en vez de quemarlo el
+// dia que llega.
+const CUPO_GRUPO = 10;
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
@@ -424,6 +446,20 @@ async function cmdBase(arg, quien) {
     .eq('tg_user_id', quien.id)
     .eq('dia', hoy);
   if (errCupo) throw errCupo;
+
+  // El tope del grupo se mira ANTES que el personal: si el pack ya se
+  // repartio hoy, da igual que a esta persona le quede la suya.
+  const { count: delGrupoHoy } = await admin
+    .from('base_pedidos')
+    .select('id', { count: 'exact', head: true })
+    .eq('dia', hoy);
+
+  if ((delGrupoHoy ?? 0) >= CUPO_GRUPO && (llevaHoy ?? 0) === 0) {
+    return (
+      `📜 Hoy ya se repartieron las <b>${CUPO_GRUPO} bases del día</b> entre todos, mi hermano.\n\n` +
+      `Mañana hay ${CUPO_GRUPO} más. Pídela temprano.`
+    );
+  }
 
   if ((llevaHoy ?? 0) >= CUPO_DIARIO) {
     // El texto se adapta al cupo: con CUPO_DIARIO en 1, "tus 1 bases de hoy"
@@ -483,4 +519,28 @@ async function cmdBase(arg, quien) {
     return { foto: `${SITIO}${base.preview}`, pie };
   }
   return pie;
+}
+
+/**
+ * Si esta persona manda en el grupo.
+ *
+ * Se lo preguntamos a Telegram en vez de llevar una lista de ids en una
+ * variable de entorno: la lista habria que sacarla a mano, mantenerla a
+ * mano, y se quedaria vieja el dia que cambie un lider. Quien es admin del
+ * grupo ya lo sabe Telegram y se actualiza solo.
+ *
+ * Falla CERRADO: si la consulta se cae, no es lider. Un fallo de red no
+ * puede acabar enseñandole a sesenta personas quien cobra cuanto.
+ */
+async function esLider(chatId, userId) {
+  if (!chatId || !userId) return false;
+  try {
+    const r = await fetch(
+      `https://api.telegram.org/bot${TOKEN}/getChatMember?chat_id=${chatId}&user_id=${userId}`
+    );
+    const j = await r.json();
+    return ['creator', 'administrator'].includes(j?.result?.status);
+  } catch {
+    return false;
+  }
 }
