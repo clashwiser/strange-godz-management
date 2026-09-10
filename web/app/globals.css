@@ -1158,3 +1158,14 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
   color: var(--texto); background: rgba(0, 0, 0, .12);
 }
 .bandera.grave { color: #2e0606; background: #e98a8a; border-color: var(--mal); }
+
+/* ---------- Solicitudes: Valquiria ---------- */
+.valquiria-cab {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0 10px;
+}
+.valquiria-cab img {
+  width: 72px; height: 72px; border-radius: 50%;
+  border: 3px solid var(--oro); box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+  flex: none;
+}

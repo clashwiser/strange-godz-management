@@ -89,17 +89,21 @@ export async function POST(request) {
     // Se le avisa del reto ANTES de que entre, no despues. Que te reten
     // nada mas poner un pie dentro, sin habertelo dicho, parece una
     // novatada; avisado, es parte del trato.
+    // Cada bot con su voz: Valquiria elige, Heraldo acepta.
+    const cabecera =
+      sol.via === 'recluta'
+        ? `⚔️ <b>Elegido.</b>\n\nPeleaste bien y hay sitio para ti en <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n`
+        : `✅ <b>¡Te aceptaron!</b>\n\nBienvenido a <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n`;
     const aviso = await decirCon(
       TOKEN_DE[sol.via] ?? TOKEN_DE.heraldo,
       sol.tg_user_id,
-      `✅ <b>¡Te aceptaron!</b>\n\n` +
-        `Bienvenido a <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n` +
+      cabecera +
         `<a href="${enlaceClan(clan.clan_tag)}">Abrir ${esc(clan.nombre)} en el juego</a>\n\n` +
         `Tag del clan: <code>${esc(clan.clan_tag)}</code>\n\n` +
         `Cuando entres, uno de los líderes te va a retar a una <b>amistosa</b> para ver cómo atacas. ` +
         `Tómatelo con calma: no es un examen, es para saber en qué guerra ponerte.\n\n` +
         `Y una cosa importante, que es la que más pesa aquí: <b>enciende la guerra</b> en los ajustes ` +
-        `y <b>dona</b>, aunque sea poco. Eso es lo que mira todo el mundo. 📯`
+        `y <b>dona</b>, aunque sea poco. Eso es lo que mira todo el mundo. ${sol.via === 'recluta' ? '⚔️' : '📯'}`
     );
 
     return Response.json({ ok: true, avisado: aviso, estado: 'prueba' });
@@ -123,8 +127,11 @@ export async function POST(request) {
     const aviso = await decirCon(
       TOKEN_DE[sol.via] ?? TOKEN_DE.heraldo,
       sol.tg_user_id,
-      `Gracias por escribirnos, mi hermano. Por ahora no tenemos hueco para ti.\n\n` +
-        `No lo tomes a mal: vuelve a escribirme más adelante y lo miramos otra vez. 📯`
+      sol.via === 'recluta'
+        ? `Esta vez no, guerrero. Por ahora no hay sitio para ti.\n\n` +
+            `No lo tomes a mal: sigue peleando, vuelve a escribirme más adelante y te miro otra vez. ⚔️`
+        : `Gracias por escribirnos, mi hermano. Por ahora no tenemos hueco para ti.\n\n` +
+            `No lo tomes a mal: vuelve a escribirme más adelante y lo miramos otra vez. 📯`
     );
 
     return Response.json({ ok: true, avisado: aviso, estado: 'rechazada' });

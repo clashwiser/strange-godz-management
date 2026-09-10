@@ -35,6 +35,50 @@ const GRUPO = (process.env.TELEGRAM_CHAT_ID || '')
 export const esc = (s) =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+// Cada bot habla como quien es. La conversacion es la misma -los pasos,
+// las comprobaciones, lo que se guarda-; lo que cambia es la voz.
+//
+// Valquiria no ruega: elige. Es la que mira como peleaste y decide si
+// vales para el ejercito de los dioses, y esa actitud es la correcta para
+// un clan que quiere calidad. Heraldo, en cambio, es el que da los partes
+// y anota en el pergamino. Ver web/public/valquiria.png.
+const VOZ = {
+  recluta: {
+    saludo:
+      `⚔️ <b>¡Alto ahí, guerrero!</b>\n\n` +
+      `Soy <b>Valquiria</b>. Yo elijo quién entra al ejército de <b>Strange Godz</b>, ` +
+      `y no lo decido por lo que me cuentes: lo decido por cómo peleaste.\n\n` +
+      `Pásame tu <b>tag de jugador</b>. Está en el juego, debajo de tu nombre, y empieza con #.\n\n` +
+      `Algo así: <code>#9VLQ0CR99</code>`,
+    encontrado: 'Te encontré ⚔️',
+    ultima:
+      `Bien. Una cosa más y te dejo:\n\n` +
+      `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
+    listo:
+      `⚔️ <b>Anotado.</b> Ya sé cómo peleas.\n\n` +
+      `Ahora lo miran los líderes. Si te eligen te escribo por aquí con la puerta del clan.\n\n` +
+      `Y para que no te pille de sorpresa: cuando entres se te reta a una <b>amistosa</b>. ` +
+      `No es un examen; es para saber en qué guerra ponerte.`,
+  },
+  heraldo: {
+    saludo:
+      `📯 <b>¡Alto ahí, forastero!</b>\n\n` +
+      `Soy Heraldo, el que lleva la lista de la alianza <b>Strange Godz</b>. ` +
+      `Si quieres entrar a uno de nuestros clanes esto son dos minutos.\n\n` +
+      `Lo primero: pásame tu <b>tag de jugador</b>. Está en el juego, debajo de tu nombre, y empieza con #.\n\n` +
+      `Algo así: <code>#9VLQ0CR99</code>`,
+    encontrado: 'Te encontré 📜',
+    ultima:
+      `Perfecto. Última cosa y te dejo tranquilo:\n\n` +
+      `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
+    listo:
+      `📯 <b>Listo.</b> Tu solicitud queda anotada en mi pergamino.\n\n` +
+      `Ahora la miran los líderes. Si te aceptan te escribo por aquí con el enlace del clan.\n\n` +
+      `Te adelanto una cosa para que no te pille de sorpresa: cuando entres se te reta a una ` +
+      `<b>amistosa</b> para ver cómo atacas. No es para suspenderte, es para saber dónde ponerte.`,
+  },
+};
+
 const SI = /\b(si|sí|yo|ese soy|soy yo|correcto|exacto|claro|dale|afirmativo|ok|okey|asi es|así es)\b/i;
 const NO = /\b(no|nel|negativo|equivocado|ese no|otro)\b/i;
 
@@ -88,6 +132,7 @@ export async function decirCon(token, chatId, texto) {
 export async function flujoSolicitud(admin, msg, texto, via) {
   const uid = msg.from?.id;
   if (!uid) return null;
+  const v = VOZ[via] ?? VOZ.heraldo;
 
   const { data: sol } = await admin
     .from('solicitudes')
@@ -117,13 +162,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       estado: 'borrador',
       via,
     });
-    return (
-      `📯 <b>¡Alto ahí, forastero!</b>\n\n` +
-      `Soy Heraldo, el que lleva la lista de la alianza <b>Strange Godz</b>. ` +
-      `Si quieres entrar a uno de nuestros clanes esto son dos minutos.\n\n` +
-      `Lo primero: pásame tu <b>tag de jugador</b>. Está en el juego, debajo de tu nombre, y empieza con #.\n\n` +
-      `Algo así: <code>#9VLQ0CR99</code>`
-    );
+    return v.saludo;
   }
 
   // Freno de mano. Sin esto, quien se ponga a machacar el teclado dispara
@@ -171,7 +210,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
     const r = resumir(perfil);
     await guardar({ player_tag: r.tag, perfil: r, paso: 'confirmar' });
     return (
-      `Te encontré 📜\n\n` +
+      `${v.encontrado}\n\n` +
       `<b>${esc(r.nombre)}</b> · TH${r.th}\n` +
       (r.clan ? `Ahora mismo en <b>${esc(r.clan.nombre)}</b>\n` : `Sin clan ahora mismo\n`) +
       `\n¿Eres tú? Responde <b>sí</b> o <b>no</b>.`
@@ -185,10 +224,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
     }
     if (!SI.test(texto)) return 'No te entendí, socio. ¿Ese eres tú? Dime <b>sí</b> o <b>no</b>.';
     await guardar({ paso: 'cuenta' });
-    return (
-      `Perfecto. Última cosa y te dejo tranquilo:\n\n` +
-      `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`
-    );
+    return v.ultima;
   }
 
   if (sol.paso === 'cuenta') {
@@ -209,12 +245,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       /* el lider la vera igual en el panel */
     }
 
-    return (
-      `📯 <b>Listo.</b> Tu solicitud queda anotada en mi pergamino.\n\n` +
-      `Ahora la miran los líderes. Si te aceptan te escribo por aquí con el enlace del clan.\n\n` +
-      `Te adelanto una cosa para que no te pille de sorpresa: cuando entres se te reta a una ` +
-      `<b>amistosa</b> para ver cómo atacas. No es para suspenderte, es para saber dónde ponerte.`
-    );
+    return v.listo;
   }
 
   return null;

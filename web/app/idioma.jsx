@@ -149,7 +149,7 @@ export const EN = {
   '— se busca dentro de Telegram, así que no hace falta enlace.': '- it is searchable inside Telegram, so no link is needed.',
   'Sin decidir': 'Undecided',
   'Todas': 'All',
-  'Nada pendiente. Cuando alguien le escriba a Heraldo, aparece aquí.': 'Nothing pending. When someone writes to Heraldo, it shows up here.',
+  'Nada pendiente. Cuando alguien le escriba a Valquiria, aparece aquí.': 'Nothing pending. When someone writes to Valquiria, it shows up here.',
   'Todavía no ha solicitado nadie.': 'Nobody has applied yet.',
   'Esperando': 'Waiting',
   'En prueba': 'On trial',
@@ -171,6 +171,7 @@ export const EN = {
   'En la demo no se decide nada, pero así se ve.': 'Nothing is decided in the demo, but this is how it looks.',
   'Guardado, pero no se le pudo escribir por Telegram. Avísale tú.': 'Saved, but Telegram delivery failed. Tell them yourself.',
   'Hecho.': 'Done.',
+  'Valquiria elige quién entra. Tú tienes la última palabra.': 'Valquiria picks who gets in. You have the final say.',
   // ---- Borrar un mensaje ----
   'Para borrar uno: arrástralo a la derecha o usa la papelera.': 'To delete one: drag it to the right or use the bin.',
   '¿Borrar este mensaje?': 'Delete this message?',

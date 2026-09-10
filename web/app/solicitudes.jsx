@@ -8,11 +8,16 @@
 //
 // El circuito completo:
 //
-//   descripcion del clan -> @Strange_godz_heraldo_bot -> esta pantalla
+//   descripcion del clan -> @Valqui_bot (Valquiria) -> esta pantalla
 //                        -> invitacion -> amistosa de prueba -> dentro
 //
-// Lo que hace que esta pantalla valga: el aspirante da su TAG y Heraldo le
-// saca el perfil de la API de Supercell. Aqui no se lee lo que la persona
+// Valquiria es la que recluta: en la mitologia nordica es la que mira el
+// campo de batalla, elige a los guerreros dignos y se los lleva al
+// ejercito de los dioses. Heraldo anuncia; ella elige. Por eso el bot de
+// reclutar lleva su nombre y su cara, y esta pestaña es suya.
+//
+// Lo que hace que esta pantalla valga: el aspirante da su TAG y Valquiria
+// le saca el perfil de la API de Supercell. Aqui no se lee lo que la persona
 // dice de si misma —todo el mundo dice que ataca siempre y que dona
 // mucho—; se leen los logros, que son totales de por vida y no se pueden
 // maquillar. Ver web/lib/aspirante.js.
@@ -24,6 +29,10 @@ import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import { banderas } from '../lib/aspirante';
+
+// El @usuario del bot de reclutar. Es publico -va en la descripcion del
+// clan-, asi que puede ir aqui sin problema. Ver web/app/api/recluta.
+const BOT_RECLUTA = 'Valqui_bot';
 
 const ESTADOS = [
   ['pendiente', 'Esperando', '📬'],
@@ -106,16 +115,26 @@ export default function Solicitudes({ d, demo = false, recargar }) {
 
   return (
     <>
-      <h2 className="sec">
-        {t('Solicitudes')}
-        {abiertas > 0 && <> · {abiertas} {t('sin decidir')}</>}
-      </h2>
+      {/* Valquiria es la dueña de esta pestaña: la que elige a los guerreros
+          para el ejercito de los dioses. Heraldo anuncia; ella recluta. */}
+      <div className="valquiria-cab">
+        <img src="/valquiria.png" alt="Valquiria" width="72" height="72" />
+        <div>
+          <h2 className="sec" style={{ margin: 0 }}>
+            {t('Solicitudes')}
+            {abiertas > 0 && <> · {abiertas} {t('sin decidir')}</>}
+          </h2>
+          <p className="sub" style={{ margin: '2px 0 0' }}>
+            {t('Valquiria elige quién entra. Tú tienes la última palabra.')}
+          </p>
+        </div>
+      </div>
 
       <div className="aviso-historico">
-        <span>📯</span>
+        <span>⚔️</span>
         <p className="sub">
           {t('Para que lleguen solicitudes, pon esto en la descripción del clan dentro del juego:')}{' '}
-          <code>Telegram: @Strange_godz_heraldo_bot</code>{' '}
+          <code>Telegram: @{BOT_RECLUTA}</code>{' '}
           {t('— se busca dentro de Telegram, así que no hace falta enlace.')}
         </p>
       </div>
@@ -132,7 +151,7 @@ export default function Solicitudes({ d, demo = false, recargar }) {
       {!lista.length && (
         <p className="vacio">
           {ver === 'abiertas'
-            ? t('Nada pendiente. Cuando alguien le escriba a Heraldo, aparece aquí.')
+            ? t('Nada pendiente. Cuando alguien le escriba a Valquiria, aparece aquí.')
             : t('Todavía no ha solicitado nadie.')}
         </p>
       )}
