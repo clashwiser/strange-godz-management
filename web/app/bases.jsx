@@ -18,6 +18,8 @@ export default function Bases({ d, demo = false, recargar }) {
   const [tipoSel, setTipoSel] = useState('todos');
   const [soloLibres, setSoloLibres] = useState(false);
   const [copiada, setCopiada] = useState(null);
+  const [enviando, setEnviando] = useState(null);
+  const [enviada, setEnviada] = useState(null);
   const [ampliada, setAmpliada] = useState(null);
   const [msg, setMsg] = useState('');
 
@@ -103,6 +105,50 @@ export default function Bases({ d, demo = false, recargar }) {
       recargar?.();
     } catch (e) {
       setMsg(`${t('No se pudo guardar: ')}${e.message}`);
+    }
+  }
+
+  /**
+   * Que Heraldo le mande la base al jugador que la tiene asignada.
+   *
+   * Va al grupo y no por privado porque un bot no puede escribirle primero
+   * a quien nunca le ha hablado — Telegram no lo permite — y la mitad del
+   * clan no le va a escribir nunca. Mencionado en el grupo llega igual, y
+   * ademas los demas ven que esa base ya tiene dueño.
+   */
+  async function enviarAJugador(b) {
+    if (!b.asignada_a) return;
+    if (demo) {
+      setMsg(t('En la demo no se envía.'));
+      setTimeout(() => setMsg(''), 2000);
+      return;
+    }
+    setEnviando(b.id);
+    setMsg('');
+    try {
+      const { data: sesion } = await supabase.auth.getSession();
+      const r = await fetch('/api/base-jugador', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sesion?.session?.access_token}`,
+        },
+        body: JSON.stringify({ baseId: b.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) throw new Error(j.error ?? `error ${r.status}`);
+      setEnviada(b.id);
+      setTimeout(() => setEnviada(null), 2500);
+      // Si no estaba atado, se avisa: llego, pero sin vibrarle el telefono.
+      if (!j.mencionado) {
+        setMsg(
+          `${t('Enviado, pero')} ${j.jugador} ${t('no se ha presentado a Heraldo, así que no le sonó el teléfono. Dile que escriba')} "Heraldo yo soy ${j.jugador}".`
+        );
+      }
+    } catch (e) {
+      setMsg(`${t('No se pudo enviar: ')}${e.message}`);
+    } finally {
+      setEnviando(null);
     }
   }
 
@@ -265,6 +311,26 @@ export default function Bases({ d, demo = false, recargar }) {
                       <button className="fantasma">{t('Abrir')}</button>
                     </a>
                   </div>
+                  {/* Debajo de los otros tres y en su propia fila: es la
+                      accion que sale del panel hacia la gente, no una mas
+                      de mirar. Apagado mientras la base no tenga dueño —
+                      sin jugador no hay a quien mencionar. */}
+                  <button
+                    className={b.asignada_a ? 'accion boton-enviar-base' : 'fantasma boton-enviar-base'}
+                    disabled={!b.asignada_a || enviando === b.id}
+                    title={
+                      b.asignada_a
+                        ? t('Heraldo se la manda al jugador, mencionándolo')
+                        : t('Asígnale la base a alguien primero')
+                    }
+                    onClick={() => enviarAJugador(b)}
+                  >
+                    {enviada === b.id
+                      ? `✅ ${t('Enviada')}`
+                      : enviando === b.id
+                        ? t('Enviando…')
+                        : `🎺 ${t('Enviar al jugador')}`}
+                  </button>
                 </td>
               </tr>
             ))}

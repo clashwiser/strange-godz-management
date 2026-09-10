@@ -106,6 +106,14 @@ export const EN = {
   'Generando…': 'Generating…',
   'Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.':
     'Drag names between clans. On the phone press and hold a card, then drag it; the dropdown works too.',
+  // ---- Mandarle la base al jugador ----
+  'Enviar al jugador': 'Send to the player',
+  'Enviada': 'Sent',
+  'Heraldo se la manda al jugador, mencionándolo': 'Heraldo sends it to the player, tagging them',
+  'Asígnale la base a alguien primero': 'Assign the base to someone first',
+  'En la demo no se envía.': 'Nothing is sent in the demo.',
+  'Enviado, pero': 'Sent, but',
+  'no se ha presentado a Heraldo, así que no le sonó el teléfono. Dile que escriba': 'has not introduced themselves to Heraldo, so their phone did not buzz. Tell them to write',
   // ---- Enviar con Heraldo ----
   'Dale a Enviar y Heraldo lo publica en el grupo, o cópialo y pégalo tú.': 'Hit Send and Heraldo posts it to the group, or copy it and paste it yourself.',
   'No se pudo enviar: ': 'Could not send: ',
