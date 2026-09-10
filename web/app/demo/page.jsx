@@ -13,6 +13,7 @@ import { SelectorIdioma, useT } from '../idioma';
 import Bots from '../bots';
 import Bases from '../bases';
 import Bonos from '../bonos';
+import Salud from '../salud';
 import Heraldo from '../heraldo';
 
 const d = {
@@ -21,8 +22,8 @@ const d = {
   clans: [
     { clan_tag: '#2GC',       nombre: 'x300',                     escuadra: 'A', es_principal: true, orden: 1, cwl_tamano: 15 },
     { clan_tag: '#2CCJYG2YL', nombre: 'ＳＴＲＡＮＧＥ - ＷＯＲＬＤ', escuadra: 'B', orden: 2, cwl_tamano: 15 },
-    { clan_tag: '#228QU9Q8',  nombre: 'Olympus',                  escuadra: 'C', orden: 3, cwl_tamano: 15 },
-    { clan_tag: '#JUYP2PL',   nombre: 'Cuban Pirates ⚓️',          orden: 4, cwl_tamano: 15 },
+    { clan_tag: '#228QU9Q8',  nombre: 'Olympus',                  escuadra: 'C', orden: 3, cwl_tamano: 15, proposito: 'trofeos' },
+    { clan_tag: '#JUYP2PL',   nombre: 'Cuban Pirates ⚓️',          orden: 4, cwl_tamano: 15, proposito: 'trofeos' },
     { clan_tag: '#2Q0P0P2JU', nombre: 'Cuba',                     orden: 5, cwl_tamano: 15 },
   ],
   players: [
@@ -36,14 +37,14 @@ const d = {
     { player_tag: '#P8', nombre_actual: 'Kraken' },
   ],
   snaps: [
-    { player_tag: '#P1', clan_tag: '#2GC',       th_level: 18, trofeos: 5820, liga: 'Legend League',      war_stars: 2410, donaciones: 1200 },
-    { player_tag: '#P2', clan_tag: '#2GC',       th_level: 18, trofeos: 5410, liga: 'Titan League I',     war_stars: 1980, donaciones: 900 },
-    { player_tag: '#P6', clan_tag: '#2GC',       th_level: 18, trofeos: 5330, liga: 'Titan League I',     war_stars: 2050, donaciones: 1440 },
-    { player_tag: '#P3', clan_tag: '#2CCJYG2YL', th_level: 18, trofeos: 5100, liga: 'Titan League II',    war_stars: 1750, donaciones: 640 },
-    { player_tag: '#P4', clan_tag: '#2CCJYG2YL', th_level: 18, trofeos: 4980, liga: 'Titan League III',   war_stars: 1520, donaciones: 430 },
-    { player_tag: '#P7', clan_tag: '#228QU9Q8',  th_level: 17, trofeos: 4710, liga: 'Champion League I',  war_stars: 1310, donaciones: 380 },
-    { player_tag: '#P5', clan_tag: '#228QU9Q8',  th_level: 17, trofeos: 4600, liga: 'Champion League I',  war_stars: 1180, donaciones: 220 },
-    { player_tag: '#P8', clan_tag: '#JUYP2PL',   th_level: 16, trofeos: 4310, liga: 'Champion League II', war_stars: 940,  donaciones: 510 },
+    { player_tag: '#P1', clan_tag: '#2GC',       th_level: 18, trofeos: 5820, liga: 'Legend League',      war_stars: 2410, donaciones: 1200, donaciones_recibidas: 400 },
+    { player_tag: '#P2', clan_tag: '#2GC',       th_level: 18, trofeos: 5410, liga: 'Titan League I',     war_stars: 1980, donaciones: 90, donaciones_recibidas: 1500 },
+    { player_tag: '#P6', clan_tag: '#2GC',       th_level: 18, trofeos: 5330, liga: 'Titan League I',     war_stars: 2050, donaciones: 1440, donaciones_recibidas: 620 },
+    { player_tag: '#P3', clan_tag: '#2CCJYG2YL', th_level: 18, trofeos: 5100, liga: 'Titan League II',    war_stars: 1750, donaciones: 640, donaciones_recibidas: 900 },
+    { player_tag: '#P4', clan_tag: '#2CCJYG2YL', th_level: 18, trofeos: 4980, liga: 'Titan League III',   war_stars: 1520, donaciones: 0, donaciones_recibidas: 0 },
+    { player_tag: '#P7', clan_tag: '#228QU9Q8',  th_level: 17, trofeos: 4710, liga: 'Champion League I',  war_stars: 1310, donaciones: 380, donaciones_recibidas: 0 },
+    { player_tag: '#P5', clan_tag: '#228QU9Q8',  th_level: 17, trofeos: 4600, liga: 'Champion League I',  war_stars: 1180, donaciones: 0, donaciones_recibidas: 0 },
+    { player_tag: '#P8', clan_tag: '#JUYP2PL',   th_level: 16, trofeos: 4310, liga: 'Champion League II', war_stars: 940,  donaciones: 0, donaciones_recibidas: 300 },
   ],
   seasons: [
     { id: 10, temporada: '2026-09', clan_tag: '#2GC',       liga: 'Champion League I' },
@@ -92,6 +93,11 @@ const d = {
   roster: [1, 2].flatMap((w) =>
     ['#P1', '#P2', '#P3', '#P4', '#P6', '#P7'].map((p) => ({ war_id: w, player_tag: p }))
   ),
+  memberships: [
+    { player_tag: '#P8', clan_tag: '#JUYP2PL',   desde: '2026-08-01', hasta: null,         rol: 'member' },
+    { player_tag: '#P5', clan_tag: '#228QU9Q8',  desde: '2026-09-05', hasta: null,         rol: 'member' },
+    { player_tag: '#P4', clan_tag: '#2CCJYG2YL', desde: '2026-09-02', hasta: '2026-09-07', rol: 'member' },
+  ],
   jobs: [
     { id: 1, job: 'snapshot_diario', started_at: '2026-09-08T06:00:00Z', ok: true, filas: 118 },
     { id: 2, job: 'sync_cwl',        started_at: '2026-09-08T08:00:00Z', ok: true, filas: 92 },
@@ -174,6 +180,7 @@ const TABS = [
   ['alineacion', 'Lista CWL'],
   ['cwl', 'CWL Resultados'],
   ['jugadores', 'Jugadores'],
+  ['salud', 'Salud'],
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
   ['bonos', 'Bonos'],
@@ -218,6 +225,7 @@ export default function Demo() {
           </>
         )}
         {tab === 'jugadores' && <Jugadores d={d} />}
+        {tab === 'salud' && <Salud d={d} />}
         {tab === 'mensajes' && <Mensajes d={d} recargar={() => {}} />}
         {tab === 'bases' && <Bases d={d} demo />}
         {tab === 'bonos' && <Bonos d={d} demo />}

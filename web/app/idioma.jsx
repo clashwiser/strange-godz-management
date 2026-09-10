@@ -106,6 +106,34 @@ export const EN = {
   'Generando…': 'Generating…',
   'Arrastra los nombres entre clanes. En el teléfono mantén pulsada la tarjeta y arrástrala; el desplegable también sirve.':
     'Drag names between clans. On the phone press and hold a card, then drag it; the dropdown works too.',
+  // ---- Salud del clan ----
+  'Salud del clan': 'Clan health',
+  'trofeos': 'trophies',
+  'clan de vitrina, no se le exige donar': 'showcase clan, no donations expected',
+  'sin donar': 'not donating',
+  'Todos los clanes': 'All clans',
+  'Primero los problemas': 'Problems first',
+  'Menos donaciones': 'Fewest donations',
+  'Más ataques fallados': 'Most missed attacks',
+  'Por nombre': 'By name',
+  'Solo los que hay que mirar': 'Only the ones to look at',
+  'Dona': 'Gives',
+  'Recibe': 'Gets',
+  'Ataques CWL': 'CWL attacks',
+  'Nadie con esos filtros. Buena señal.': 'Nobody matches. Good sign.',
+  'Quién entró y quién se fue': 'Who joined and who left',
+  'se fue': 'left',
+  'entró': 'joined',
+  'Todavía no hay snapshot. Corre el job primero.': 'No snapshot yet. Run the job first.',
+  'en rojo': 'in red',
+  'para vigilar': 'to watch',
+  'donaciones de media': 'donations on average',
+  'Más debe al clan': 'Owes the clan most',
+  'Qué pasa': 'What is going on',
+  'pide y no da': 'takes, never gives',
+  'no dona': 'no donations',
+  'sin señales': 'no sign of life',
+  'falló': 'missed',
   // ---- Borrar un mensaje ----
   'Para borrar uno: arrástralo a la derecha o usa la papelera.': 'To delete one: drag it to the right or use the bin.',
   '¿Borrar este mensaje?': 'Delete this message?',
@@ -302,7 +330,6 @@ export const EN = {
   'Tabla de estrellas': 'Star table',
   'Ataques': 'Attacks',
   'Ataques sin usar (guerras cerradas)': 'Unused attacks (finished wars)',
-  'Fallados': 'Missed',
   'Nadie falló ataques.': 'Nobody missed an attack.',
 
   // ---- Jugadores ----
@@ -354,6 +381,7 @@ export const EN = {
 
   'clan': 'clan',
   'clanes': 'clans',
+  'miembro': 'member',
   'miembros': 'members',
   'de': 'of',
   'Sin número secundario. El reporte se copia y se pega a mano.':

@@ -8,6 +8,7 @@ import Clanes from './clanes';
 import Bots from './bots';
 import Bases from './bases';
 import GrupoCWL from './grupo-cwl';
+import Salud from './salud';
 import { AvisoHuella, GestorHuellas } from './huella';
 import Bonos from './bonos';
 import Heraldo from './heraldo';
@@ -19,6 +20,7 @@ const TABS = [
   ['alineacion', 'Lista CWL'],
   ['cwl', 'CWL Resultados'],
   ['jugadores', 'Jugadores'],
+  ['salud', 'Salud'],
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
   ['bonos', 'Bonos'],
@@ -47,7 +49,7 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas] = await Promise.all([
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, membres] = await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
         supabase.from('outbox').select('*').order('creado_en', { ascending: false }).limit(30),
@@ -62,6 +64,14 @@ export default function Panel() {
         // Cupos de ascenso y descenso por liga. Van en tabla y no en el
         // codigo porque Supercell los ha cambiado antes.
         supabase.from('cwl_ligas').select('*').order('orden'),
+        // Entradas y salidas del clan. Llevaba guardandose desde el primer
+        // dia y no lo miraba nadie: si alguien se va a mitad de CWL, la
+        // alineacion queda con un hueco y te enteras al perder la ronda.
+        supabase
+          .from('memberships')
+          .select('player_tag, clan_tag, desde, hasta, rol')
+          .order('desde', { ascending: false })
+          .limit(120),
       ]);
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
@@ -76,7 +86,7 @@ export default function Panel() {
       if (ultimo?.fecha) {
         const r = await supabase
           .from('snapshots')
-          .select('player_tag, clan_tag, th_level, trofeos, liga, war_stars, donaciones, fecha')
+          .select('player_tag, clan_tag, th_level, trofeos, liga, war_stars, donaciones, donaciones_recibidas, fecha')
           .eq('fecha', ultimo.fecha);
         snaps = r.data ?? [];
       }
@@ -127,6 +137,7 @@ export default function Panel() {
         roster,
         grupo,
         ligas: ligas.data ?? [],
+        memberships: membres.data ?? [],
         snaps,
         players: players ?? [],
         alineaciones: alin.data ?? [],
@@ -231,6 +242,7 @@ export default function Panel() {
         )}
         {d && tab === 'jugadores' && <Jugadores d={d} />}
         {d && tab === 'mensajes' && <Mensajes d={d} recargar={cargar} />}
+        {d && tab === 'salud' && <Salud d={d} />}
         {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
         {d && tab === 'bots' && (

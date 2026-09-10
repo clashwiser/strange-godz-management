@@ -1139,3 +1139,22 @@ button.enlace-clave:hover { color: var(--texto); transform: none; }
   .heraldo { right: 8px; bottom: 8px; width: calc(100vw - 16px); max-height: 72vh; }
   .heraldo-burbuja { right: 12px; bottom: 12px; }
 }
+
+/* ---------- Salud del clan ---------- */
+/* El semaforo tiene que leerse de un vistazo, sin comparar numeros: la
+   franja roja al borde de la fila hace ese trabajo mejor que la cifra.
+   --mal esta definida una sola vez en :root, asi que se ve igual en los
+   cuatro temas. */
+strong.mal, td.mal { color: var(--mal); font-weight: 700; }
+tr[data-salud="mal"] td:first-child { border-left: 4px solid var(--mal); }
+tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
+
+/* Por que esta marcado, no solo que lo esta: cada motivo se arregla de una
+   forma distinta y el color solo no lo dice. */
+.bandera {
+  display: inline-block; margin: 1px 4px 1px 0; padding: 1px 8px;
+  border: 1px solid var(--bronce); border-radius: 999px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  color: var(--texto); background: rgba(0, 0, 0, .12);
+}
+.bandera.grave { color: #2e0606; background: #e98a8a; border-color: var(--mal); }
