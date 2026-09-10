@@ -460,43 +460,75 @@ export default function Alineacion({ d, recargar, demo = false }) {
     if (destino) mover(tag, destino);
   }
 
+  /**
+   * Un mensaje POR CLAN, no uno con todo dentro.
+   *
+   * El mensaje sirve para que la gente se mude al clan que le toca, y para
+   * eso hace falta el enlace. Un solo mensaje con los tres clanes y los tres
+   * enlaces obliga a cada uno a buscar su nombre en una lista de cuarenta y
+   * cinco y despues acertar con el enlace correcto. Separados, cada quien
+   * recibe el suyo y toca un solo boton.
+   *
+   * Ademas asi se pueden mandar por separado: el clan que ya esta armado
+   * sale hoy y el que falta espera.
+   */
   async function generarMensaje() {
     setGuardando(true);
     setMsg('');
     try {
-      const bloques = columnas
+      const conGente = columnas
         .filter((c) => c.clan_tag !== SIN)
-        .map((c) => {
-          const lista = enColumna(c.clan_tag);
-          if (!lista.length) return null;
-          const filas = lista.map((p, i) => `${String(i + 1).padStart(2)}. ${p.nombre}`).join('\n');
-          return `*${c.nombre}*  (${lista.length}/${c.cwl_tamano ?? 15})\n\`\`\`${filas}\`\`\``;
-        })
-        .filter(Boolean);
+        .map((c) => ({ clan: c, lista: enColumna(c.clan_tag) }))
+        .filter(({ lista }) => lista.length);
 
-      if (!bloques.length) {
+      if (!conGente.length) {
         setMsg('No hay nadie asignado todavía.');
         return;
       }
 
-      const cuerpo =
-        `📋 *ALINEACIÓN CWL ${verTemporada}*\n\n` +
-        bloques.join('\n\n') +
-        `\n\n_Si no puedes jugar, avisa ANTES del día de batalla._`;
+      // El enlace lo arma el propio juego a partir del tag: no hay que
+      // guardarlo en ningun sitio ni mantenerlo.
+      const enlaceDe = (tag) =>
+        `https://link.clashofclans.com/es?action=OpenClanProfile&tag=${encodeURIComponent(tag)}`;
+
+      const mensajes = conGente.map(({ clan, lista }) => {
+        const filas = lista.map((p, i) => `${String(i + 1).padStart(2)}. ${p.nombre}`).join('\n');
+        return {
+          clan: clan.nombre,
+          cuerpo:
+            `📋 *CWL ${verTemporada} · ${clan.nombre}*\n` +
+            `${lista.length}/${clan.cwl_tamano ?? 15} puestos\n\n` +
+            '```' + filas + '```\n\n' +
+            `👉 Entra aquí: ${enlaceDe(clan.clan_tag)}\n\n` +
+            `_Múdate antes de que empiece la liga. Si no puedes jugar, avisa ANTES del día de batalla._`,
+        };
+      });
 
       if (demo) {
-        setMsg('Así quedaría el mensaje:\n\n' + cuerpo);
+        setMsg(
+          `Se generarían ${mensajes.length} mensajes, uno por clan:\n\n` +
+            mensajes.map((m) => m.cuerpo).join('\n\n———\n\n')
+        );
         return;
       }
 
-      const { error } = await supabase.from('outbox').insert({
-        tipo: 'alineacion_cwl',
-        cuerpo,
-        clave_dedupe: `alineacion:${verTemporada}:${Date.now()}`,
-      });
+      const sello = Date.now();
+      const { error } = await supabase.from('outbox').insert(
+        mensajes.map((m, i) => ({
+          tipo: 'alineacion_cwl',
+          cuerpo: m.cuerpo,
+          // El indice va en la clave: sin el, los tres mensajes del mismo
+          // segundo chocarian en el indice unico de clave_dedupe y solo
+          // entraria uno.
+          clave_dedupe: `alineacion:${verTemporada}:${sello}:${i}`,
+        }))
+      );
       if (error) throw error;
 
-      setMsg('Mensaje generado. Está en la pestaña Mensajes, listo para copiar.');
+      setMsg(
+        `${mensajes.length} ${mensajes.length === 1 ? 'mensaje generado' : 'mensajes generados'} ` +
+          `(${mensajes.map((m) => m.clan).join(', ')}). Están en la pestaña Mensajes.`
+      );
       recargar?.();
     } catch (e) {
       setMsg(`Error: ${e.message}`);
