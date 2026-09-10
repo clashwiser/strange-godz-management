@@ -24,7 +24,10 @@
     "sql:unir": "node --env-file-if-exists=.env src/jobs/unir-sql.js",
     "cierre": "node --env-file-if-exists=.env src/jobs/cierre-mensual.js",
     "wars:sync": "node --env-file-if-exists=.env src/jobs/wars-sync.js",
-    "guerra:alerta": "node --env-file-if-exists=.env src/jobs/guerra-alerta.js"
+    "guerra:alerta": "node --env-file-if-exists=.env src/jobs/guerra-alerta.js",
+    "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \"test/**/*.test.js\"",
+    "backup": "node --env-file-if-exists=.env src/jobs/backup.js",
+    "restaurar": "node --env-file-if-exists=.env src/jobs/restaurar.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

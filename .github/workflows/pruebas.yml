@@ -1,0 +1,33 @@
+name: Pruebas
+
+# Corre en cada push y en cada pull request. Lo que se prueba no toca red
+# ni base de datos: los cerebros de los bots, la lectura del tag, las
+# banderas del aspirante y el analisis de la liga. Son las piezas que se
+# rompen en silencio: una frase mal enrutada no da error, da una
+# respuesta que no viene a cuento, y eso se nota cuando un jugador ya lo
+# vio.
+#
+# Vercel despliega en el mismo push, asi que esto no frena un despliegue
+# malo: lo delata. Si sale en rojo, GitHub manda un correo y el commit
+# siguiente lo arregla.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.heartbeat'
+      - 'backups/**'
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm test

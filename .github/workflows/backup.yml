@@ -1,0 +1,60 @@
+name: Copia de seguridad
+
+# Cada domingo a las 07:00 UTC (3 de la madrugada en Cuba), y a mano
+# cuando haga falta. Deja en backups/ un archivo cifrado con toda la base
+# y guarda las ultimas doce: tres meses.
+#
+# Por que existe: el plan gratis de Supabase no tiene recuperacion a un
+# punto en el tiempo, y casi nada de lo que hay en la base se puede
+# regenerar desde la API de Clash -la API solo da el estado de hoy-. Los
+# snapshots diarios, las rondas de CWL pasadas, quien entro y salio, las
+# solicitudes, los bonos, las alineaciones, la config: eso solo existe
+# aqui.
+#
+# Va cifrado porque el repo es publico. La frase esta en el secreto
+# BACKUP_PASSPHRASE y en el gestor de contraseñas de los lideres. Sin
+# la frase, el archivo es ruido; sin el secreto, el job se niega a correr.
+#
+# Restaurar: BACKUP_PASSPHRASE=... npm run restaurar -- backups/archivo.sgb
+# (solo lee); con --todo --si escribe. Ver src/jobs/restaurar.js.
+
+on:
+  schedule:
+    - cron: '0 7 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: escritura-db
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  copia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run backup
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+
+      # La copia se guarda en el propio repo. [skip ci] para que el commit
+      # no dispare las pruebas ni nada mas.
+      - name: Guardar la copia
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backups/
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: copia de seguridad $(date -u +%Y-%m-%d) [skip ci]"
+          git pull --rebase --autostash
+          git push
