@@ -26,7 +26,7 @@ import { db, chk, correrJob } from '../lib/db.js';
 import { encolar } from '../lib/outbox.js';
 import { clanes } from '../lib/config.js';
 import { analizar } from '../lib/cwl-analisis.js';
-import { faseDe, mensajeDelDia, poseDelDia } from '../lib/cwl-mensajes.js';
+import { faseDe, mensajeDelDia, poseDelDia, parrafoRonda } from '../lib/cwl-mensajes.js';
 
 const CUPO_POR_DEFECTO = { promueven: 2, descienden: 2 };
 
@@ -85,7 +85,11 @@ await correrJob('cwl_heraldo', async () => {
 
     const fase = faseDe(a);
     const clan = nombreDe[s.clan_tag] ?? s.clan_tag;
-    const cuerpo = mensajeDelDia({
+    // El MVP y los que se durmieron en la ronda que acaba de cerrar. Es lo
+    // que hace que el parte se lea todos los dias: un puesto en una tabla
+    // no genera conversacion, que digan tu nombre si.
+    const ultima = await resumenUltimaRonda(s.id, a.rondaActual);
+    let cuerpo = mensajeDelDia({
       clan,
       liga: s.liga,
       analisis: a,
@@ -93,6 +97,9 @@ await correrJob('cwl_heraldo', async () => {
       descienden: cupo.descienden,
     });
     if (!cuerpo) continue;
+    if (ultima) cuerpo += `
+
+${ultima}`;
 
     // La ronda entra en la clave para que cada dia sea un mensaje distinto y
     // el mismo dia no se repita aunque el cron corra cada dos horas.
@@ -145,3 +152,63 @@ ${cuerpo}
 });
 
 process.exit(0);
+
+/**
+ * MVP y ausentes de la ronda ANTERIOR a la que se juega hoy.
+ *
+ * La de hoy no vale: esta a medias y el MVP cambiaria cada dos horas. La
+ * que acaba de cerrar es la que ya tiene ganador.
+ */
+async function resumenUltimaRonda(seasonId, rondaEnCurso) {
+  const ronda = (rondaEnCurso ?? 8) - 1;
+  if (ronda < 1) return null;
+
+  const war = chk(
+    await db
+      .from('cwl_wars')
+      .select('id, ronda, estado')
+      .eq('season_id', seasonId)
+      .eq('ronda', ronda)
+      .maybeSingle(),
+    'leer ronda anterior'
+  );
+  if (!war || war.estado !== 'warEnded') return null;
+
+  const [ataques, roster, players] = [
+    chk(
+      await db
+        .from('cwl_attacks')
+        .select('player_tag, estrellas, destruccion_pct')
+        .eq('war_id', war.id),
+      'ataques de la ronda'
+    ),
+    chk(await db.from('cwl_roster').select('player_tag').eq('war_id', war.id), 'roster'),
+    chk(await db.from('players').select('player_tag, nombre_actual'), 'jugadores'),
+  ];
+
+  const nombre = Object.fromEntries(players.map((p) => [p.player_tag, p.nombre_actual]));
+
+  // Mejor de la ronda: mas estrellas, y a igualdad, mas destruccion.
+  const mejor = [...ataques].sort(
+    (a, b) =>
+      (b.estrellas ?? 0) - (a.estrellas ?? 0) ||
+      Number(b.destruccion_pct ?? 0) - Number(a.destruccion_pct ?? 0)
+  )[0];
+
+  const atacaron = new Set(ataques.map((a) => a.player_tag));
+  const faltaron = roster
+    .filter((r) => !atacaron.has(r.player_tag))
+    .map((r) => ({ nombre: nombre[r.player_tag] ?? r.player_tag }));
+
+  return parrafoRonda({
+    ronda,
+    mvp: mejor
+      ? {
+          nombre: nombre[mejor.player_tag] ?? mejor.player_tag,
+          estrellas: mejor.estrellas ?? 0,
+          destruccion: Number(mejor.destruccion_pct ?? 0),
+        }
+      : null,
+    faltaron,
+  });
+}

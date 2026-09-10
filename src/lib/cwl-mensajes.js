@@ -235,3 +235,37 @@ export function poseDelDia({ analisis, fase }) {
   if (a.enDescenso || a.probBajar >= 0.25) return 'alarma';
   return 'lee';
 }
+
+/**
+ * El parrafo del MVP y de quien dejo ataques en la ronda que acaba de
+ * cerrar.
+ *
+ * Es lo que hace que el parte se lea todos los dias. Un puesto en una tabla
+ * no genera conversacion; que digan tu nombre, si.
+ *
+ * El "vago" va con humor y con el numero delante, no como una lista de
+ * castigados: la idea es que el proximo dia no quiera salir ahi, no
+ * humillar a nadie. Y si no fallo nadie se dice, que tambien es noticia.
+ */
+export function parrafoRonda({ ronda, mvp, faltaron }) {
+  if (!mvp && !faltaron?.length) return null;
+  const l = [];
+  l.push(`— Ronda ${ronda} —`);
+  if (mvp) {
+    l.push(
+      `🏆 Lo mejor: *${mvp.nombre}* con ${mvp.estrellas}★` +
+        (mvp.destruccion ? ` (${Math.round(mvp.destruccion)}%)` : '')
+    );
+  }
+  if (faltaron?.length) {
+    const nombres = faltaron.slice(0, 6).map((f) => f.nombre).join(', ');
+    const mas = faltaron.length > 6 ? ` y ${faltaron.length - 6} más` : '';
+    l.push(
+      `😴 Se durmieron ${faltaron.length}: ${nombres}${mas}.` +
+        ' Mañana no quiero ver a nadie aquí.'
+    );
+  } else {
+    l.push('🟢 Atacaron todos. Así se gana una liga.');
+  }
+  return l.join('\n');
+}

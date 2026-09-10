@@ -173,6 +173,13 @@ export function entender(texto) {
   if (/\b(pa que clan|para que clan|que clan voy|donde me toca|donde juego|en que clan|mi clan|a que clan)\b/.test(q))
     return { comando: 'miclan', arg: '' };
 
+  // "cuanto llevo", "como voy yo", "mis estrellas"
+  if (/(cuanto llevo|como voy|mis estrellas|mis stats|mis ataques|como ando)/.test(q))
+    return { comando: 'yo', arg: '' };
+  // "cuanto voy a cobrar", "que premio me toca"
+  if (/(cuanto (voy a )?cobr|que premio|voy a ganar|me toca (algo|premio|dinero)|cuanto gano)/.test(q))
+    return { comando: 'cobro', arg: '' };
+
   // "yo soy Anabolic Batman" — antes que la ficha de jugador, que usa
   // "quien es" y se lo comeria.
   const soy = /\b(?:yo soy|me llamo|soy)\s+(.{2,40})$/.exec(q);
@@ -211,6 +218,10 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/faltan — quién no ha atacado en la CWL de ahora\n` +
         `/estrellas — tabla de estrellas de la temporada\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
+        `/yo — tus estrellas y ataques de esta CWL
+` +
+        `/cobro — en qué puesto vas del reparto
+` +
         `/miclan — a qué clan te toca ir esta CWL
 ` +
         `/soy &lt;tu nombre del juego&gt; — para que te reconozca
@@ -238,6 +249,11 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return await cmdSoy(arg, quien);
     case 'miclan':
       return await cmdMiClan(quien);
+    case 'yo':
+    case 'mislastats':
+      return await cmdYo(quien);
+    case 'cobro':
+      return await cmdCobro(quien);
     case 'reporte':
       // Vuelca el ultimo mensaje generado, y ahi puede ir el cierre del mes
       // con quien cobra cuanto. En un grupo con el clan entero eso son
@@ -665,4 +681,196 @@ async function cmdMiClan(quien) {
     `<a href="${enlace}">Entrar al clan</a>\n\n` +
     `Múdate antes de que empiece la liga, que después no entras.`
   );
+}
+
+// ---------------------------------------------- Lo mio: stats y premio
+//
+// Se calcula EN VIVO desde los ataques, no desde monthly_stats. Esa tabla
+// la escribe el cierre del mes y entre corrida y corrida se queda vieja; a
+// quien pregunta "¿cuanto llevo?" en mitad de la CWL hay que darle lo de
+// ahora mismo, no lo del dia 1.
+//
+// Un jugador compite dentro de SU clan: los premios son 1er y 2do de cada
+// clan por estrellas de CWL. Ver premios_plan.
+
+/** Tabla del mes por jugador, en vivo. Devuelve un Map por player_tag. */
+async function tablaDelMes() {
+  const temporada = temporadaActual();
+
+  const { data: seasons } = await admin
+    .from('cwl_seasons')
+    .select('id, clan_tag')
+    .eq('temporada', temporada);
+  if (!seasons?.length) return null;
+
+  const clanDeSeason = Object.fromEntries(seasons.map((s) => [s.id, s.clan_tag]));
+  const { data: wars } = await admin
+    .from('cwl_wars')
+    .select('id, season_id, estado')
+    .in('season_id', seasons.map((s) => s.id));
+  if (!wars?.length) return null;
+
+  const clanDeWar = Object.fromEntries(wars.map((w) => [w.id, clanDeSeason[w.season_id]]));
+  // Solo rondas CERRADAS: contar la que esta en curso mueve la tabla cada
+  // vez que alguien ataca, y el que pregunta dos veces seguidas ve numeros
+  // distintos sin entender por que.
+  const cerradas = wars.filter((w) => w.estado === 'warEnded').map((w) => w.id);
+  if (!cerradas.length) return null;
+
+  const [{ data: ataques }, { data: roster }, { data: players }] = await Promise.all([
+    admin
+      .from('cwl_attacks')
+      .select('war_id, player_tag, estrellas, destruccion_pct')
+      .in('war_id', cerradas),
+    admin.from('cwl_roster').select('war_id, player_tag').in('war_id', cerradas),
+    admin.from('players').select('player_tag, nombre_actual, elegible_premios'),
+  ]);
+
+  const info = Object.fromEntries((players ?? []).map((p) => [p.player_tag, p]));
+  const m = new Map();
+  const toca = (tag, warId) => {
+    if (!m.has(tag)) {
+      m.set(tag, {
+        tag,
+        nombre: info[tag]?.nombre_actual ?? tag,
+        elegible: info[tag]?.elegible_premios !== false,
+        clan: clanDeWar[warId],
+        estrellas: 0,
+        usados: 0,
+        disponibles: 0,
+        destruccion: 0,
+      });
+    }
+    return m.get(tag);
+  };
+
+  // El roster manda para "cuantos ataques TENIA": alineado en 5 de 7 rondas
+  // son 5 ataques, no 7. Medirlo sobre 7 lo castigaria por decisiones de los
+  // lideres y no suyas.
+  for (const r of roster ?? []) toca(r.player_tag, r.war_id).disponibles += 1;
+  for (const a of ataques ?? []) {
+    const j = toca(a.player_tag, a.war_id);
+    j.estrellas += a.estrellas ?? 0;
+    j.destruccion += Number(a.destruccion_pct ?? 0);
+    j.usados += 1;
+  }
+
+  for (const j of m.values()) j.prom = j.usados ? j.destruccion / j.usados : 0;
+  return m;
+}
+
+/** Los de un clan, ordenados como ordena el premio. */
+const rankearClan = (tabla, clan) =>
+  [...tabla.values()]
+    .filter((j) => j.clan === clan && j.elegible)
+    .sort((a, b) => b.estrellas - a.estrellas || b.usados - a.usados || b.prom - a.prom);
+
+/** El jugador atado a esta cuenta de Telegram, o null. */
+async function jugadorDe(quien) {
+  const { data } = await admin
+    .from('tg_vinculos')
+    .select('player_tag')
+    .eq('tg_user_id', quien.id)
+    .maybeSingle();
+  return data?.player_tag ?? null;
+}
+
+const PIDE_VINCULO =
+  'Todavía no sé quién eres en el juego, mi hermano.\n\n' +
+  'Dime <code>/soy TuNombreDelJuego</code> y te reconozco para siempre.';
+
+/** "¿Cuánto llevo?" */
+async function cmdYo(quien) {
+  const tag = await jugadorDe(quien);
+  if (!tag) return PIDE_VINCULO;
+
+  const tabla = await tablaDelMes();
+  const yo = tabla?.get(tag);
+  if (!yo) return 'Todavía no apareces en ninguna ronda cerrada de esta CWL, asere.';
+
+  const clasificacion = rankearClan(tabla, yo.clan);
+  const puesto = clasificacion.findIndex((j) => j.tag === tag) + 1;
+  const fallados = Math.max(0, yo.disponibles - yo.usados);
+
+  const { data: clan } = await admin
+    .from('clans')
+    .select('nombre')
+    .eq('clan_tag', yo.clan)
+    .maybeSingle();
+
+  return (
+    `📊 <b>${esc(yo.nombre)}</b> · ${esc(clan?.nombre ?? yo.clan)}\n\n` +
+    `⭐ <b>${yo.estrellas} estrellas</b> en ${yo.usados} ataques\n` +
+    `💥 ${yo.prom.toFixed(1)}% de destrucción promedio\n` +
+    (fallados
+      ? `🔴 <b>${fallados}</b> ${fallados === 1 ? 'ataque sin usar' : 'ataques sin usar'}\n`
+      : `🟢 Cero ataques sin usar. Así se hace.\n`) +
+    (puesto
+      ? `\n🏅 Vas <b>${puesto}º de ${clasificacion.length}</b> en tu clan.`
+      : '\nNo compites por premio (líder).')
+  );
+}
+
+/** "¿Cuánto voy a cobrar?" */
+async function cmdCobro(quien) {
+  const tag = await jugadorDe(quien);
+  if (!tag) return PIDE_VINCULO;
+
+  const tabla = await tablaDelMes();
+  const yo = tabla?.get(tag);
+  if (!yo) return 'Todavía no apareces en ninguna ronda cerrada de esta CWL, asere.';
+  if (!yo.elegible) {
+    return 'Tú no compites por premio, mi hermano: los líderes no cobran del reparto. 🛡';
+  }
+
+  const clasificacion = rankearClan(tabla, yo.clan);
+  const puesto = clasificacion.findIndex((j) => j.tag === tag) + 1;
+
+  const { data: clan } = await admin
+    .from('clans')
+    .select('nombre')
+    .eq('clan_tag', yo.clan)
+    .maybeSingle();
+  const nombreClan = clan?.nombre ?? yo.clan;
+
+  // Los premios de CWL se llaman "<clan> · 1er lugar" / "2do lugar".
+  const { data: premios } = await admin
+    .from('premios_plan')
+    .select('titulo, monto_usd, orden')
+    .eq('mes', temporadaActual())
+    .eq('activo', true)
+    .order('orden');
+
+  const suyo = (premios ?? []).find(
+    (p) =>
+      p.titulo.includes(nombreClan.trim()) &&
+      ((puesto === 1 && /1er/.test(p.titulo)) || (puesto === 2 && /2do/.test(p.titulo)))
+  );
+
+  const arriba = puesto > 1 ? clasificacion[puesto - 2] : null;
+  const faltan = arriba ? arriba.estrellas - yo.estrellas : 0;
+
+  const l = [];
+  l.push(`💰 <b>${esc(yo.nombre)}</b> · ${esc(nombreClan)}`);
+  l.push('');
+  l.push(`Vas <b>${puesto}º de ${clasificacion.length}</b> con ${yo.estrellas}★.`);
+
+  if (suyo) {
+    l.push('');
+    l.push(`Si la CWL cerrara ahora cobrarías <b>$${suyo.monto_usd}</b> — ${esc(suyo.titulo)}.`);
+  } else {
+    const segundo = (premios ?? []).find((p) => p.titulo.includes(nombreClan.trim()) && /2do/.test(p.titulo));
+    l.push('');
+    l.push(`Ahora mismo no estás en premio.`);
+    if (arriba && segundo) {
+      l.push(
+        `Te faltan <b>${faltan === 0 ? 'nada, estás empatado' : faltan + '★'}</b> para pasar a ` +
+          `${esc(arriba.nombre)} y meterte en los $${segundo.monto_usd}.`
+      );
+    }
+  }
+
+  l.push('');
+  l.push('<i>Provisional: solo cuenta lo de las rondas ya cerradas.</i>');
+  return l.join('\n');
 }
