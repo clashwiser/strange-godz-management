@@ -16,6 +16,7 @@
 // Ningun token sale de aqui. Solo se dice si esta puesto.
 
 import { admin } from '../../../lib/supabase-admin';
+import { usoDeHoy } from '../../../lib/pensar';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,13 +124,14 @@ export async function GET(request) {
   // El dia de Cuba, igual que el cupo de bases: a las 11 de la noche en La
   // Habana ya es mañana en UTC y el contador se pondria a cero antes de tiempo.
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
-  const [heraldo, recluta, sol, vinc, basesHoy, outbox] = await Promise.all([
+  const [heraldo, recluta, sol, vinc, basesHoy, outbox, ia] = await Promise.all([
     saludDe('heraldo'),
     saludDe('recluta'),
     admin.from('solicitudes').select('estado'),
     admin.from('tg_vinculos').select('*', { count: 'exact', head: true }),
     admin.from('base_pedidos').select('*', { count: 'exact', head: true }).eq('dia', hoy),
     admin.from('outbox').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+    usoDeHoy(admin),
   ]);
 
   const estados = (sol.data ?? []).reduce((a, s) => ((a[s.estado] = (a[s.estado] ?? 0) + 1), a), {});
@@ -138,6 +140,7 @@ export async function GET(request) {
     ok: true,
     grupo: GRUPO ? { id: GRUPO } : null,
     bots: { heraldo, recluta },
+    ia,
     actividad: {
       solicitudesPendientes: (estados.pendiente ?? 0) + (estados.prueba ?? 0),
       solicitudesTotal: (sol.data ?? []).filter((s) => s.estado !== 'borrador').length,

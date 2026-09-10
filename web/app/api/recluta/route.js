@@ -31,6 +31,7 @@ import {
   presentaElegido,
   bienvenidaValquiria,
 } from '../../../lib/charla-valquiria';
+import { pensar } from '../../../lib/pensar';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,7 +145,13 @@ export async function POST(request) {
     return Response.json({ ok: true });
   }
 
-  await decirCon(TOKEN, chatId, leido.texto);
+  // Si el cerebro de frases no supo, lo intenta la IA; si tampoco -sin
+  // llave, tope del dia, fallo- sale la frase de "no entendi" de siempre.
+  let texto_ = leido.texto;
+  if (leido.categoria === 'no entiendo') {
+    texto_ = (await pensar(admin, 'valquiria', texto, msg.from?.first_name)) ?? leido.texto;
+  }
+  await decirCon(TOKEN, chatId, texto_);
   return Response.json({ ok: true });
 }
 

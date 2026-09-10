@@ -32,6 +32,7 @@ import {
 } from './aspirante';
 import { pedirPerfil } from './coc-perfil';
 import { entenderValquiria, cuantosEsperan } from './charla-valquiria';
+import { pensar } from './pensar';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
@@ -318,6 +319,9 @@ export async function flujoSolicitud(admin, msg, texto, via) {
           .select('*', { count: 'exact', head: true })
           .in('estado', ['pendiente', 'prueba']);
         return cuantosEsperan(count ?? 0);
+      }
+      if (leido?.categoria === 'no entiendo') {
+        return (await pensar(admin, 'valquiria', texto, msg.from?.first_name)) ?? leido.texto;
       }
       return leido?.texto ?? v.deCasa;
     }

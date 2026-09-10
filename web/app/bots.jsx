@@ -33,6 +33,7 @@ const SALUD_DEMO = {
     recluta: { clave: 'recluta', configurado: true, usuario: 'Valqui_bot', nombre: 'Valquiria', oyeTodo: true, enGrupo: true, esAdmin: false, webhook: { ok: true, pendientes: 0, ultimoError: null } },
   },
   actividad: { solicitudesPendientes: 3, solicitudesTotal: 7, aceptadas: 2, vinculados: 18, basesHoy: 4, outboxPendientes: 1 },
+  ia: { configurada: true, modelo: 'gemini-2.5-flash-lite', hoy: 37, fallos: 0, tope: 300 },
 };
 
 const FICHAS = {
@@ -223,6 +224,24 @@ export default function Bots({ d, demo = false, recargar }) {
           <h3>{t('Bases dadas hoy')}</h3>
           <p className="big">{act ? `${act.basesHoy} / 10` : '…'}</p>
           <p className="sub">{t('Tope de diez por día para el grupo, una por persona.')}</p>
+        </div>
+        <div className="card">
+          <h3>
+            {t('IA de respaldo')}{' '}
+            {salud?.ia && (
+              <span className={`pill ${salud.ia.configurada ? 'ok' : 'aviso'}`}>
+                {salud.ia.configurada ? t('con llave') : t('sin llave')}
+              </span>
+            )}
+          </h3>
+          <p className="big">{salud?.ia ? `${salud.ia.hoy} / ${salud.ia.tope}` : '…'}</p>
+          <p className="sub">
+            {t('preguntas a la IA hoy. Solo entra cuando el cerebro de frases no sabe; sin llave o al tope, vuelven las frases.')}
+            {salud?.ia?.fallos > 0 && <> · <span className="mal">{salud.ia.fallos} {t('fallos')}</span></>}
+            {salud?.ia && !salud.ia.configurada && (
+              <> · {t('Falta')} <code>GEMINI_API_KEY</code> {t('en Vercel (gratis en aistudio.google.com/apikey).')}</>
+            )}
+          </p>
         </div>
         <div className="card">
           <h3>{t('Bandeja de salida')}</h3>

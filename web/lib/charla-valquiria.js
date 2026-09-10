@@ -470,15 +470,17 @@ export function entenderValquiria(texto) {
 
   // Solo la nombraron, o un hola y ya.
   if (/^(hola|buenas|hey|oye|epa|que bola|saludos|holi|ey)?[!?.,¡¿ ]*$/.test(q)) {
-    return { tipo: 'decir', texto: AL_AZAR(SALUDOS) };
+    return { tipo: 'decir', texto: AL_AZAR(SALUDOS), categoria: 'saludo' };
   }
 
   for (const c of CHARLA) {
     if (!c.patron.test(q)) continue;
-    if (c.especial === 'esperando') return { tipo: 'esperando' };
-    return { tipo: 'decir', texto: AL_AZAR(c.respuestas) };
+    if (c.especial === 'esperando') return { tipo: 'esperando', categoria: c.nombre };
+    return { tipo: 'decir', texto: AL_AZAR(c.respuestas), categoria: c.nombre };
   }
-  return { tipo: 'decir', texto: AL_AZAR(NO_ENTIENDO) };
+  // Sin categoria que case. El que llama puede probar con la IA antes de
+  // soltar esta frase; por eso viaja la categoria.
+  return { tipo: 'decir', texto: AL_AZAR(NO_ENTIENDO), categoria: 'no entiendo' };
 }
 
 /** Cuantas frases tiene el cerebro. Sirve de test y sale en el panel. */

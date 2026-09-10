@@ -239,6 +239,13 @@ export const EN = {
   'Ver su ataque': 'Watch their attack',
   'Bajando…': 'Downloading…',
   'En la demo no hay video que bajar.': 'No video to download in the demo.',
+  'IA de respaldo': 'Backup AI',
+  'con llave': 'key set',
+  'sin llave': 'no key',
+  'preguntas a la IA hoy. Solo entra cuando el cerebro de frases no sabe; sin llave o al tope, vuelven las frases.': 'AI questions today. It only steps in when the phrase brain has no answer; with no key or at the cap, the phrases come back.',
+  'fallos': 'failures',
+  'Falta': 'Missing',
+  'en Vercel (gratis en aistudio.google.com/apikey).': 'in Vercel (free at aistudio.google.com/apikey).',
   // ---- Borrar un mensaje ----
   'Para borrar uno: arrástralo a la derecha o usa la papelera.': 'To delete one: drag it to the right or use the bin.',
   '¿Borrar este mensaje?': 'Delete this message?',

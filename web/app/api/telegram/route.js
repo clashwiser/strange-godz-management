@@ -11,6 +11,7 @@
 import { admin } from '../../../lib/supabase-admin';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 import { flujoSolicitud, decirCon } from '../../../lib/solicitud';
+import { pensar } from '../../../lib/pensar';
 
 export const dynamic = 'force-dynamic';
 
@@ -223,11 +224,12 @@ export function entender(texto) {
   const suelta = charlar(q);
   if (suelta) return { comando: 'decir', arg: suelta };
 
-  // Si nos hablaron pero no se entiende, mejor decirlo que callar: en un
-  // grupo, un bot que ignora una mencion parece roto.
-  if (/(heraldo|hola|ayuda|que sabes|puedes)/.test(q)) return { comando: 'ayuda', arg: '' };
-
-  return null;
+  // Si nos hablaron y no se entiende, lo intenta la IA; y si tampoco, la
+  // ayuda: en un grupo, un bot que ignora una mencion parece roto.
+  if (/(ayuda|que sabes|que puedes)/.test(q)) return { comando: 'ayuda', arg: '' };
+  // Aqui solo se llega si le hablaron a Heraldo -lo nombraron o le
+  // respondieron-, asi que lo que quede es para la IA.
+  return { comando: 'pensar', arg: texto };
 }
 
 // Telegram reintenta si no recibe 200; responder rapido evita duplicados.
@@ -321,6 +323,13 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     // Charla suelta: la frase ya viene elegida, aca solo se dice.
     case 'decir':
       return arg;
+
+    // Nada caso en el cerebro de frases: se le pregunta a la IA con la voz
+    // de Heraldo. Sin llave o con el tope del dia gastado, la ayuda.
+    case 'pensar': {
+      const r = await pensar(admin, 'heraldo', arg, quien.nombre);
+      return r ?? (await ejecutar('ayuda', '', quien, chatId));
+    }
 
     case 'resumen':
       return await cmdResumen();
