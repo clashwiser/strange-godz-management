@@ -42,32 +42,73 @@ export const esc = (s) =>
 // vales para el ejercito de los dioses, y esa actitud es la correcta para
 // un clan que quiere calidad. Heraldo, en cambio, es el que da los partes
 // y anota en el pergamino. Ver web/public/valquiria.png.
+// Valquiria es mujer y cubana: dulce en la boca -mi cielo, mi vida, mi
+// corazon- y firme en lo que dice. Las ternuras van variando de frase en
+// frase a proposito: la misma catorce veces seguidas es lo que hace que un
+// bot suene a bot.
+//
+// Y un detalle que se vio al probarla: Valquiria NO esta en el grupo, ahi
+// esta Heraldo. Decirle a alguien de casa "escribeme en el grupo" era
+// mandarlo a una puerta que ella no atiende.
 const VOZ = {
   recluta: {
+    deCasa:
+      'Tú ya eres de casa, mi cielo. Aquí solo atiendo a los que quieren entrar; ' +
+      'para lo demás tienes a Heraldo en el grupo.',
     saludo:
       `⚔️ <b>¡Alto ahí, guerrero!</b>\n\n` +
-      `Soy <b>Valquiria</b>. Yo elijo quién entra al ejército de <b>Strange Godz</b>, ` +
+      `Soy <b>Valquiria</b>, mi vida. Yo elijo quién entra al ejército de <b>Strange Godz</b>, ` +
       `y no lo decido por lo que me cuentes: lo decido por cómo peleaste.\n\n` +
       `Pásame tu <b>tag de jugador</b>. Está en el juego, debajo de tu nombre, y empieza con #.\n\n` +
       `Algo así: <code>#9VLQ0CR99</code>`,
-    encontrado: 'Te encontré ⚔️',
+    yaAceptado: '✅ Ya estás elegido, mi corazón. Si perdiste el enlace, dímelo y te lo mando otra vez.',
+    cerrada: 'Tu solicitud está cerrada por ahora, mi cielo. Gracias por escribirme.',
+    esperando: 'Ya te tengo anotado, mi vida. Paciencia, que los líderes no viven aquí dentro. ⚔️',
+    noTag:
+      `Eso no es un tag, mi cielo.\n\n` +
+      `Ábrelo en el juego: toca tu nombre arriba a la izquierda y ahí sale, debajo, empezando con #. ` +
+      `Cópialo y pégamelo tal cual.`,
+    sinPerfil: (tag) =>
+      `No pude ver tu perfil con <code>${tag}</code>, mi corazón, pero te anoto igual.\n\n` +
+      `Una cosa más y te dejo: cuéntame en un mensaje de dónde sales, ` +
+      `a qué hora sueles jugar y por qué quieres entrar.`,
+    encontrado: 'Te encontré, mi cielo ⚔️',
+    eresTu: '¿Eres tú? Dime <b>sí</b> o <b>no</b>.',
+    otroTag: 'Está bien, mi vida. Pásame el tag bueno y empezamos otra vez.',
+    noEntendi: 'No te entendí, cariño. ¿Ese eres tú? Dime <b>sí</b> o <b>no</b>.',
     ultima:
-      `Bien. Una cosa más y te dejo:\n\n` +
+      `Bien, mi corazón. Una cosa más y te dejo:\n\n` +
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
     listo:
-      `⚔️ <b>Anotado.</b> Ya sé cómo peleas.\n\n` +
+      `⚔️ <b>Anotado, mi cielo.</b> Ya sé cómo peleas.\n\n` +
       `Ahora lo miran los líderes. Si te eligen te escribo por aquí con la puerta del clan.\n\n` +
       `Y para que no te pille de sorpresa: cuando entres se te reta a una <b>amistosa</b>. ` +
-      `No es un examen; es para saber en qué guerra ponerte.`,
+      `No es un examen, mi vida; es para saber en qué guerra ponerte.`,
   },
   heraldo: {
+    deCasa:
+      'Tú ya eres de casa, mi hermano. Escríbeme en el grupo, que aquí solo atiendo a los que quieren entrar.',
     saludo:
       `📯 <b>¡Alto ahí, forastero!</b>\n\n` +
       `Soy Heraldo, el que lleva la lista de la alianza <b>Strange Godz</b>. ` +
       `Si quieres entrar a uno de nuestros clanes esto son dos minutos.\n\n` +
       `Lo primero: pásame tu <b>tag de jugador</b>. Está en el juego, debajo de tu nombre, y empieza con #.\n\n` +
       `Algo así: <code>#9VLQ0CR99</code>`,
+    yaAceptado: '✅ Ya estás aceptado, socio. Si perdiste el enlace, dímelo.',
+    cerrada: 'Tu solicitud está cerrada por ahora, mi hermano. Gracias por el interés.',
+    esperando: 'Ya tengo tu solicitud anotada, socio. Ten paciencia, que los líderes no viven aquí dentro. 📜',
+    noTag:
+      `Eso no me parece un tag, mi hermano.\n\n` +
+      `Ábrelo en el juego: toca tu nombre arriba a la izquierda y ahí sale, debajo, empezando con #. ` +
+      `Cópialo y pégamelo tal cual.`,
+    sinPerfil: (tag) =>
+      `No pude sacar tu perfil con <code>${tag}</code>, pero lo anoto igual.\n\n` +
+      `Última cosa y te dejo tranquilo: cuéntame en un mensaje de dónde sales, ` +
+      `a qué hora sueles jugar y por qué quieres entrar.`,
     encontrado: 'Te encontré 📜',
+    eresTu: '¿Eres tú? Responde <b>sí</b> o <b>no</b>.',
+    otroTag: 'Pues nada, pásame el tag bueno y volvemos a empezar.',
+    noEntendi: 'No te entendí, socio. ¿Ese eres tú? Dime <b>sí</b> o <b>no</b>.',
     ultima:
       `Perfecto. Última cosa y te dejo tranquilo:\n\n` +
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
@@ -150,9 +191,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       .select('player_tag')
       .eq('tg_user_id', uid)
       .maybeSingle();
-    if (atado || (await esAdminDelGrupo(uid))) {
-      return 'Tú ya eres de casa, mi hermano. Escríbeme en el grupo, que aquí solo atiendo a los que quieren entrar.';
-    }
+    if (atado || (await esAdminDelGrupo(uid))) return v.deCasa;
 
     await admin.from('solicitudes').insert({
       tg_user_id: uid,
@@ -177,22 +216,14 @@ export async function flujoSolicitud(admin, msg, texto, via) {
 
   // Ya la mandó: no se le vuelve a preguntar nada.
   if (sol.paso === 'listo') {
-    if (sol.estado === 'aceptada') return '✅ Ya estás aceptado, socio. Si perdiste el enlace, dímelo.';
-    if (sol.estado === 'rechazada') {
-      return 'Tu solicitud está cerrada por ahora, mi hermano. Gracias por el interés.';
-    }
-    return 'Ya tengo tu solicitud anotada, socio. Ten paciencia, que los líderes no viven aquí dentro. 📜';
+    if (sol.estado === 'aceptada') return v.yaAceptado;
+    if (sol.estado === 'rechazada') return v.cerrada;
+    return v.esperando;
   }
 
   if (sol.paso === 'tag') {
     const tag = leerTag(texto);
-    if (!tag) {
-      return (
-        `Eso no me parece un tag, mi hermano.\n\n` +
-        `Ábrelo en el juego: toca tu nombre arriba a la izquierda y ahí sale, debajo, empezando con #. ` +
-        `Cópialo y pégamelo tal cual.`
-      );
-    }
+    if (!tag) return v.noTag;
 
     const perfil = await pedirPerfil(tag);
     if (!perfil) {
@@ -200,11 +231,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       // puesta. Se guarda igual y que siga: dejar a alguien plantado a
       // mitad es peor que una ficha incompleta que el líder mira a mano.
       await guardar({ player_tag: tag, paso: 'cuenta' });
-      return (
-        `No pude sacar tu perfil con <code>${esc(tag)}</code>, pero lo anoto igual.\n\n` +
-        `Última cosa y te dejo tranquilo: cuéntame en un mensaje de dónde sales, ` +
-        `a qué hora sueles jugar y por qué quieres entrar.`
-      );
+      return v.sinPerfil(esc(tag));
     }
 
     const r = resumir(perfil);
@@ -213,16 +240,16 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       `${v.encontrado}\n\n` +
       `<b>${esc(r.nombre)}</b> · TH${r.th}\n` +
       (r.clan ? `Ahora mismo en <b>${esc(r.clan.nombre)}</b>\n` : `Sin clan ahora mismo\n`) +
-      `\n¿Eres tú? Responde <b>sí</b> o <b>no</b>.`
+      `\n${v.eresTu}`
     );
   }
 
   if (sol.paso === 'confirmar') {
     if (NO.test(texto)) {
       await guardar({ paso: 'tag', player_tag: null, perfil: null });
-      return 'Pues nada, pásame el tag bueno y volvemos a empezar.';
+      return v.otroTag;
     }
-    if (!SI.test(texto)) return 'No te entendí, socio. ¿Ese eres tú? Dime <b>sí</b> o <b>no</b>.';
+    if (!SI.test(texto)) return v.noEntendi;
     await guardar({ paso: 'cuenta' });
     return v.ultima;
   }

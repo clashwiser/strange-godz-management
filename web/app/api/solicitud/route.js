@@ -23,6 +23,12 @@ const TOKEN_DE = {
   recluta: process.env.RECLUTA_BOT_TOKEN,
 };
 
+// El grupo de la comunidad: el id negativo de la lista blanca de Heraldo.
+const GRUPO = (process.env.TELEGRAM_CHAT_ID || '')
+  .split(',')
+  .map((x) => x.trim())
+  .find((x) => x.startsWith('-'));
+
 const enlaceClan = (tag) =>
   `https://link.clashofclans.com/es?action=OpenClanProfile&tag=${encodeURIComponent(tag)}`;
 
@@ -90,21 +96,39 @@ export async function POST(request) {
     // nada mas poner un pie dentro, sin habertelo dicho, parece una
     // novatada; avisado, es parte del trato.
     // Cada bot con su voz: Valquiria elige, Heraldo acepta.
-    const cabecera =
-      sol.via === 'recluta'
-        ? `⚔️ <b>Elegido.</b>\n\nPeleaste bien y hay sitio para ti en <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n`
-        : `✅ <b>¡Te aceptaron!</b>\n\nBienvenido a <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n`;
+    const ella = sol.via === 'recluta';
     const aviso = await decirCon(
       TOKEN_DE[sol.via] ?? TOKEN_DE.heraldo,
       sol.tg_user_id,
-      cabecera +
+      (ella
+        ? `⚔️ <b>Elegido, mi cielo.</b>\n\nPeleaste bien y hay sitio para ti en <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n`
+        : `✅ <b>¡Te aceptaron!</b>\n\nBienvenido a <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n`) +
         `<a href="${enlaceClan(clan.clan_tag)}">Abrir ${esc(clan.nombre)} en el juego</a>\n\n` +
         `Tag del clan: <code>${esc(clan.clan_tag)}</code>\n\n` +
         `Cuando entres, uno de los líderes te va a retar a una <b>amistosa</b> para ver cómo atacas. ` +
-        `Tómatelo con calma: no es un examen, es para saber en qué guerra ponerte.\n\n` +
+        (ella
+          ? `Tranquilo, mi vida: no es un examen, es para saber en qué guerra ponerte.\n\n`
+          : `Tómatelo con calma: no es un examen, es para saber en qué guerra ponerte.\n\n`) +
         `Y una cosa importante, que es la que más pesa aquí: <b>enciende la guerra</b> en los ajustes ` +
-        `y <b>dona</b>, aunque sea poco. Eso es lo que mira todo el mundo. ${sol.via === 'recluta' ? '⚔️' : '📯'}`
+        `y <b>dona</b>, aunque sea poco. Eso es lo que mira todo el mundo. ${ella ? '⚔️' : '📯'}`
     );
+
+    // Y lo anuncia en el grupo. Que el clan sepa que viene alguien crea
+    // expectativa y prepara la amistosa: el que lo va a retar ya sabe a
+    // quien. Lo dice Valquiria con su propio token, asi que solo sale si
+    // esta dentro del grupo; si no, Telegram devuelve 403 y no pasa nada.
+    // Nombre y estrellas son datos publicos del juego, no cuenta nada que
+    // no pueda ver cualquiera buscando el tag.
+    if (ella && GRUPO && sol.perfil) {
+      const r = sol.perfil;
+      await decirCon(
+        TOKEN_DE.recluta,
+        GRUPO,
+        `⚔️ Elegí a un guerrero nuevo: <b>${esc(r.nombre)}</b> · TH${r.th} · ` +
+          `${Number(r.guerraVida ?? 0).toLocaleString('es-ES')} ★ de guerra.\n\n` +
+          `Va para <b>${esc(clan.nombre)}</b> a probarse en una amistosa. Traten bien a mi elegido.`
+      );
+    }
 
     return Response.json({ ok: true, avisado: aviso, estado: 'prueba' });
   }
@@ -128,8 +152,8 @@ export async function POST(request) {
       TOKEN_DE[sol.via] ?? TOKEN_DE.heraldo,
       sol.tg_user_id,
       sol.via === 'recluta'
-        ? `Esta vez no, guerrero. Por ahora no hay sitio para ti.\n\n` +
-            `No lo tomes a mal: sigue peleando, vuelve a escribirme más adelante y te miro otra vez. ⚔️`
+        ? `Esta vez no, mi corazón. Por ahora no hay sitio para ti.\n\n` +
+            `No lo tomes a mal, mi vida: sigue peleando, escríbeme más adelante y te miro otra vez. ⚔️`
         : `Gracias por escribirnos, mi hermano. Por ahora no tenemos hueco para ti.\n\n` +
             `No lo tomes a mal: vuelve a escribirme más adelante y lo miramos otra vez. 📯`
     );
