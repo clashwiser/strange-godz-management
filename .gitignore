@@ -10,3 +10,8 @@ web/node_modules/
 # Mascotas descartadas: se quedan en disco como historial, pero no van al
 # repo publico ni a Vercel. Son 1 MB que nadie descarga nunca.
 web/public/mascotas/descartadas/
+
+# Scripts sueltos de comprobacion. Se escriben, se corren y se tiran.
+_*.mjs
+_*.sql
+_*.txt
