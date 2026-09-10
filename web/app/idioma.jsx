@@ -236,6 +236,9 @@ export const EN = {
   'Tus estrellas y ataques de esta CWL': 'Your stars and attacks this CWL',
   'A qué clan te toca ir esta CWL': 'Which clan you go to this CWL',
   'En qué puesto vas del reparto': 'Where you stand in the payout',
+  'Ver su ataque': 'Watch their attack',
+  'Bajando…': 'Downloading…',
+  'En la demo no hay video que bajar.': 'No video to download in the demo.',
   // ---- Borrar un mensaje ----
   'Para borrar uno: arrástralo a la derecha o usa la papelera.': 'To delete one: drag it to the right or use the bin.',
   '¿Borrar este mensaje?': 'Delete this message?',

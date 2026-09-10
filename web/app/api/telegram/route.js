@@ -10,7 +10,7 @@
 
 import { admin } from '../../../lib/supabase-admin';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
-import { flujoSolicitud } from '../../../lib/solicitud';
+import { flujoSolicitud, decirCon } from '../../../lib/solicitud';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,9 +99,12 @@ export async function POST(request) {
   if (!PERMITIDOS.includes(String(chatId))) {
     // La rendija: un desconocido, EN PRIVADO, solo puede pedir entrar. Ni
     // un comando, ni un dato del clan, ni una base. Ver flujoSolicitud.
-    if (msg.chat?.type === 'private' && texto) {
+    // Sin exigir texto: en el paso del video llega un archivo, y la
+    // conversacion es la que sabe si lo esta esperando. Las respuestas con
+    // botones ({texto, teclado}) salen por decirCon, que las entiende.
+    if (msg.chat?.type === 'private') {
       const r = await flujoSolicitud(admin, msg, texto, 'heraldo');
-      if (r) await responder(chatId, r);
+      if (r) await decirCon(TOKEN, chatId, r);
       return Response.json({ ok: true });
     }
     // En un grupo ajeno, ni eso. Y solo si escribieron algo: los avisos de

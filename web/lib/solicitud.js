@@ -20,7 +20,16 @@
 // mensaje y mensaje, asi que cualquier cosa guardada en una variable se
 // pierde antes de que la persona termine de escribir la siguiente linea.
 
-import { leerTag, resumir, ficha } from './aspirante';
+import {
+  leerTag,
+  resumir,
+  ficha,
+  PLENO,
+  CLANES,
+  PRUEBA,
+  banderasRespuestas,
+  resumenRespuestas,
+} from './aspirante';
 import { pedirPerfil } from './coc-perfil';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
@@ -58,8 +67,8 @@ const VOZ = {
     saludo:
       `⚔️ <b>¡Alto ahí, guerrero!</b>\n\n` +
       `Soy <b>Valquiria</b>, mi vida. Yo elijo quién entra al ejército de <b>Strange Godz</b>, ` +
-      `y no lo decido por lo que me cuentes: lo decido por cómo peleaste.\n\n` +
-      `Pásame tu <b>tag de jugador</b>. Está en el juego, debajo de tu nombre, y empieza con #.\n\n` +
+      `y no me fijo en las estrellas: me fijo en cómo peleas. Te hago cuatro preguntas y te pido que me lo enseñes. Tres minutos.\n\n` +
+      `Lo primero: pásame tu <b>tag de jugador</b>. Está en el juego, debajo de tu nombre, y empieza con #.\n\n` +
       `Algo así: <code>#9VLQ0CR99</code>`,
     yaAceptado: '✅ Ya estás elegido, mi corazón. Si perdiste el enlace, dímelo y te lo mando otra vez.',
     cerrada: 'Tu solicitud está cerrada por ahora, mi cielo. Gracias por escribirme.',
@@ -68,14 +77,28 @@ const VOZ = {
       `Eso no es un tag, mi cielo.\n\n` +
       `Ábrelo en el juego: toca tu nombre arriba a la izquierda y ahí sale, debajo, empezando con #. ` +
       `Cópialo y pégamelo tal cual.`,
-    sinPerfil: (tag) =>
-      `No pude ver tu perfil con <code>${tag}</code>, mi corazón, pero te anoto igual.\n\n` +
-      `Una cosa más y te dejo: cuéntame en un mensaje de dónde sales, ` +
-      `a qué hora sueles jugar y por qué quieres entrar.`,
+    sinPerfil: (tag) => `No pude ver tu perfil con <code>${tag}</code>, mi corazón, pero te anoto igual y seguimos.`,
     encontrado: 'Te encontré, mi cielo ⚔️',
     eresTu: '¿Eres tú? Dime <b>sí</b> o <b>no</b>.',
     otroTag: 'Está bien, mi vida. Pásame el tag bueno y empezamos otra vez.',
     noEntendi: 'No te entendí, cariño. ¿Ese eres tú? Dime <b>sí</b> o <b>no</b>.',
+    tocaBoton: 'Tócame uno de los botones, mi cielo, que así es más rápido.',
+    pleno: `🎯 Primera, mi corazón: <b>¿con qué frecuencia haces tres estrellas en guerra?</b> Sé sincero, que se nota después.`,
+    ejercito: `🪖 <b>¿Con qué ejército atacas normalmente en guerra?</b> Con una línea me vale, mi cielo: "dragones y globos", "hydra", "super archers"…`,
+    heroe: (nombre) =>
+      `🦸 Rápido, mi vida, sin mirar: <b>¿a qué nivel tienes tu ${nombre}?</b> Solo el número.`,
+    heroeBien: 'Eso es, mi cielo. Se nota que la cuenta es tuya. ✅',
+    heroeMal: 'Mmm. No es lo que veo yo, mi vida. Sigamos, que ya lo miran los líderes.',
+    soloNumero: 'Solo el número, mi corazón. ¿A qué nivel lo tienes?',
+    clanes: `🏰 <b>¿En cuántos clanes has estado en los últimos seis meses?</b>`,
+    prueba:
+      `🎬 Y ahora lo que de verdad me importa, mi cielo: <b>quiero verte atacar.</b>\n\n` +
+      `Mándame un video de un ataque tuyo, o si prefieres, te retamos en amistosa cuando entres. Tú eliges.`,
+    mandaVideo:
+      `📹 Dale, mi vida. Mándame aquí el video de un ataque tuyo de guerra o de liga, el que más orgullo te dé. ` +
+      `Si al final no lo tienes a mano, escribe <b>reto</b> y pasamos a la amistosa.`,
+    esperoVideo: 'Sigo esperando el video, mi cielo. Mándalo aquí mismo, o escribe <b>reto</b> si prefieres la amistosa.',
+    videoRecibido: '🎬 Recibido, mi corazón. Se lo paso a los líderes tal cual.',
     ultima:
       `Bien, mi corazón. Una cosa más y te dejo:\n\n` +
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
@@ -101,14 +124,27 @@ const VOZ = {
       `Eso no me parece un tag, mi hermano.\n\n` +
       `Ábrelo en el juego: toca tu nombre arriba a la izquierda y ahí sale, debajo, empezando con #. ` +
       `Cópialo y pégamelo tal cual.`,
-    sinPerfil: (tag) =>
-      `No pude sacar tu perfil con <code>${tag}</code>, pero lo anoto igual.\n\n` +
-      `Última cosa y te dejo tranquilo: cuéntame en un mensaje de dónde sales, ` +
-      `a qué hora sueles jugar y por qué quieres entrar.`,
+    sinPerfil: (tag) => `No pude sacar tu perfil con <code>${tag}</code>, pero lo anoto igual y seguimos.`,
     encontrado: 'Te encontré 📜',
     eresTu: '¿Eres tú? Responde <b>sí</b> o <b>no</b>.',
     otroTag: 'Pues nada, pásame el tag bueno y volvemos a empezar.',
     noEntendi: 'No te entendí, socio. ¿Ese eres tú? Dime <b>sí</b> o <b>no</b>.',
+    tocaBoton: 'Dale a uno de los botones, mi hermano, que es más rápido.',
+    pleno: `🎯 Primera: <b>¿con qué frecuencia haces tres estrellas en guerra?</b> Sé sincero, que después se nota.`,
+    ejercito: `🪖 <b>¿Con qué ejército atacas normalmente en guerra?</b> Con una línea vale: "dragones y globos", "hydra", "super archers"…`,
+    heroe: (nombre) => `🦸 Rápido, sin mirar: <b>¿a qué nivel tienes tu ${nombre}?</b> Solo el número.`,
+    heroeBien: 'Correcto. Se nota que la cuenta es tuya. ✅',
+    heroeMal: 'Mmm. No es lo que veo yo. Sigamos, que ya lo miran los líderes.',
+    soloNumero: 'Solo el número, mi hermano. ¿A qué nivel lo tienes?',
+    clanes: `🏰 <b>¿En cuántos clanes has estado en los últimos seis meses?</b>`,
+    prueba:
+      `🎬 Y ahora lo que de verdad importa: <b>queremos verte atacar.</b>\n\n` +
+      `Mándame un video de un ataque tuyo, o si prefieres, te retamos en amistosa cuando entres. Tú eliges.`,
+    mandaVideo:
+      `📹 Dale. Mándame aquí el video de un ataque tuyo de guerra o de liga, el que más orgullo te dé. ` +
+      `Si no lo tienes a mano, escribe <b>reto</b> y pasamos a la amistosa.`,
+    esperoVideo: 'Sigo esperando el video, socio. Mándalo aquí mismo, o escribe <b>reto</b> si prefieres la amistosa.',
+    videoRecibido: '🎬 Recibido. Se lo paso a los líderes tal cual.',
     ultima:
       `Perfecto. Última cosa y te dejo tranquilo:\n\n` +
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
@@ -139,10 +175,16 @@ async function esAdminDelGrupo(uid) {
 
 /**
  * Manda un mensaje con el token que se le diga. Devuelve true si salio.
- * Sin reintentos ni fotos: aqui todo es texto.
+ *
+ * Acepta texto suelto o {texto, teclado}: el teclado son botones que
+ * aparecen debajo del cuadro de escribir y se van al tocar uno. Es lo que
+ * hace que "¿con que frecuencia haces pleno?" se conteste con un toque y
+ * no escribiendo "el 75 por ciento mas o menos". Sin teclado, se quita el
+ * que hubiera, para que no se quede colgado de la pregunta anterior.
  */
-export async function decirCon(token, chatId, texto) {
-  if (!token) return false;
+export async function decirCon(token, chatId, respuesta) {
+  if (!token || !respuesta) return false;
+  const { texto, teclado } = typeof respuesta === 'string' ? { texto: respuesta } : respuesta;
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -152,7 +194,28 @@ export async function decirCon(token, chatId, texto) {
         text: texto,
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
+        reply_markup: teclado
+          ? { keyboard: teclado.map((fila) => fila.map((t) => ({ text: t }))), one_time_keyboard: true, resize_keyboard: true }
+          : { remove_keyboard: true },
       }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reenvia un mensaje -el video del aspirante- a otro chat. No se vuelve a
+ * subir nada: Telegram lo copia de un chat a otro, sin tope de tamaño.
+ */
+export async function reenviarCon(token, aChat, deChat, messageId) {
+  if (!token) return false;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/forwardMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: aChat, from_chat_id: deChat, message_id: messageId }),
     });
     return r.ok;
   } catch {
@@ -187,12 +250,37 @@ export async function decirConVideo(token, chatId, urlVideo, pie) {
 }
 
 /**
- * Un mensaje de alguien de fuera. Devuelve el texto a contestar, o null
- * para no contestar nada. El que llama lo manda con SU token.
+ * Un mensaje de alguien de fuera. Devuelve lo que hay que contestar -un
+ * texto, o {texto, teclado} con botones- o null para no contestar nada.
+ * El que llama lo manda con SU token.
+ *
+ * La entrevista, paso a paso. Cada uno es un toque o una linea:
+ *
+ *   tag        pasame tu tag -> ficha de Supercell
+ *   confirmar  ¿eres tu?
+ *   pleno      ¿con que frecuencia haces tres estrellas?     (botones)
+ *   ejercito   ¿con que ejercito atacas en guerra?           (texto)
+ *   heroe      ¿a que nivel tienes tu {heroe al azar}?       (numero)
+ *   clanes     ¿en cuantos clanes has estado en 6 meses?     (botones)
+ *   prueba     ¿video de un ataque, o reto al entrar?        (botones)
+ *   video      (solo si eligio video) esperando el archivo
+ *   cuenta     de donde sales, a que hora juegas, por que
+ *   listo      avisados los lideres
+ *
+ * Por que no basta con el perfil: las estrellas engañan en los dos
+ * sentidos. Una cuenta nueva tiene pocas y puede ser un jugador bueno; una
+ * cuenta comprada tiene muchas y detras puede no haber nadie que sepa
+ * atacar. De ahi las tres cosas que el perfil no cuenta:
+ *
+ *   - el ejercito, para ver si cuadra con su TH (un TH16 que "ataca con
+ *     gigantes" es cuenta comprada o novato)
+ *   - el nivel de un heroe, comparado con la API y cronometrado: el dueño
+ *     de verdad lo sabe sin mirar
+ *   - verlo atacar, en video o en amistosa al entrar
  *
  * @param {object} admin  cliente de Supabase con service_role
- * @param {object} msg    el message de Telegram
- * @param {string} texto  lo que escribio, ya recortado
+ * @param {object} msg    el message de Telegram entero (puede traer video)
+ * @param {string} texto  lo que escribio, ya recortado ('' si mando archivo)
  * @param {'heraldo'|'recluta'} via  por que bot entro; decide con cual
  *                        se le contesta despues, al aceptarlo o no
  */
@@ -209,6 +297,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
 
   // Primera vez que escribe.
   if (!sol) {
+    if (!texto) return null;
     // Los de casa no solicitan nada. Se comprueba solo aqui y no en cada
     // mensaje: es una llamada a Telegram, y repetirla en cada linea de la
     // conversacion es gastarla veinte veces para la misma respuesta.
@@ -232,13 +321,16 @@ export async function flujoSolicitud(admin, msg, texto, via) {
 
   // Freno de mano. Sin esto, quien se ponga a machacar el teclado dispara
   // una consulta a Supercell por cada linea.
-  if (Date.now() - new Date(sol.actualizado_en).getTime() < 1200) return null;
+  const haceMs = Date.now() - new Date(sol.actualizado_en).getTime();
+  if (haceMs < 1200) return null;
 
+  const resp = sol.respuestas ?? {};
   const guardar = (parche) =>
     admin
       .from('solicitudes')
       .update({ ...parche, actualizado_en: new Date().toISOString() })
       .eq('tg_user_id', uid);
+  const responder = (parche) => guardar({ respuestas: { ...resp, ...parche } });
 
   // Ya la mandó: no se le vuelve a preguntar nada.
   if (sol.paso === 'listo') {
@@ -246,6 +338,11 @@ export async function flujoSolicitud(admin, msg, texto, via) {
     if (sol.estado === 'rechazada') return v.cerrada;
     return v.esperando;
   }
+
+  // Un video solo se espera en su paso. Fuera de el, un archivo suelto se
+  // ignora y se repite la pregunta que toca.
+  const video = msg.video ?? msg.video_note ?? (msg.document?.mime_type?.startsWith('video/') ? msg.document : null);
+  if (!texto && !video) return null;
 
   if (sol.paso === 'tag') {
     const tag = leerTag(texto);
@@ -256,8 +353,8 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       // Puede ser un tag mal copiado o que la llave de Clash no esté
       // puesta. Se guarda igual y que siga: dejar a alguien plantado a
       // mitad es peor que una ficha incompleta que el líder mira a mano.
-      await guardar({ player_tag: tag, paso: 'cuenta' });
-      return v.sinPerfil(esc(tag));
+      await guardar({ player_tag: tag, paso: 'pleno' });
+      return { texto: v.sinPerfil(esc(tag)) + '\n\n' + v.pleno, teclado: tecladoDe(PLENO) };
     }
 
     const r = resumir(perfil);
@@ -276,24 +373,107 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       return v.otroTag;
     }
     if (!SI.test(texto)) return v.noEntendi;
-    await guardar({ paso: 'cuenta' });
+    await guardar({ paso: 'pleno' });
+    return { texto: v.pleno, teclado: tecladoDe(PLENO) };
+  }
+
+  if (sol.paso === 'pleno') {
+    const clave = claveDe(PLENO, texto);
+    if (!clave) return { texto: v.tocaBoton, teclado: tecladoDe(PLENO) };
+    await guardar({ paso: 'ejercito', respuestas: { ...resp, pleno: clave } });
+    return v.ejercito;
+  }
+
+  if (sol.paso === 'ejercito') {
+    // Una palabra ya vale ("dragones"); se corta a 160 para que no cuele
+    // una carta.
+    const ejercito = texto.slice(0, 160);
+    const heroe = elegirHeroe(sol.perfil);
+    if (!heroe) {
+      // Sin ficha o sin heroes -una cuenta muy nueva- no hay pregunta
+      // trampa que hacer. Se salta.
+      await guardar({ paso: 'clanes', respuestas: { ...resp, ejercito } });
+      return { texto: v.clanes, teclado: tecladoDe(CLANES) };
+    }
+    await guardar({
+      paso: 'heroe',
+      respuestas: { ...resp, ejercito, heroe: { nombre: heroe.nombre, real: heroe.nivel } },
+    });
+    return v.heroe(heroe.nombre);
+  }
+
+  if (sol.paso === 'heroe') {
+    const dijo = Number((texto.match(/\d+/) || [])[0]);
+    if (!Number.isFinite(dijo)) return v.soloNumero;
+    // Cronometrado desde que se hizo la pregunta: actualizado_en es el
+    // momento en que se guardo el paso anterior. El dueño contesta en
+    // segundos; el que tiene que abrir el juego a mirar, en minutos.
+    const segundos = Math.round(haceMs / 1000);
+    const h = resp.heroe ?? {};
+    const acierta = Math.abs(dijo - Number(h.real)) <= 1;
+    await guardar({
+      paso: 'clanes',
+      respuestas: { ...resp, heroe: { ...h, dijo, segundos, acierta } },
+    });
+    return { texto: (acierta ? v.heroeBien : v.heroeMal) + '\n\n' + v.clanes, teclado: tecladoDe(CLANES) };
+  }
+
+  if (sol.paso === 'clanes') {
+    const clave = claveDe(CLANES, texto);
+    if (!clave) return { texto: v.tocaBoton, teclado: tecladoDe(CLANES) };
+    await guardar({ paso: 'prueba', respuestas: { ...resp, clanes: clave } });
+    return { texto: v.prueba, teclado: tecladoDe(PRUEBA) };
+  }
+
+  if (sol.paso === 'prueba') {
+    const clave = claveDe(PRUEBA, texto);
+    if (!clave) return { texto: v.tocaBoton, teclado: tecladoDe(PRUEBA) };
+    if (clave === 'video') {
+      await guardar({ paso: 'video', respuestas: { ...resp, prueba: 'video' } });
+      return v.mandaVideo;
+    }
+    await guardar({ paso: 'cuenta', respuestas: { ...resp, prueba: 'reto' } });
     return v.ultima;
+  }
+
+  if (sol.paso === 'video') {
+    if (!video) {
+      // Se arrepintio, o no sabe mandarlo: con "reto" o "no" pasa a la
+      // amistosa y sigue. Cualquier otra cosa, se le recuerda que se
+      // espera un video.
+      if (/\b(reto|amistosa|no|paso|luego|despues|después)\b/i.test(texto)) {
+        await guardar({ paso: 'cuenta', respuestas: { ...resp, prueba: 'reto' } });
+        return v.ultima;
+      }
+      return v.esperoVideo;
+    }
+    await guardar({
+      paso: 'cuenta',
+      respuestas: {
+        ...resp,
+        video: {
+          file_id: video.file_id,
+          file_unique_id: video.file_unique_id,
+          message_id: msg.message_id,
+          chat_id: msg.chat.id,
+          duracion: video.duration ?? null,
+          bytes: video.file_size ?? null,
+        },
+      },
+    });
+    return v.videoRecibido + '\n\n' + v.ultima;
   }
 
   if (sol.paso === 'cuenta') {
     // Se corta a 600: es una presentacion, no una carta, y sin tope
     // cualquiera puede llenar la tabla desde el telefono.
     const cuenta = texto.slice(0, 600);
-    await guardar({
-      paso: 'listo',
-      estado: 'pendiente',
-      respuestas: { ...(sol.respuestas ?? {}), cuenta },
-      creado_en: new Date().toISOString(),
-    });
+    const respuestas = { ...resp, cuenta };
+    await guardar({ paso: 'listo', estado: 'pendiente', respuestas, creado_en: new Date().toISOString() });
 
     // Que no se caiga la respuesta al aspirante si falla el aviso.
     try {
-      await avisarLideres({ ...sol, respuestas: { cuenta } });
+      await avisarLideres({ ...sol, respuestas }, via);
     } catch {
       /* el lider la vera igual en el panel */
     }
@@ -304,22 +484,39 @@ export async function flujoSolicitud(admin, msg, texto, via) {
   return null;
 }
 
+/** Botones de una fila por opcion: en el telefono se leen mejor asi. */
+const tecladoDe = (opciones) => opciones.map(([, etiqueta]) => [etiqueta]);
+
+/** Que boton toco. Acepta tambien la clave escrita ("75") por si teclea. */
+function claveDe(opciones, texto) {
+  const t = String(texto ?? '').trim().toLowerCase();
+  const fila = opciones.find(([k, etiqueta]) => etiqueta.toLowerCase() === t || k === t);
+  return fila ? fila[0] : null;
+}
+
+/** Un heroe al azar de los que tiene, para la pregunta trampa. */
+function elegirHeroe(perfil) {
+  const lista = perfil?.heroes ?? [];
+  if (!lista.length) return null;
+  return lista[Math.floor(Math.random() * lista.length)];
+}
+
 /**
  * Avisa por privado a los líderes de que hay alguien esperando.
  *
  * Lo manda HERALDO aunque la solicitud haya entrado por el otro bot: los
  * lideres ya hablan con Heraldo, y para saber quien es lider hay que
- * preguntarle al grupo, donde solo esta Heraldo.
+ * preguntarle al grupo, donde esta Heraldo.
+ *
+ * El video, en cambio, lo reenvia el bot que lo recibio: un file_id solo
+ * lo puede usar el bot al que se lo mandaron. Le llega a los lideres que
+ * hayan abierto alguna vez ese bot; a los demas, la solicitud les sale
+ * igual en el panel.
  *
  * Quien es líder lo dice Telegram con getChatAdministrators, no una lista
  * en una variable de entorno que hay que acordarse de tocar.
- *
- * Solo llega a quien le haya dado alguna vez a "Empezar" a Heraldo:
- * Telegram no deja escribirle primero a nadie. Al que no lo haya hecho, el
- * envio falla con 403 y se salta sin ruido — la solicitud sigue en el
- * panel, que es donde de verdad se decide.
  */
-async function avisarLideres(sol) {
+async function avisarLideres(sol, via) {
   if (!HERALDO || !GRUPO) return;
   const res = await fetch(
     `https://api.telegram.org/bot${HERALDO}/getChatAdministrators?chat_id=${GRUPO}`
@@ -329,15 +526,23 @@ async function avisarLideres(sol) {
   if (!admins.length) return;
 
   const r = sol.perfil;
+  const resp = sol.respuestas ?? {};
   const quien = sol.tg_username ? `@${sol.tg_username}` : sol.tg_nombre || 'sin nombre';
+  const banderas = banderasRespuestas(resp);
   const aviso =
     `📬 <b>SOLICITUD NUEVA</b>\n\n` +
     (r ? `${ficha(r, esc)}\n\n` : `Tag: <code>${esc(sol.player_tag ?? '?')}</code> (sin ficha)\n\n`) +
-    `💬 <i>${esc(sol.respuestas?.cuenta ?? '')}</i>\n\n` +
+    resumenRespuestas(resp).map(esc).join('\n') +
+    (banderas.length ? `\n${banderas.map((b) => `${b.grave ? '🔴' : '🟡'} ${esc(b.txt)}`).join('\n')}` : '') +
+    `\n\n💬 <i>${esc(resp.cuenta ?? '')}</i>\n\n` +
     `Telegram: ${esc(quien)}\n\n` +
     `Decide en el panel: ${SITIO}`;
 
+  const tokenVideo = via === 'recluta' ? process.env.RECLUTA_BOT_TOKEN : HERALDO;
   for (const a of admins) {
     await decirCon(HERALDO, a.user.id, aviso);
+    if (resp.video?.message_id) {
+      await reenviarCon(tokenVideo, a.user.id, resp.video.chat_id, resp.video.message_id);
+    }
   }
 }

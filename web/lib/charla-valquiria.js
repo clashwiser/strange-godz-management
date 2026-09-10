@@ -24,18 +24,18 @@ export const plano = (s) =>
     .trim();
 
 const COMO_ENTRAR = [
-  `Que me escriba en privado, mi cielo: <b>@${BOT_RECLUTA}</b>. Le pido su tag, miro cómo ha peleado y se lo paso a los líderes. Dos minutos.`,
-  `Fácil, mi vida: abre <b>@${BOT_RECLUTA}</b>, le da a Empezar y me manda su tag. Yo miro sus estrellas de guerra, no lo que me cuente.`,
+  `Que me escriba en privado, mi cielo: <b>@${BOT_RECLUTA}</b>. Le hago cuatro preguntas, le pido que me enseñe cómo ataca y se lo paso a los líderes. Tres minutos.`,
+  `Fácil, mi vida: abre <b>@${BOT_RECLUTA}</b>, le da a Empezar y me manda su tag. Yo miro cómo pelea, no las estrellas que tenga.`,
   `Dile que me busque: <b>@${BOT_RECLUTA}</b>. Aquí en el grupo no elijo a nadie; eso lo hago en privado, con su tag delante. ⚔️`,
 ];
 
 const QUIEN_SOY = [
-  `Soy Valquiria, mi cielo. Yo elijo quién entra al ejército de Strange Godz: miro cómo peleaste y decido. Heraldo anuncia; yo elijo. ⚔️`,
-  `La que abre la puerta, mi vida. Cada guerrero nuevo de aquí pasó por mí primero. Y cada uno lo elegí por sus estrellas, no por su cara bonita.`,
+  `Soy Valquiria, mi cielo. Yo elijo quién entra al ejército de Strange Godz: miro cómo peleas y decido. Heraldo anuncia; yo elijo. ⚔️`,
+  `La que abre la puerta, mi vida. Cada guerrero nuevo de aquí pasó por mí primero. Y a cada uno lo elegí por cómo pelea, no por sus estrellas ni por su cara bonita.`,
 ];
 
 const PIROPOS = [
-  `Ay, gracias, mi cielo. Pero yo me fijo en las estrellas de guerra, no en los piropos. ⚔️`,
+  `Ay, gracias, mi cielo. Pero yo me fijo en cómo atacas, no en los piropos. ⚔️`,
   `Qué lindo, mi vida. Ahora enséñame un tres estrellas y hablamos. 😄`,
   `Mi corazón, a mí me enamoran con ataques, no con palabras. Dona algo y te miro con otros ojos.`,
   `Tranquilo, cariño, que el hacha no es de adorno. 😉`,

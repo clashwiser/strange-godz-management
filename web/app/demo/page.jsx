@@ -105,7 +105,12 @@ const d = {
         guerraVida: 3110, cwlVida: 940, juegosVida: 188400, capital: 421000,
         etiquetas: ['Clan Wars', 'Clan War League', 'Active Daily'], clan: null, rol: null,
       },
-      respuestas: { cuenta: 'Soy de Santiago, juego de noche despues del trabajo. Vengo del clan de un primo que se disolvio y quiero guerra en serio.' },
+      respuestas: {
+        pleno: '75', ejercito: 'Hydra con 4 globos y rabia',
+        heroe: { nombre: 'Reina Arquera', real: 75, dijo: 75, segundos: 11, acierta: true },
+        clanes: '1', prueba: 'video', video: { file_id: 'demo', duracion: 118 },
+        cuenta: 'Soy de Santiago, juego de noche despues del trabajo. Vengo del clan de un primo que se disolvio y quiero guerra en serio.',
+      },
     },
     {
       id: 2, tg_user_id: 222, tg_nombre: 'Miguel', tg_username: null,
@@ -118,7 +123,12 @@ const d = {
         etiquetas: ['Farming', 'Friendly'],
         clan: { tag: '#ABC', nombre: 'Los Panas', nivel: 3 }, rol: 'member',
       },
-      respuestas: { cuenta: 'quiero entrar' },
+      respuestas: {
+        pleno: 'menos', ejercito: 'gigantes y arqueras',
+        heroe: { nombre: 'Rey Bárbaro', real: 65, dijo: 40, segundos: 140, acierta: false },
+        clanes: '4+', prueba: 'reto',
+        cuenta: 'quiero entrar',
+      },
     },
     {
       id: 3, tg_user_id: 333, tg_nombre: 'Rey', tg_username: 'reyduro',

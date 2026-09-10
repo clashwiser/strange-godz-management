@@ -70,8 +70,11 @@ export async function POST(request) {
   const texto = (msg.text || '').trim();
 
   // ---- En privado: la puerta ----
+  //
+  // Se le pasa el mensaje entero aunque no traiga texto: en el paso del
+  // video lo que llega es un archivo, y la conversacion es la que sabe si
+  // lo esta esperando.
   if (msg.chat.type === 'private') {
-    if (!texto) return Response.json({ ok: true });
     const respuesta = await flujoSolicitud(admin, msg, texto, 'recluta');
     if (respuesta) await decirCon(TOKEN, chatId, respuesta);
     return Response.json({ ok: true });

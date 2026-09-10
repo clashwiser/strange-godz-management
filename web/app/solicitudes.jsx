@@ -28,7 +28,7 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
-import { banderas } from '../lib/aspirante';
+import { banderas, banderasRespuestas, resumenRespuestas } from '../lib/aspirante';
 
 // El @usuario del bot de reclutar. Es publico -va en la descripcion del
 // clan-, asi que puede ir aqui sin problema. Ver web/app/api/recluta.
@@ -43,6 +43,27 @@ const ESTADOS = [
 
 const miles = (n) => Number(n ?? 0).toLocaleString('es-ES');
 
+/**
+ * Si ya estuvo con nosotros. Es el unico historial de clanes que se puede
+ * saber de verdad: la API oficial no guarda por donde ha pasado un jugador,
+ * pero nuestro propio registro de entradas y salidas si. El que se fue una
+ * vez y vuelve merece que el lider lo sepa antes de decir que si.
+ */
+function historialConNosotros(s, d) {
+  if (!s.player_tag) return [];
+  const clanNombre = Object.fromEntries((d.clans ?? []).map((c) => [c.clan_tag, c.nombre]));
+  const filas = (d.memberships ?? []).filter((m) => m.player_tag === s.player_tag);
+  const dentro = filas.find((m) => !m.hasta);
+  if (dentro) return [{ txt: `ya está en ${clanNombre[dentro.clan_tag] ?? dentro.clan_tag}`, grave: false }];
+  const salidas = filas.filter((m) => m.hasta).sort((a, b) => String(b.hasta).localeCompare(String(a.hasta)));
+  if (!salidas.length) return [];
+  const u = salidas[0];
+  return [{
+    txt: `ya estuvo en ${clanNombre[u.clan_tag] ?? u.clan_tag} y se fue el ${String(u.hasta).slice(0, 10)}${salidas.length > 1 ? ` (${salidas.length} veces)` : ''}`,
+    grave: salidas.length > 1,
+  }];
+}
+
 export default function Solicitudes({ d, demo = false, recargar }) {
   const t = useT();
   const [ver, setVer] = useState('abiertas');
@@ -50,6 +71,30 @@ export default function Solicitudes({ d, demo = false, recargar }) {
   const [ocupado, setOcupado] = useState(null);
   const [clanDe, setClanDe] = useState({});
   const [notaDe, setNotaDe] = useState({});
+  // Videos ya bajados, por solicitud: un blob en memoria. No se piden los
+  // bytes hasta que un lider toca el boton.
+  const [videoDe, setVideoDe] = useState({});
+
+  async function verVideo(s) {
+    if (demo) return aviso(t('En la demo no hay video que bajar.'));
+    setOcupado(`video:${s.id}`);
+    try {
+      const { data: sesion } = await supabase.auth.getSession();
+      const r = await fetch(`/api/solicitud-video?id=${s.id}`, {
+        headers: { Authorization: `Bearer ${sesion?.session?.access_token}` },
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error ?? `error ${r.status}`);
+      }
+      const blob = await r.blob();
+      setVideoDe((v) => ({ ...v, [s.id]: URL.createObjectURL(blob) }));
+    } catch (e) {
+      aviso(`Error: ${e.message}`, true);
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   // Solo a los clanes de guerra se recluta. Olympus y Cuban Pirates son de
   // vitrina: meter gente ahi es justo lo contrario de para lo que estan.
@@ -226,6 +271,41 @@ export default function Solicitudes({ d, demo = false, recargar }) {
                 <p className="sub" style={{ marginTop: 8 }}>
                   {t('Sin ficha: no se pudo leer su perfil. Búscalo por el tag.')}
                 </p>
+              )}
+
+              {/* La entrevista: lo que el perfil no cuenta. El perfil dice lo
+                  que hizo la cuenta; esto dice si el que escribe es el que la
+                  juega. */}
+              {resumenRespuestas(s.respuestas ?? {}).length > 0 && (
+                <ul className="entrevista">
+                  {resumenRespuestas(s.respuestas ?? {}).map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              )}
+              <p style={{ margin: '6px 0 0' }}>
+                {[...banderasRespuestas(s.respuestas ?? {}), ...historialConNosotros(s, d)].map((b) => (
+                  <span key={b.txt} className={b.grave ? 'bandera grave' : 'bandera'}>
+                    {b.txt}
+                  </span>
+                ))}
+              </p>
+
+              {s.respuestas?.video && (
+                <div style={{ marginTop: 8 }}>
+                  {videoDe[s.id] ? (
+                    <video src={videoDe[s.id]} controls playsInline style={{ width: '100%', borderRadius: 10 }} />
+                  ) : (
+                    <button
+                      className="fantasma"
+                      disabled={ocupado === `video:${s.id}`}
+                      onClick={() => verVideo(s)}
+                    >
+                      {ocupado === `video:${s.id}` ? t('Bajando…') : `▶ ${t('Ver su ataque')}`}
+                      {s.respuestas.video.duracion ? ` (${s.respuestas.video.duracion}s)` : ''}
+                    </button>
+                  )}
+                </div>
               )}
 
               {s.respuestas?.cuenta && (

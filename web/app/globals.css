@@ -1181,3 +1181,6 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
   display: flex; flex-wrap: wrap; gap: 6px 16px;
   margin-top: 10px; font-size: 13px;
 }
+
+/* La entrevista del aspirante: una linea por respuesta. */
+.entrevista { margin: 8px 0 0; padding-left: 0; list-style: none; font-size: 13px; line-height: 1.6; }

@@ -68,12 +68,26 @@ export const logro = (p, nombre) =>
  * hechizos y hasta la casa del jugador, y guardar eso entero en cada
  * solicitud es llenar la tabla de ruido.
  */
+// Los heroes de la aldea principal, con su nombre en español, que es como
+// los llama la gente. Sirven para la pregunta trampa de la entrevista: el
+// dueño de verdad sabe a que nivel tiene a su Rey sin mirar.
+const HEROES = {
+  'Barbarian King': 'Rey Bárbaro',
+  'Archer Queen': 'Reina Arquera',
+  'Grand Warden': 'Gran Centinela',
+  'Royal Champion': 'Campeona Real',
+  'Minion Prince': 'Príncipe Esbirro',
+};
+
 export function resumir(p) {
   return {
     tag: p.tag,
     nombre: p.name,
     th: p.townHallLevel,
     nivel: p.expLevel,
+    heroes: (p.heroes ?? [])
+      .filter((h) => h.village === 'home' && HEROES[h.name] && h.level > 0)
+      .map((h) => ({ nombre: HEROES[h.name], nivel: h.level })),
     trofeos: p.trophies,
     mejorTrofeos: p.bestTrophies,
     guerraEncendida: p.warPreference === 'in',
@@ -107,6 +121,60 @@ export function banderas(r) {
   if (r.clan) b.push({ txt: `está en ${r.clan.nombre}`, grave: false });
 
   return b;
+}
+
+// Las opciones de la entrevista. Van aqui y no sueltas en la conversacion
+// porque el panel tiene que pintarlas con las mismas palabras.
+export const PLENO = [
+  ['100', 'Casi siempre (100%)'],
+  ['75', '3 de cada 4 (75%)'],
+  ['50', 'La mitad (50%)'],
+  ['menos', 'Menos de la mitad'],
+];
+export const CLANES = [
+  ['1', 'Uno, este es el primero que dejo'],
+  ['2-3', 'Dos o tres'],
+  ['4+', 'Cuatro o más'],
+];
+export const PRUEBA = [
+  ['video', '📹 Te mando un video de un ataque'],
+  ['reto', '⚔️ Que me reten en amistosa al entrar'],
+];
+
+/**
+ * Lo que dicen las RESPUESTAS, aparte del perfil. Es la mitad que faltaba:
+ * el perfil cuenta lo que hizo la cuenta; esto cuenta si el que escribe
+ * es el que la juega.
+ */
+export function banderasRespuestas(r = {}) {
+  const b = [];
+  const h = r.heroe;
+  if (h && h.dijo != null) {
+    if (!h.acierta) b.push({ txt: `no supo el nivel de su ${h.nombre} (dijo ${h.dijo}, tiene ${h.real})`, grave: true });
+    else if (h.segundos > 90) b.push({ txt: `tardó ${h.segundos}s en decir el nivel de su ${h.nombre}`, grave: false });
+  }
+  if (r.clanes === '4+') b.push({ txt: 'cambia de clan a menudo: 4 o más en 6 meses', grave: true });
+  else if (r.clanes === '2-3') b.push({ txt: '2-3 clanes en 6 meses', grave: false });
+  if (r.pleno === 'menos') b.push({ txt: 'dice que hace pleno menos de la mitad', grave: false });
+  if (r.prueba === 'video' && !r.video) b.push({ txt: 'prometió video y no lo mandó', grave: false });
+  return b;
+}
+
+const etiqueta = (lista, clave) => lista.find(([k]) => k === clave)?.[1] ?? clave ?? '—';
+
+/** Las respuestas en una linea cada una, para el aviso a los lideres. */
+export function resumenRespuestas(r = {}) {
+  const lineas = [];
+  if (r.pleno) lineas.push(`🎯 Pleno: ${etiqueta(PLENO, r.pleno)}`);
+  if (r.ejercito) lineas.push(`🪖 Ejército: ${r.ejercito}`);
+  if (r.heroe?.dijo != null) {
+    lineas.push(
+      `🦸 ${r.heroe.nombre}: dijo ${r.heroe.dijo}, tiene ${r.heroe.real} ${r.heroe.acierta ? '✅' : '❌'} (${r.heroe.segundos}s)`
+    );
+  }
+  if (r.clanes) lineas.push(`🏰 Clanes en 6 meses: ${etiqueta(CLANES, r.clanes)}`);
+  if (r.prueba) lineas.push(`🎬 Prueba: ${r.prueba === 'video' ? (r.video ? 'mandó video' : 'video (no llegó)') : 'reto en amistosa'}`);
+  return lineas;
 }
 
 const miles = (n) => Number(n ?? 0).toLocaleString('es-ES');
