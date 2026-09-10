@@ -16,6 +16,8 @@
 // cielo, mi vida, mi corazon, cariño- y firme en lo que dice. No ruega,
 // elige. Se rie, pero el hacha no es de adorno.
 
+import { masDe } from './charla-mas.js';
+
 const AL_AZAR = (l) => l[Math.floor(Math.random() * l.length)];
 
 export const BOT_RECLUTA = 'Valqui_bot';
@@ -47,22 +49,6 @@ const CHARLA = [
       'Bien, mi vida, aunque con el calor de aquí se me despeinan las alas del casco.',
       'Contenta, mi corazón: hoy no ha llegado ningún trotaclanes. ¿Y tú, qué me cuentas?',
       'De pie y vigilando, mi cielo. Una valquiria no se sienta. Bueno, en la Bodeguita sí. 😄',
-    ],
-  },
-
-  // -------- Buenos dias / tardes / noches --------
-  {
-    nombre: 'buenos dias',
-    patron: /\b(buenos dias|buen dia|buenas tardes|buenas noches|buenas madrugadas|good morning|good night)\b/,
-    respuestas: [
-      'Buenos días, mi cielo. Que hoy hagas pleno.',
-      'Buenas, mi vida. Café en mano y el hacha al lado, como debe ser.',
-      'Buenos días, mi corazón. ¿Ya viste si te toca atacar? Yo sí lo vi.',
-      'Buenas tardes, cariño. La guerra no espera a la siesta.',
-      'Buenas noches, mi cielo. Ataca antes de dormir, que soñarás mejor.',
-      'Buenas noches, mi vida. Yo no duermo: vigilo. Tú sí, que mañana hay guerra.',
-      'Buen día, mi corazón. Dona algo antes del café y arrancas con buena suerte.',
-      'Buenas, mi cielo. Si vienes a atacar, bienvenido; si vienes a mirar, también, pero dona.',
     ],
   },
 
@@ -154,7 +140,7 @@ const CHARLA = [
   },
   {
     nombre: 'piropo',
-    patron: /(linda|bella|hermosa|preciosa|guapa|rica|sexy|bonita|mami|mamita|que buena estas|estas buena|divina|reina)/,
+    patron: /(linda|bella|hermosa|preciosa|guapa|rica|sexy|bonita|mami|mamita|que buena estas|estas buena|divina|eres una reina|mi reina hermosa)/,
     respuestas: [
       'Ay, gracias, mi cielo. Pero yo me fijo en cómo atacas, no en los piropos. ⚔️',
       'Qué lindo, mi vida. Ahora enséñame un tres estrellas y hablamos. 😄',
@@ -434,6 +420,18 @@ const CHARLA = [
     ],
   },
 ];
+
+// Las categorias del juego y de la vida -heroes, TH, capital, lag,
+// trampas, tag, familia...- van entre las de personalidad y las genericas
+// de guerra y meta: asi "cuando cierra la guerra" cae en su categoria y no
+// en la de guerra a secas. Ver charla-mas.js.
+{
+  // Y 'de heraldo' sube tambien: "quien falta por atacar" es de Heraldo,
+  // no de la categoria generica de guerra, que iba antes y se lo comia.
+  const deHeraldo = CHARLA.splice(CHARLA.findIndex((c) => c.nombre === 'de heraldo'), 1);
+  const iAnimo = CHARLA.findIndex((c) => c.nombre === 'animo');
+  CHARLA.splice(iAnimo, 0, ...masDe('valquiria'), ...deHeraldo);
+}
 
 /** Cuantos hay esperando, dicho con gracia. */
 export const cuantosEsperan = (n) =>

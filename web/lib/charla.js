@@ -28,6 +28,8 @@
 // El personaje: un heraldo medieval con sangre cubana. Habla en cubano,
 // tutea, y no se toma nada a pecho.
 
+import { masDe } from './charla-mas.js';
+
 const AL_AZAR = (lista) => lista[Math.floor(Math.random() * lista.length)];
 
 // ---------------------------------------------------------------------
@@ -354,6 +356,17 @@ const CHARLA = [
     ],
   },
 ];
+
+// Las categorias del juego y de la vida -heroes, TH, capital, lag,
+// trampas, tag, familia...- van antes de 'saludo', 'meta' y 'guerra', que
+// son las genericas: asi "cuando cierra la guerra" cae en su sitio. Ver
+// charla-mas.js, que las comparte con Valquiria cambiando la voz.
+{
+  // Antes de 'saludo': si no, "buenas noches" cae en el saludo generico
+  // ("Presente. ¿Base, estrellas o chisme?") en vez de en el suyo.
+  const iSaludo = CHARLA.findIndex((c) => c.nombre === 'saludo');
+  CHARLA.splice(iSaludo, 0, ...masDe('heraldo'));
+}
 
 /**
  * Devuelve una respuesta de charla, o null si no es charla.
