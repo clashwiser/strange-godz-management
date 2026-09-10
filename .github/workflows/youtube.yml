@@ -1,0 +1,51 @@
+name: YouTube - videos nuevos de Clash
+
+# Dos veces al dia: por la mañana y a la tarde-noche de Cuba, que es cuando
+# hay gente conectada. De madrugada no lo lee nadie y ademas chocaria con
+# los jobs de datos.
+#
+# Las horas de GitHub son UTC y Cuba cambia de hora en noviembre, asi que
+# esto se corre a las 12:00 y 23:30 UTC: en verano son las 8:00 y las 19:30
+# de Cuba, y en invierno las 7:00 y las 18:30. Una hora de diferencia media
+# temporada no justifica montar nada mas complicado.
+on:
+  schedule:
+    - cron: '0 12 * * *'
+    - cron: '30 23 * * *'
+  workflow_dispatch:
+    inputs:
+      seco:
+        description: 'En seco: imprime lo que mandaria y NO lo manda'
+        type: boolean
+        default: false
+
+concurrency:
+  group: escritura-db
+  cancel-in-progress: false
+
+jobs:
+  youtube:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      YOUTUBE_SECO: ${{ inputs.seco && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+
+      - name: Buscar videos nuevos
+        run: npm run youtube
+
+      # Lo que quede en el outbox sale por WhatsApp tambien.
+      - name: Enviar por WhatsApp
+        if: ${{ always() }}
+        run: npm run wa:enviar
