@@ -231,6 +231,11 @@ const CHARLA = [
       '¿Cuál es el colmo de un Gigante? Que le tengan miedo... a los Arqueros.',
       'Yo tenía un amigo que solo atacaba con Globos. Ahora solo tiene recuerdos.',
       'El Castillo del Clan es como el refrigerador de la casa: todo el mundo pide y nadie repone.',
+      // De los clasicos cubanos, traidos al clan.
+      'Le pregunté a un socio cómo iba el clan. "No nos podemos quejar." ¿Ni bien ni mal? "No, no: que NO nos podemos quejar." 😄',
+      'En este clan, al ataque de madrugada le dicen aspirina: uno cada cuatro horas. Al pleno de algunos le dicen Jesucristo: se habla de él, pero nadie lo ha visto. Y al castillo del clan le dicen coco: por dentro solo tiene agua.',
+      'Mi compadre dice que su Reina es como el bistec en Cuba: todo el mundo habla de ella y nadie la ha visto atacar.',
+      '¿Sabes qué es un cuarteto? Una alineación de quince después de una CWL sin avisar. 😄',
       'Se me acabó el repertorio, asere. Pídeme una base mejor. 😄',
       'Un socio me dijo que iba a maxear el TH antes de la CWL. Eso fue en marzo.',
     ],

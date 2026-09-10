@@ -31,6 +31,7 @@ import {
   resumenRespuestas,
 } from './aspirante';
 import { pedirPerfil } from './coc-perfil';
+import { entenderValquiria, cuantosEsperan } from './charla-valquiria';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
@@ -306,7 +307,20 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       .select('player_tag')
       .eq('tg_user_id', uid)
       .maybeSingle();
-    if (atado || (await esAdminDelGrupo(uid))) return v.deCasa;
+    if (atado || (await esAdminDelGrupo(uid))) {
+      // Los de casa no solicitan, pero con Valquiria pueden hablar: tiene
+      // cerebro para eso. Con Heraldo en privado no, que lo suyo es el grupo.
+      if (via !== 'recluta') return v.deCasa;
+      const leido = entenderValquiria(texto);
+      if (leido?.tipo === 'esperando') {
+        const { count } = await admin
+          .from('solicitudes')
+          .select('*', { count: 'exact', head: true })
+          .in('estado', ['pendiente', 'prueba']);
+        return cuantosEsperan(count ?? 0);
+      }
+      return leido?.texto ?? v.deCasa;
+    }
 
     await admin.from('solicitudes').insert({
       tg_user_id: uid,
