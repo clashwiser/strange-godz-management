@@ -10,31 +10,21 @@
 // llegar hasta aqui tuvo que escribirle al bot.
 
 import { admin } from '../../../lib/supabase-admin';
+import { decirCon, esc } from '../../../lib/solicitud';
 
 export const dynamic = 'force-dynamic';
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-
-const esc = (s) =>
-  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Dos bots reciben solicitudes, y a cada persona hay que contestarle por
+// el MISMO por el que escribio: Telegram no deja que un bot le hable a
+// quien nunca le hablo a el. Contestar por el otro es un 403 silencioso y
+// alguien esperando un enlace que no llega.
+const TOKEN_DE = {
+  heraldo: process.env.TELEGRAM_BOT_TOKEN,
+  recluta: process.env.RECLUTA_BOT_TOKEN,
+};
 
 const enlaceClan = (tag) =>
   `https://link.clashofclans.com/es?action=OpenClanProfile&tag=${encodeURIComponent(tag)}`;
-
-async function decir(chatId, texto) {
-  if (!TOKEN) return false;
-  const r = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: texto,
-      parse_mode: 'HTML',
-      link_preview_options: { is_disabled: true },
-    }),
-  });
-  return r.ok;
-}
 
 export async function POST(request) {
   const jwt = (request.headers.get('authorization') ?? '').replace(/^Bearer /, '');
@@ -99,7 +89,8 @@ export async function POST(request) {
     // Se le avisa del reto ANTES de que entre, no despues. Que te reten
     // nada mas poner un pie dentro, sin habertelo dicho, parece una
     // novatada; avisado, es parte del trato.
-    const aviso = await decir(
+    const aviso = await decirCon(
+      TOKEN_DE[sol.via] ?? TOKEN_DE.heraldo,
       sol.tg_user_id,
       `✅ <b>¡Te aceptaron!</b>\n\n` +
         `Bienvenido a <b>${esc(clan.nombre)}</b>. Aquí tienes la puerta:\n\n` +
@@ -129,7 +120,8 @@ export async function POST(request) {
     // Corto y sin dar explicaciones que no se pidieron, pero sin portazo:
     // el que hoy no entra puede ser el que dentro de tres meses si, y el
     // mundillo de Clash es mas pequeño de lo que parece.
-    const aviso = await decir(
+    const aviso = await decirCon(
+      TOKEN_DE[sol.via] ?? TOKEN_DE.heraldo,
       sol.tg_user_id,
       `Gracias por escribirnos, mi hermano. Por ahora no tenemos hueco para ti.\n\n` +
         `No lo tomes a mal: vuelve a escribirme más adelante y lo miramos otra vez. 📯`
