@@ -14,6 +14,12 @@ import { flujoSolicitud, decirCon } from '../../../lib/solicitud';
 import { pensar } from '../../../lib/pensar';
 
 export const dynamic = 'force-dynamic';
+// Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
+// respaldo detras, una respuesta puede tardar mas que eso y la funcion
+// moria a mitad: la llamada a Gemini se contaba, la respuesta nunca
+// llegaba al grupo y Telegram veia un 500. Treinta segundos es el margen;
+// pensar() se rinde mucho antes.
+export const maxDuration = 30;
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SECRETO = process.env.TELEGRAM_SECRET_TOKEN;

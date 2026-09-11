@@ -97,7 +97,9 @@ export async function pensar(admin, quien, pregunta, nombre = null) {
             { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
           ],
         }),
-        signal: AbortSignal.timeout(9000),
+        // Siete segundos y se rinde: mejor una frase de las de siempre a
+        // tiempo que una respuesta brillante que llega tarde o no llega.
+        signal: AbortSignal.timeout(7000),
       }
     );
     if (!r.ok) {
