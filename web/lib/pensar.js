@@ -242,7 +242,7 @@ export async function pensar(admin, quien, pregunta, nombre = null) {
     }
     const j = await r.json();
     const salida = j?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
-    return limpiar(salida) || null;
+    return anotar(MODELO, limpiar(salida));
   } catch (e) {
     console.error(`[ia] fallo la llamada: ${e?.message ?? e}`);
     await contarFallo(admin);
@@ -305,7 +305,7 @@ async function pensarCompat(admin, quien, texto, nombre) {
       }
       const j = await r.json();
       const salida = j?.choices?.[0]?.message?.content ?? '';
-      return limpiar(salida) || null;
+      return anotar(modelo, limpiar(salida));
     } catch (e) {
       console.error(`[ia] fallo la llamada: ${e?.message ?? e}`);
       await contarFallo(admin);
@@ -314,6 +314,19 @@ async function pensarCompat(admin, quien, texto, nombre) {
   }
   await contarFallo(admin);
   return null;
+}
+
+// Lo que la IA contesta queda en el log de Vercel: es una IA hablando con
+// sesenta personas y los lideres tienen que poder ver que dijo. Solo la
+// respuesta; lo que preguntaron no se guarda. Vacia -el modelo se quedo
+// sin tokens razonando, o devolvio solo formato- cuenta como "no supo".
+function anotar(modelo, texto) {
+  if (!texto) {
+    console.error(`[ia] ${modelo} devolvio vacio`);
+    return null;
+  }
+  console.log(`[ia] ${modelo}: ${texto.slice(0, 200)}`);
+  return texto;
 }
 
 /**
