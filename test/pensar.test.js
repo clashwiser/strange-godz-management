@@ -19,12 +19,13 @@ let servidor;
 let pensar;
 let usoDeHoy;
 
-// El admin de Supabase, de mentira: cuenta llamadas y fallos como ia_contar.
+// El admin de Supabase, de mentira: cuenta como ia_contar (sql/023): una
+// llamada, o un fallo, nunca las dos cosas.
 const contador = { llamadas: 0, fallos: 0 };
 const admin = {
   rpc: async (_fn, { p_fallo } = {}) => {
     if (p_fallo) contador.fallos++;
-    contador.llamadas++;
+    else contador.llamadas++;
     return { data: contador.llamadas, error: null };
   },
   from: () => ({
