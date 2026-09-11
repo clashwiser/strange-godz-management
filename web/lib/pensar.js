@@ -225,6 +225,12 @@ function instrucciones(quien, { buscar = false, sinWeb = false, th = null } = {}
 // (250 al dia, 30 por minuto; console.groq.com/docs/rate-limits). Si el
 // proveedor no lo tiene -404- se apunta y se contesta sin web.
 const MODELO_BUSCA = process.env.IA_MODELO_BUSCA || 'groq/compound-mini';
+// La version de compound. La de por defecto (busqueda "avanzada") mete en
+// la peticion mas de lo que el plan gratis admite y Groq contesta 413
+// "request_too_large" en cada busqueda; la 2025-07-23 (busqueda basica)
+// entra: unos 13.000 tokens por pregunta, con resultados fechados. Se vio
+// probando las dos contra la API.
+const VERSION_BUSCA = process.env.IA_BUSCA_VERSION || '2025-07-23';
 let buscaDisponible = true;
 
 /**
@@ -365,6 +371,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
       max_tokens: 900,
       timeout: 18000,
       crudo: true,
+      cabeceras: /groq\.com/.test(URL_COMPAT) ? { 'Groq-Model-Version': VERSION_BUSCA } : {},
     });
     if (r.status === 404) buscaDisponible = false;
     if (r.timeout) {
@@ -405,11 +412,11 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
  * Una llamada a chat/completions. Devuelve { texto } si salio, o
  * { status } / { timeout } si no, con el motivo ya escrito en el log.
  */
-async function llamarCompat(modelo, messages, { max_tokens, timeout, crudo = false }) {
+async function llamarCompat(modelo, messages, { max_tokens, timeout, crudo = false, cabeceras = {} }) {
   try {
     const r = await fetch(`${URL_COMPAT}/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LLAVE_COMPAT}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LLAVE_COMPAT}`, ...cabeceras },
       body: JSON.stringify({
         model: modelo,
         messages,
