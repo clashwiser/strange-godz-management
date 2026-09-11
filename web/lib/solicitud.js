@@ -172,7 +172,7 @@ const SI = /\b(si|sí|yo|ese soy|soy yo|correcto|exacto|claro|dale|afirmativo|ok
 const NO = /\b(no|nel|negativo|equivocado|ese no|otro)\b/i;
 
 /** Lo pregunta Heraldo, que es el que esta en el grupo. Falla cerrado. */
-async function esAdminDelGrupo(uid) {
+export async function esAdminDelGrupo(uid) {
   if (!HERALDO || !GRUPO || !uid) return false;
   try {
     const r = await fetch(
@@ -231,7 +231,11 @@ export async function decirCon(token, chatId, respuesta) {
           : { remove_keyboard: true },
       }),
     });
-    return r.ok;
+    if (!r.ok) return false;
+    // El id del mensaje mandado: para que un lider pueda contestarlo y el
+    // bot sepa a que se refiere (castillos.js).
+    const j = await r.json().catch(() => null);
+    return j?.result?.message_id ?? true;
   } catch {
     return false;
   }

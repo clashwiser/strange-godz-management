@@ -10,12 +10,12 @@
 
 import { admin } from '../../../lib/supabase-admin';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
-import { flujoSolicitud, decirCon, escribiendo } from '../../../lib/solicitud';
+import { flujoSolicitud, decirCon, escribiendo, esAdminDelGrupo } from '../../../lib/solicitud';
 import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 import { leccionPara, reglasDelClan } from '../../../lib/entrenamiento';
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
-import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe } from '../../../lib/castillos';
+import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -74,8 +74,11 @@ async function responder(chatId, respuesta) {
   // Si falla la foto -miniatura no publicada todavia- se manda el texto, que
   // lleva el enlace. Perder la respuesta entera por la imagen seria absurdo.
   if (!res.ok && conFoto) {
-    await responder(chatId, respuesta.pie);
+    return await responder(chatId, respuesta.pie);
   }
+  // El id del mensaje mandado, para poder reconocer una respuesta a el.
+  const j = await res.json().catch(() => null);
+  return j?.result?.message_id ?? null;
 }
 
 export async function POST(request) {
@@ -168,6 +171,24 @@ export async function POST(request) {
     // aldea" acabaria gastandole a alguien su base del dia sin que la
     // pidiera.
     //
+    // Un lider contesta ✅ o ❌ al aviso de castillo de alguien (lo mando
+    // Heraldo o Valquiria, da igual: los dos guardan el id del mensaje).
+    // Solo administradores del grupo: es lo que da o quita los puntos.
+    const respondeA = msg.reply_to_message;
+    if (respondeA?.from?.is_bot && (confirmaCastillo(texto) || rechazaCastillo(texto))) {
+      if (await esAdminDelGrupo(quien.id)) {
+        const r = await decidirCastillo(admin, {
+          mensajeBotId: respondeA.message_id,
+          confirmar: confirmaCastillo(texto),
+          lider: esc(quien.nombre ?? 'un líder'),
+        });
+        if (r) {
+          await responder(chatId, r);
+          return Response.json({ ok: true });
+        }
+      }
+    }
+
     // Cuenta como dirigido a nosotros: que nombren a Heraldo, que usen el
     // @usuario, o que respondan a un mensaje SUYO. Suyo y no "de un bot":
     // con Valquiria en el mismo grupo, responderle a ella le llegaba
@@ -190,7 +211,10 @@ export async function POST(request) {
   }
 
   try {
-    await responder(chatId, await ejecutar(comando, arg, quien, chatId));
+    // null = el comando ya contesto por su cuenta (el castillo, que
+    // necesita el id del mensaje que manda).
+    const r = await ejecutar(comando, arg, quien, chatId);
+    if (r !== null) await responder(chatId, r);
   } catch (e) {
     await responder(chatId, `⚠️ Error: <code>${esc(e.message)}</code>`);
   }
@@ -371,10 +395,14 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return mensajeReglas({ resumen: r.resumen || r.texto.slice(0, 3000), url: `${SITIO}/reglas`, fecha: r.fecha, esc });
     }
 
-    // "Ya doné mi castillo": se anota, se comprueba lo que se pueda y
-    // suman puntos. Ver web/lib/castillos.js.
-    case 'castillo':
-      return await anotarCastillo(admin, { tgId: quien.id, nombre: esc(quien.nombre ?? 'socio'), texto: arg });
+    // "Ya doné mi castillo": se anota y queda a la espera de que un lider
+    // lo confirme contestando al mensaje del bot. Ver web/lib/castillos.js.
+    case 'castillo': {
+      const r = await anotarCastillo(admin, { tgId: quien.id, nombre: esc(quien.nombre ?? 'socio'), texto: arg });
+      const idMensaje = await responder(chatId, r.texto);
+      await recordarMensaje(admin, r.id, idMensaje);
+      return null;
+    }
 
     // La tabla de puntos del mes.
     case 'puntos': {

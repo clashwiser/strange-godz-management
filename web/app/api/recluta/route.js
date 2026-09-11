@@ -35,7 +35,7 @@ import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 import { leccionPara, ajusteWeb, reglasDelClan } from '../../../lib/entrenamiento';
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
-import { avisaCastillo, anotarCastillo } from '../../../lib/castillos';
+import { avisaCastillo, anotarCastillo, recordarMensaje } from '../../../lib/castillos';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -158,7 +158,10 @@ export async function POST(request) {
 
   // "Ya doné mi castillo" y "las normas": lo mismo que Heraldo, con su voz.
   if (avisaCastillo(texto)) {
-    await decirCon(TOKEN, chatId, await anotarCastillo(admin, { tgId: msg.from?.id, nombre: esc(msg.from?.first_name ?? 'mi cielo'), texto }));
+    const r = await anotarCastillo(admin, { tgId: msg.from?.id, nombre: esc(msg.from?.first_name ?? 'mi cielo'), texto });
+    const idMensaje = await decirCon(TOKEN, chatId, r.texto);
+    // Un lider lo confirma contestando a este mensaje; lo lee Heraldo.
+    await recordarMensaje(admin, r.id, typeof idMensaje === 'number' ? idMensaje : null);
     return Response.json({ ok: true });
   }
   if (pideLasReglas(texto)) {

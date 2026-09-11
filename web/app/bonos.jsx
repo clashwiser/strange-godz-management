@@ -539,7 +539,7 @@ function PuntosCastillo({ d, recargar }) {
     <>
       <h2 className="sec">{t('Puntos de disciplina')} · {d.temporada}</h2>
       <p className="sub" style={{ marginTop: 0 }}>
-        {t('Cada castillo de guerra donado y avisado a los bots ("ya doné mi castillo") vale')} {PUNTOS_CASTILLO} {t('puntos. Si la API vio donaciones nuevas, cuenta solo; si no, lo confirmas aquí. El que más puntos tenga al cerrar el mes se lleva el premio de los puntos.')}
+        {t('Cada castillo de guerra donado y avisado a los bots ("ya doné mi castillo") vale')} {PUNTOS_CASTILLO} {t('puntos cuando un líder lo confirma: contestando ✅ al aviso en Telegram, o aquí. La API de Clash no enseña el castillo de guerra y esas donaciones no suben el contador, así que la confirmación es de ustedes. El que más puntos tenga al cerrar el mes se lleva el premio de los puntos.')}
       </p>
       <div className="grid">
         <div className="card">
@@ -568,9 +568,6 @@ function PuntosCastillo({ d, recargar }) {
                 <li key={f.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,.08)' }}>
                   <span style={{ flex: 1 }}>
                     <b>{f.nombre}</b> <span className="sub">{fmt(f.creado_en)}</span>
-                    {f.donaciones_antes != null && f.donaciones_ahora != null && (
-                      <span className="sub"> · {t('donaciones')}: {f.donaciones_antes} → {f.donaciones_ahora}</span>
-                    )}
                     {!f.player_tag && <span className="sub"> · {t('sin /soy')}</span>}
                   </span>
                   <button className="accion" onClick={() => confirmar(f)} disabled={ocupado === f.id}>

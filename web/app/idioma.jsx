@@ -302,7 +302,7 @@ export const EN = {
   'sin aceptar las normas': 'rules not accepted',
   'Puntos de disciplina': 'Discipline points',
   'Cada castillo de guerra donado y avisado a los bots ("ya doné mi castillo") vale': 'Each war castle donated and reported to the bots ("ya doné mi castillo") is worth',
-  'puntos. Si la API vio donaciones nuevas, cuenta solo; si no, lo confirmas aquí. El que más puntos tenga al cerrar el mes se lleva el premio de los puntos.': 'points. If the API saw new donations it counts by itself; otherwise you confirm it here. Whoever has the most points when the month closes wins the points prize.',
+  'puntos cuando un líder lo confirma: contestando ✅ al aviso en Telegram, o aquí. La API de Clash no enseña el castillo de guerra y esas donaciones no suben el contador, así que la confirmación es de ustedes. El que más puntos tenga al cerrar el mes se lleva el premio de los puntos.': 'points once a leader confirms it: replying ✅ to the notice in Telegram, or here. The Clash API does not show the war castle and those donations do not raise the donation counter, so confirmation is on you. Whoever has the most points when the month closes wins the points prize.',
   'Tabla del mes': 'This month',
   'Nadie tiene puntos todavía.': 'Nobody has points yet.',
   'Por confirmar': 'To confirm',

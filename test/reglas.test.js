@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { esPreguntaDeReglas, pideLasReglas, mensajeReglas, markdownAHtml } from '../web/lib/reglas.js';
-import { avisaCastillo, tablaPuntos, PUNTOS_CASTILLO } from '../web/lib/castillos.js';
+import { avisaCastillo, confirmaCastillo, rechazaCastillo, tablaPuntos, PUNTOS_CASTILLO } from '../web/lib/castillos.js';
 
 test('pideLasReglas: la peticion de las normas enteras', () => {
   for (const s of ['/reglas', 'reglas', 'Heraldo, las normas', 'mándame las reglas del clan', 'cuáles son las normas del clan']) {
@@ -60,4 +60,11 @@ test('tablaPuntos: suma solo lo verificado, por persona, y ordena', () => {
     { nombre: 'Ana', puntos: 10, veces: 2 },
     { nombre: 'Caro', puntos: 5, veces: 1 },
   ]);
+});
+
+test('confirmaCastillo / rechazaCastillo: lo que contesta un lider al aviso', () => {
+  for (const x of ['✅', '✅✅', 'ok', 'Confirmado', 'visto', 'dale']) assert.equal(confirmaCastillo(x), true, x);
+  for (const x of ['❌', 'no', 'No donó', 'falso']) assert.equal(rechazaCastillo(x), true, x);
+  for (const x of ['hola', 'qué buen castillo', 'ok pero mañana no']) assert.equal(rechazaCastillo(x), false, x);
+  assert.equal(confirmaCastillo('hola'), false);
 });
