@@ -1210,7 +1210,8 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
   box-shadow: 0 14px 40px rgba(0,0,0,.55);
 }
 .lab-cabeza { position: relative; width: 100%; aspect-ratio: 2752 / 1391; overflow: hidden; background: #060a14; }
-.lab-fondo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* object-position top: si el video viene en 16:9 entero, lo que se recorta es la pantalla de abajo, no la cabeza. */
+.lab-fondo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
 /* El cerebro digital: un brillo que parpadea y a ratos se va. */
 .lab-glitch {
   position: absolute; left: 36%; top: 2%; width: 28%; height: 32%; pointer-events: none;
