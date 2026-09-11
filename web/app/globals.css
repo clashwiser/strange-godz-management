@@ -1502,3 +1502,37 @@ html.lab-activo .idioma button, html.lab-activo .temas-caja { filter: saturate(.
 .cerebro-cara-cab { position: relative; display: inline-block; width: 40px; height: 40px; flex: 0 0 auto; }
 .cerebro-cara-cab .cerebro-anillo { inset: -4px; }
 .cerebro-cara-cab .cerebro-mini { border: 2px solid #0a3d7a; }
+
+/* ---------- El chat del cerebro: siempre azul, este el tema que este ---------- */
+.heraldo.cerebro-panel {
+  background: linear-gradient(180deg, #0d1a2e, #070d18); color: #d7e6f5;
+  border: 2px solid #0a3d7a; box-shadow: 0 0 0 1px rgba(80, 220, 255, .25), 0 0 26px rgba(55, 214, 255, .35), 0 16px 40px rgba(0,0,0,.6);
+}
+.cerebro-panel .heraldo-cab { border-bottom: 2px solid rgba(80, 220, 255, .45); color: #9ff7ff; text-shadow: 0 0 8px rgba(80, 220, 255, .5); }
+.cerebro-panel .heraldo-cab .sub { color: #8fa6bf; }
+.cerebro-panel .heraldo-msg { background: rgba(80, 220, 255, .08); border-left: 3px solid #37d6ff; color: #e6f2ff; }
+.cerebro-panel .heraldo-msg.yo { background: linear-gradient(180deg, #1b4f7a, #0f2f4d); border-left: 0; border-right: 3px solid #9ff7ff; color: #eaf8ff; }
+.cerebro-panel .heraldo-pie { border-top: 2px solid rgba(80, 220, 255, .45); }
+.cerebro-panel .campo { background: #0a1220; color: #e6f2ff; border-color: rgba(80, 220, 255, .4); }
+.cerebro-panel button.accion { color: #04121c; -webkit-text-stroke: 0; text-shadow: none; background: linear-gradient(180deg, #8ff4ff, #22b8e8); border-color: #0b6d8f; box-shadow: 0 0 12px rgba(80, 220, 255, .5); }
+.cerebro-panel button.fantasma { color: #9ff7ff; border-color: rgba(80, 220, 255, .55); background: rgba(80, 220, 255, .06); -webkit-text-stroke: 0; text-shadow: none; }
+.cerebro-panel .heraldo-hilo::-webkit-scrollbar { width: 8px; }
+.cerebro-panel .heraldo-hilo::-webkit-scrollbar-thumb { background: rgba(80, 220, 255, .35); border-radius: 4px; }
+.cerebro-burbuja video, .cerebro-cara-cab video { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 0; background: #05080f; position: relative; animation: cerebro-parpadeo 6s infinite; }
+.cerebro-cara-cab video { border: 2px solid #0a3d7a; }
+
+/* La escena a sangre: la cabeza y la pantalla van de borde a borde del
+   laboratorio y los cables pasan POR ENCIMA de sus orillas, asi los cables
+   del barbaro salen de la imagen y siguen por los del marco. */
+.lab-mundo .lab { margin-left: -84px; margin-right: -84px; border-radius: 0; border-left: 0; border-right: 0; }
+.lab-mundo .lab-cables { z-index: 2; }
+.lab-mundo .lab-pantalla { padding-left: max(6%, 96px); padding-right: max(6%, 96px); }
+.lab-mundo .lab-nota { right: 96px; }
+.lab-mundo .lab-info-escena { left: 96px; }
+.lab-mundo .lab-sugerencias, .lab-mundo .lab-prompt, .lab-mundo .lab-guia { position: relative; z-index: 3; }
+@media (max-width: 640px) {
+  .lab-mundo .lab { margin-left: -40px; margin-right: -40px; }
+  .lab-mundo .lab-pantalla { padding-left: 44px; padding-right: 44px; }
+  .lab-mundo .lab-nota { right: 44px; }
+  .lab-mundo .lab-info-escena { left: 44px; }
+}

@@ -274,16 +274,17 @@ export default function Heraldo({ d, nombreBot = 'Cerebro' }) {
   if (!abierto) {
     return (
       <button className="heraldo-burbuja cerebro-burbuja" onClick={abrir} title={nombreBot}>
-        {/* El cerebro del OS, recortado de la escena del laboratorio, con
-            un anillo de electricidad (CSS). Antes iba Heraldo en video. */}
+        {/* El cerebro del OS: el mismo bucle de 15 s del laboratorio,
+            recortado a la cabeza (parpadea, sube las cejas, el cerebro
+            late), con un anillo de electricidad (CSS). 268 KB. */}
         <span className="cerebro-anillo" aria-hidden="true" />
-        <img className="cerebro-mini" src="/cerebro-mini.jpg" alt="" />
+        <VideoQueArranca src="/cerebro-mini.mp4" poster="/cerebro-mini.jpg" tamano={84} />
       </button>
     );
   }
 
   return (
-    <div className="heraldo">
+    <div className="heraldo cerebro-panel">
       <div className="heraldo-cab">
         {/* Video y no imagen, pero SOLO aca dentro: este nodo existe nada mas
             con el panel abierto, asi que el clip no se descarga hasta que
@@ -296,7 +297,7 @@ export default function Heraldo({ d, nombreBot = 'Cerebro' }) {
             habia antes. */}
         <span className="cerebro-cara-cab" aria-hidden="true">
           <span className="cerebro-anillo" />
-          <img className="cerebro-mini" src="/cerebro-mini.jpg" alt="" />
+          <video className="cerebro-mini" src="/cerebro-mini.mp4" poster="/cerebro-mini.jpg" autoPlay loop muted playsInline preload="none" />
         </span>
         <strong>🧠 {nombreBot}</strong>
         <span className="sub">{t('los datos, de la base; lo demás, con IA')}</span>
