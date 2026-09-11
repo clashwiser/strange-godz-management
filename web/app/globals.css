@@ -1202,3 +1202,40 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
 .reglas-hoja article code { font-size: .92em; }
 .reglas-editor { width: 100%; min-height: 420px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.45; }
 .reglas-vista { max-height: 560px; overflow: auto; padding: 4px 8px; }
+
+/* ---------- Cerebro ---------- */
+.cerebro-cabecera {
+  display: flex; gap: 22px; align-items: center; flex-wrap: wrap;
+  padding: 18px 20px; margin-top: 8px;
+  border: 3px solid var(--marco); border-radius: 18px;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+}
+.cerebro-cara {
+  width: 190px; height: 190px; border-radius: 50%; object-fit: cover;
+  border: 4px solid var(--marco); box-shadow: 0 0 0 4px var(--oro), 0 10px 26px rgba(0,0,0,.35);
+  transition: box-shadow .4s ease, transform .4s ease;
+}
+.cerebro-cabecera.sano .cerebro-cara { box-shadow: 0 0 0 4px #4a9c1e, 0 0 34px rgba(120, 230, 90, .55); }
+.cerebro-cabecera.atento .cerebro-cara { box-shadow: 0 0 0 4px var(--oro-hondo), 0 0 30px rgba(255, 190, 60, .5); }
+.cerebro-cabecera.sobrecargado .cerebro-cara { box-shadow: 0 0 0 4px #d94141, 0 0 34px rgba(255, 80, 80, .6); animation: cerebro-tiembla .5s infinite; }
+@keyframes cerebro-tiembla { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-2px) rotate(-1deg); } 75% { transform: translateX(2px) rotate(1deg); } }
+.cerebro-nota { flex: 1; min-width: 240px; }
+.cerebro-titulo { font-size: 26px; margin: 8px 0 0; color: var(--oro-claro); text-shadow: 0 1px 0 rgba(0,0,0,.4); }
+.cerebro-titulo b { font-size: 34px; }
+.cerebro-gauge {
+  height: 16px; border-radius: 999px; overflow: hidden; margin-top: 6px;
+  border: 2px solid var(--marco); background: rgba(0,0,0,.35);
+}
+.cerebro-gauge-barra {
+  height: 100%; border-radius: 999px; transition: width .8s ease;
+  background: linear-gradient(90deg, #d94141 0%, #ffc21e 55%, #4a9c1e 100%);
+  background-size: 100% 100%;
+}
+.cerebro-charla .cerebro-sugerencias { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px; }
+.cerebro-hilo { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.cerebro-msg { display: flex; gap: 10px; align-items: flex-start; max-width: 92%; }
+.cerebro-msg.mio { align-self: flex-end; }
+.cerebro-msg.mio > div { background: var(--oro-claro); color: var(--tinta); border-radius: 14px 14px 2px 14px; padding: 9px 13px; }
+.cerebro-msg.suyo > div { background: rgba(0,0,0,.28); color: var(--oro-claro); border-radius: 14px 14px 14px 2px; padding: 9px 13px; white-space: pre-wrap; }
+.cerebro-msg img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--marco); object-fit: cover; flex: none; }
+@media (max-width: 640px) { .cerebro-cara { width: 130px; height: 130px; } .cerebro-titulo { font-size: 20px; } .cerebro-titulo b { font-size: 26px; } }

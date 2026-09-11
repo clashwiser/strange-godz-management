@@ -23,7 +23,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
-import Entrenar from './entrenar';
 
 const fmt = (d) => (d ? new Date(d).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
@@ -431,8 +430,11 @@ export default function Bots({ d, demo = false, recargar }) {
         </div>
       </div>
 
-      {/* ---------- Entrenar ---------- */}
-      <Entrenar d={d} memoriaInicial={String(inicial.bots_memoria ?? '')} recargar={recargar} aviso={aviso} />
+      {/* ---------- Entrenar: vive en Cerebro ---------- */}
+      <h2 className="sec">{t('Entrenarlos')}</h2>
+      <p className="sub" style={{ marginTop: 0 }}>
+        🧠 {t('Las lecciones, lo que deben saber y las fuentes del meta se editan en la pestaña Cerebro, donde también se ve la salud del sistema y todo lo que los bots saben.')}
+      </p>
 
       {/* ---------- Que entienden ---------- */}
       <h2 className="sec">{t('Qué entiende Heraldo')}</h2>

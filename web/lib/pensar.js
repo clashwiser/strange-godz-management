@@ -217,7 +217,7 @@ const mesDeHoy = () =>
  * Las instrucciones completas de un personaje para un modo: charla, con
  * lo encontrado en la web (buscar), o sin web pudiendo haberla (sinWeb).
  */
-function instrucciones(quien, { buscar = false, sinWeb = false, th = null, memoria = '', panel = false } = {}) {
+function instrucciones(quien, { buscar = false, sinWeb = false, th = null, memoria = '', panel = false, contexto = '' } = {}) {
   // En el panel, sin buscar, no rige el "maximo 2 frases" del grupo: es un
   // asistente y explica lo que haga falta (lo dice EN_EL_PANEL).
   const plantilla = buscar ? (sinWeb ? MODO.sinWeb : MODO.buscar) : panel ? MODO.panel : MODO.charla;
@@ -233,13 +233,18 @@ function instrucciones(quien, { buscar = false, sinWeb = false, th = null, memor
   const sabido = memoria ? `\nCosas que los líderes del clan te han enseñado y debes tener en cuenta:\n${memoria}\n` : '';
   // Dentro del panel web habla con un lider, no con el grupo.
   const donde = panel ? `\n${EN_EL_PANEL}\n` : '';
-  return `${PERSONAJES[quien]}${REGLAS_COMUNES}${modo}\n${sabido}${donde}`;
+  // El estado del sistema, leido ahora mismo por la pestaña Cerebro: con
+  // esto delante contesta "¿como estas?" con los datos, no con una frase.
+  const estado = contexto
+    ? `\nESTADO DEL SISTEMA, leído ahora mismo por el panel (úsalo para contestar sobre cómo está el sistema, los bots, los jobs o lo que sabes; cita las cifras; lo que no esté aquí no lo inventes):\n${contexto}\n`
+    : '';
+  return `${PERSONAJES[quien]}${REGLAS_COMUNES}${modo}\n${sabido}${donde}${estado}`;
 }
 
 // El asistente del panel: el mismo Heraldo, pero sabiendo donde esta.
 const EN_EL_PANEL = `Ahora mismo NO estás en Telegram: eres el ASISTENTE del panel de gestión web de la alianza y hablas con un líder (Cris, Carlos o Deibis; su nombre va delante de lo que dice: úsalo). Aquí eres un asistente inteligente y útil, no el bromista del grupo: saluda por el nombre, contesta directo, explica lo que te pregunten y ofrece ayuda. Sigues siendo Heraldo, con tu voz cubana, pero sin jerga de más y sin cortar la respuesta: usa las frases que hagan falta (normalmente 2 a 5).
 
-El panel tiene estas pestañas: Resumen (los clanes de la alianza y su estado), Lista CWL (la alineación: quién juega en qué clan la liga de este mes), CWL Resultados (la tabla del grupo, estrellas y ataques por jugador), Jugadores (todos, con su TH, trofeos y donaciones), Salud (semáforo por jugador: quién no dona, quién falla ataques), Solicitudes (los que quieren entrar, entrevistados por Valquiria; el líder acepta o rechaza), Mensajes (la bandeja de salida: avisos generados que se mandan al grupo de Telegram o se copian a mano), Bases (el pack de bases por TH que tú repartes), Bonos (los premios del mes y quién los ganó; se paga a través de Cris) y Bots (tu configuración y la de Valquiria: salud del webhook, interruptores de qué avisar, lecciones para entrenarlos, lo que deben saber, y de dónde sale el meta).
+El panel tiene estas pestañas: Resumen (los clanes de la alianza y su estado), Lista CWL (la alineación: quién juega en qué clan la liga de este mes), CWL Resultados (la tabla del grupo, estrellas y ataques por jugador), Jugadores (todos, con su TH, trofeos y donaciones), Salud (semáforo por jugador: quién no dona, quién falla ataques), Solicitudes (los que quieren entrar, entrevistados por Valquiria; el líder acepta o rechaza), Mensajes (la bandeja de salida: avisos generados que se mandan al grupo de Telegram o se copian a mano), Bases (el pack de bases por TH que tú repartes), Bonos (los premios del mes y quién los ganó; se paga a través de Cris), Reglas (las normas del clan, que se editan ahí y los bots aprenden), Bots (tu configuración y la de Valquiria: salud del webhook, interruptores de qué avisar) y Cerebro (el cerebro del sistema: salud de cada pieza —Vercel, Supabase, la API de Clash, la IA, los jobs, los datos—, lo que sabes —lecciones, glosario, normas, meta— y donde se te entrena: lecciones, lo que debes saber y las fuentes del meta).
 
 Cosas del panel que pueden preguntarte: WEBHOOK es la dirección a la que Telegram entrega cada mensaje del grupo o del privado para que el bot conteste; si en Bots dice "webhook conectado" el bot recibe mensajes, y "reinstalar webhook" lo vuelve a registrar. PUBLICAR COMANDOS sube la lista de comandos con barra (/faltan, /estrellas...) al menú del bot en Telegram. BANDEJA DE SALIDA son mensajes que el sistema generó y están por mandar o ya mandados. LECCIONES: "cuando digan X, responde Y", lo que los líderes enseñan a los bots. LO QUE DEBEN SABER: texto libre con reglas de la casa que entra en tus instrucciones. DIGESTO DEL META: lo último de los YouTubers de confianza y de Blueprint, que lees cuando preguntan por ejércitos. IA DE RESPALDO: tú mismo cuando las frases no bastan, con tope diario. HUELLA O PIN: entrar al panel sin escribir la contraseña. CWL es la liga de guerras de clanes de cada mes; la ALINEACIÓN es el reparto de jugadores entre los clanes para esa liga; un TROTACLANES es el que va saltando de clan en clan. Si te preguntan por algo del panel que no está aquí, di lo que sepas con cuidado y sugiere la pestaña más probable.
 
@@ -293,7 +298,7 @@ const diaCuba = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Americ
  * @param {string} pregunta    lo que escribieron, tal cual
  * @param {string} [nombre]    quien pregunta, para que pueda nombrarlo
  */
-export async function pensar(admin, quien, pregunta, nombre = null, { buscar = false, th = null, panel = false } = {}) {
+export async function pensar(admin, quien, pregunta, nombre = null, { buscar = false, th = null, panel = false, contexto = '' } = {}) {
   if (!MOTOR || !PERSONAJES[quien]) return null;
   const texto = String(pregunta ?? '').trim().slice(0, 500);
   if (!texto) return null;
@@ -325,7 +330,7 @@ export async function pensar(admin, quien, pregunta, nombre = null, { buscar = f
     if (r.texto) reglas = r.texto.slice(0, 9000);
   }
 
-  if (MOTOR === 'openai') return pensarCompat(admin, quien, texto, nombre, { buscar, th, memoria, panel, wiki, reglas });
+  if (MOTOR === 'openai') return pensarCompat(admin, quien, texto, nombre, { buscar, th, memoria, panel, wiki, reglas, contexto });
 
   // Gemini no tiene busqueda web aqui: contesta con lo que sabe, y las
   // instrucciones de "buscar" al menos le piden que sea concreto.
@@ -405,7 +410,7 @@ async function contarFallo(admin) {
  * con system + user, y el texto en choices[0].message.content. Es el
  * formato que hablan Mistral, Groq, OpenRouter y la mayoria.
  */
-async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null, memoria = '', panel = false, wiki = null, reglas = null } = {}) {
+async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null, memoria = '', panel = false, wiki = null, reglas = null, contexto = '' } = {}) {
   const pregunta = `${nombre ? `${nombre} dice: ` : ''}${texto}`;
 
   // Con busqueda, dos pasos. Primero el buscador SIN personaje: solo "busca
@@ -473,7 +478,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
   if (hechos) partes.push(`Lo que se encontró hoy en la web:\n${hechos}`);
 
   const mensajes = [
-    { role: 'system', content: instrucciones(quien, { buscar, sinWeb: buscar && !hechos && !digesto && !wiki, th, memoria, panel }) },
+    { role: 'system', content: instrucciones(quien, { buscar, sinWeb: buscar && !hechos && !digesto && !wiki, th, memoria, panel, contexto }) },
     { role: 'user', content: partes.join('\n\n') },
   ];
 

@@ -44,17 +44,20 @@ export async function POST(request) {
     .maybeSingle();
   if (!lider) return Response.json({ ok: false, error: 'no autorizado' }, { status: 403 });
 
-  const { pregunta } = await request.json().catch(() => ({}));
+  const { pregunta, contexto } = await request.json().catch(() => ({}));
   const texto = String(pregunta ?? '').trim().slice(0, 500);
   if (!texto) return Response.json({ ok: false, error: 'falta la pregunta' }, { status: 400 });
 
   const nombre = lider.nombre || usuario.user.email?.split('@')[0] || null;
-  const buscar = esPreguntaDelJuego(texto);
+  // Desde el Cerebro llega el estado del sistema ya leido; con el delante
+  // no hace falta buscar en la web: la pregunta es sobre la casa.
+  const estado = String(contexto ?? '').slice(0, 4000);
+  const buscar = !estado && esPreguntaDelJuego(texto);
 
   // En el panel manda la IA: es un asistente para un lider, no la charla
   // del grupo. Las frases de Telegram quedan de respaldo para cuando la IA
   // no puede (sin llave, tope del dia, fallo).
-  let respuesta = await pensar(admin, 'heraldo', texto, nombre, { buscar, panel: true });
+  let respuesta = await pensar(admin, 'heraldo', texto, nombre, { buscar, panel: true, contexto: estado });
   let via = respuesta ? (buscar ? 'ia con web' : 'ia') : null;
   if (!respuesta && !buscar) {
     respuesta = charlar(plano(texto));

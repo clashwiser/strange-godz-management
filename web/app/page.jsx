@@ -7,6 +7,7 @@ import SelectorTema, { Mascota } from './temas';
 import Clanes from './clanes';
 import Bots from './bots';
 import ReglasTab from './reglas-tab';
+import Cerebro from './cerebro';
 import Bases from './bases';
 import GrupoCWL from './grupo-cwl';
 import Salud from './salud';
@@ -29,6 +30,7 @@ const TABS = [
   ['bonos', 'Bonos'],
   ['reglas', 'Reglas'],
   ['bots', 'Bots'],
+  ['cerebro', 'Cerebro'],
 ];
 
 const temporadaActual = () => new Date().toISOString().slice(0, 7);
@@ -269,6 +271,7 @@ export default function Panel() {
         {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
         {d && tab === 'reglas' && <ReglasTab d={d} recargar={cargar} />}
+        {d && tab === 'cerebro' && <Cerebro d={d} recargar={cargar} />}
         {d && tab === 'bots' && (
           <>
             {/* La gestion completa vive aca; el empujon de la cabecera solo
