@@ -12,6 +12,7 @@ import SelectorTema from '../temas';
 import { SelectorIdioma, useT } from '../idioma';
 import Bots from '../bots';
 import ReglasTab from '../reglas-tab';
+import Cerebro from '../cerebro';
 import Bases from '../bases';
 import Bonos from '../bonos';
 import Salud from '../salud';
@@ -234,6 +235,7 @@ const TABS = [
   ['bonos', 'Bonos'],
   ['reglas', 'Reglas'],
   ['bots', 'Bots'],
+  ['cerebro', 'Cerebro'],
 ];
 
 export default function Demo() {
@@ -281,6 +283,7 @@ export default function Demo() {
         {tab === 'bonos' && <Bonos d={d} demo />}
         {tab === 'reglas' && <ReglasTab d={d} />}
         {tab === 'bots' && <Bots d={d} demo />}
+        {tab === 'cerebro' && <Cerebro d={d} demo />}
       </div>
       <Heraldo d={d} />
     </>

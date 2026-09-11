@@ -33,11 +33,47 @@ function animo(pct) {
   return { clave: 'sobrecargado', titulo: 'Sobrecargado', imagen: '/cerebro-sobrecargado.jpg' };
 }
 
-export default function Cerebro({ d, recargar }) {
+// Para la demo publica: un estado creible sin llamar a nada.
+const DEMO_V = {
+  ok: true, version: 'demo', region: 'iad1', hoy: new Date().toLocaleDateString('en-CA'),
+  supabase: { ok: true, ms: 84 },
+  clash: { ok: true, ms: 412, clan: 'x300', miembros: 32 },
+  ia: { ok: true, configurada: true, texto: 'openai/gpt-oss-120b', vision: 'qwen/qwen3.8-27b', modelos: 14 },
+  jobs: [
+    { job: 'wars-sync', started_at: null, ok: true, filas: 30, hace: 2 },
+    { job: 'cwl-sync', started_at: null, ok: true, filas: 45, hace: 5 },
+    { job: 'raids-sync', started_at: null, ok: true, filas: 60, hace: 20 },
+    { job: 'meta', started_at: null, ok: true, filas: 1, hace: 3 },
+    { job: 'youtube', started_at: null, ok: true, filas: 2, hace: 1 },
+  ],
+  snapshot: { fecha: new Date().toLocaleDateString('en-CA'), hace: 6 },
+  meta: { actualizado: null, hace: 3, videos: 24, articulos: 6, caracteres: 7100 },
+  memoria: {
+    lecciones: { total: 7, heraldo: 6, valquiria: 4 }, glosario: 246, reglas: { fecha: '2026-09-11', palabras: 1324 },
+    memoriaLideres: 640, canales: 8, vinculados: 21, jugadores: 96, clanes: 5, bases: 38,
+    solicitudes: { pendientes: 2, aceptadas: 9 },
+  },
+  puntos: { mes: '2026-09', castillos: 11, castillosPendientes: 1, retos: 6 },
+  outbox: 3,
+  salud: { partes: [
+    { clave: 'jobs', bien: true, detalle: '5 jobs, todos bien' }, { clave: 'snapshot', bien: true }, { clave: 'meta', bien: true }, { clave: 'outbox', bien: true },
+  ] },
+};
+const DEMO_B = {
+  ok: true,
+  bots: {
+    heraldo: { usuario: 'Strange_godz_heraldo_bot', enGrupo: true, webhook: { ok: true, pendientes: 0, ultimoError: null } },
+    recluta: { usuario: 'Valqui_bot', enGrupo: true, webhook: { ok: true, pendientes: 0, ultimoError: null } },
+  },
+  ia: { hoy: 37, fallos: 1, tope: 300 },
+  actividad: { solicitudesPendientes: 2, basesHoy: 4, outboxPendientes: 3 },
+};
+
+export default function Cerebro({ d, recargar, demo = false }) {
   const t = useT();
-  const [v, setV] = useState(null); // /api/cerebro
-  const [b, setB] = useState(null); // /api/bots
-  const [cargando, setCargando] = useState(true);
+  const [v, setV] = useState(demo ? DEMO_V : null); // /api/cerebro
+  const [b, setB] = useState(demo ? DEMO_B : null); // /api/bots
+  const [cargando, setCargando] = useState(!demo);
   const [msg, setMsg] = useState('');
   const [pregunta, setPregunta] = useState('');
   const [charla, setCharla] = useState([]); // [{ quien, texto }]
@@ -61,6 +97,7 @@ export default function Cerebro({ d, recargar }) {
   }
 
   async function mirar() {
+    if (demo) return aviso(t('En la demo el cerebro no mira nada; así se ve.'));
     setCargando(true);
     try {
       const [vit, bots] = await Promise.all([conSesion('/api/cerebro'), conSesion('/api/bots')]);
@@ -75,7 +112,7 @@ export default function Cerebro({ d, recargar }) {
   }
 
   useEffect(() => {
-    mirar();
+    if (!demo) mirar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -127,12 +164,12 @@ export default function Cerebro({ d, recargar }) {
         [t('Vinculados con /soy'), m.vinculados, t('Telegram ↔ juego')],
         [t('Lecciones'), m.lecciones.total, `${m.lecciones.heraldo} Heraldo · ${m.lecciones.valquiria} Valquiria`],
         [t('Glosario del juego'), m.glosario, t('tropas, hechizos, héroes, defensas')],
-        [t('Normas'), m.reglas.palabras ? `${m.reglas.palabras} ${t('palabras')}` : '—', m.reglas.fecha ? `${t('actualizadas el')} ${m.reglas.fecha}` : t('sin publicar')],
-        [t('Lo que deben saber'), m.memoriaLideres ? `${m.memoriaLideres} ${t('caracteres')}` : '—', t('escrito por los líderes')],
+        [t('Normas'), m.reglas.palabras ? m.reglas.palabras.toLocaleString('es') : '—', `${t('palabras')}${m.reglas.fecha ? ` · ${t('actualizadas el')} ${m.reglas.fecha}` : ` · ${t('sin publicar')}`}`],
+        [t('Lo que deben saber'), m.memoriaLideres ? m.memoriaLideres.toLocaleString('es') : '—', t('caracteres escritos por los líderes')],
         [t('Fuentes del meta'), m.canales ?? '—', t('canales de YouTube') + (v.meta ? ` · ${t('digesto de')} ${(v.meta.caracteres / 1000).toFixed(1)}k` : '')],
         [t('Bases en el pack'), m.bases, t('para repartir')],
-        [t('Solicitudes'), `${m.solicitudes.pendientes} ${t('pendientes')}`, `${m.solicitudes.aceptadas} ${t('aceptadas')}`],
-        [t('Puntos del mes'), `${v.puntos?.castillos ?? 0} ${t('castillos')} · ${v.puntos?.retos ?? 0} FC`, v.puntos?.castillosPendientes ? `${v.puntos.castillosPendientes} ${t('por confirmar')}` : t('nada por confirmar')],
+        [t('Solicitudes'), m.solicitudes.pendientes, `${t('pendientes')} · ${m.solicitudes.aceptadas} ${t('aceptadas')}`],
+        [t('Puntos del mes'), (v.puntos?.castillos ?? 0) + (v.puntos?.retos ?? 0), `${v.puntos?.castillos ?? 0} ${t('castillos')} · ${v.puntos?.retos ?? 0} FC${v.puntos?.castillosPendientes ? ` · ${v.puntos.castillosPendientes} ${t('por confirmar')}` : ''}`],
       ]
     : [];
 
@@ -156,7 +193,9 @@ export default function Cerebro({ d, recargar }) {
     setCharla((c) => [...c, { quien: 'tú', texto: q }]);
     setPensando(true);
     try {
-      const j = await conSesion('/api/asistente', { pregunta: q, contexto: resumenParaLaIA() });
+      const j = demo
+        ? { respuesta: `${t('En forma')}: ${nota}/100. Vercel, la base, la API de Clash, la IA y los dos bots responden; los 5 jobs corrieron bien. Sé 246 tropas y defensas del glosario, 7 lecciones de los líderes y las normas del 11 de septiembre. (Demo: aquí contestaría la IA con el estado real.)` }
+        : await conSesion('/api/asistente', { pregunta: q, contexto: resumenParaLaIA() });
       setCharla((c) => [...c, { quien: 'cerebro', texto: j?.respuesta || t('Ahora mismo no puedo pensar (sin IA o tope del día). Mira los semáforos de arriba.') }]);
     } catch {
       setCharla((c) => [...c, { quien: 'cerebro', texto: t('No pude contestar.') }]);
@@ -283,7 +322,7 @@ export default function Cerebro({ d, recargar }) {
       </div>
 
       {/* ---------- Entrenar ---------- */}
-      <Entrenar d={d} memoriaInicial={String(inicial.bots_memoria ?? '')} recargar={recargar} aviso={aviso} />
+      {!demo && <Entrenar d={d} memoriaInicial={String(inicial.bots_memoria ?? '')} recargar={recargar} aviso={aviso} />}
     </>
   );
 }
