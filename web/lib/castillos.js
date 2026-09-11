@@ -140,15 +140,22 @@ export async function recordarMensaje(admin, id, mensajeBotId) {
   await admin.from('castillos').update({ mensaje_bot_id: mensajeBotId }).eq('id', id);
 }
 
-/** La tabla del mes: puntos por persona, confirmados, para el grupo o el panel. */
+/**
+ * La tabla del mes: puntos por persona, confirmados, para el grupo o el
+ * panel. Admite filas de castillos (sin tipo) y de retos (tipo 'fc'...),
+ * y cuenta cada clase aparte: { nombre, puntos, veces, castillos, fc }.
+ */
 export function tablaPuntos(filas) {
   const por = new Map();
   for (const f of filas ?? []) {
     if (!f.verificado) continue;
     const k = f.tg_user_id;
-    const p = por.get(k) ?? { nombre: f.nombre, puntos: 0, veces: 0 };
+    const p = por.get(k) ?? { nombre: f.nombre, puntos: 0, veces: 0, castillos: 0, fc: 0 };
     p.puntos += f.puntos ?? 0;
     p.veces += 1;
+    const tipo = f.tipo ?? 'castillo';
+    if (tipo === 'castillo') p.castillos += 1;
+    else if (tipo === 'fc') p.fc += 1;
     p.nombre = f.nombre || p.nombre;
     por.set(k, p);
   }

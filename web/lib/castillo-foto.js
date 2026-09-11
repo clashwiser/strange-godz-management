@@ -133,32 +133,41 @@ export function castilloDeAbajo(guerra, playerTag) {
 
 // ---------- Lo que se le pide al modelo ----------
 
-export const INSTRUCCIONES_MAPA = `Esta imagen debería ser una captura de pantalla de Clash of Clans: el mapa de una guerra de clanes (día de preparación o de batalla), o la ventana que se abre al tocar la base de un compañero de clan en ese mapa, donde se ve su castillo del clan con las tropas donadas.
+export const INSTRUCCIONES_MAPA = `Esta imagen debería ser una captura de pantalla de Clash of Clans con el mapa de una guerra de clanes, en el lado de las bases aliadas.
+
+Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), una barra con "N/M" junto al botón "Donate", un botón "Scout" y las tropas donadas con su cantidad ("x1") y su nivel.
 
 Devuelve SOLO un objeto JSON con esta forma, sin comentarios:
 {
   "es_mapa_de_guerra": true o false,
   "fase": "preparacion" | "batalla" | "desconocida",
-  "clan_enemigo": "nombre del clan rival tal como se lee, o null",
+  "clan_enemigo": "el clan de la derecha de la cabecera, tal como se lee, o null",
   "bases": [
-    { "posicion": número de la base en el mapa o null, "nombre": "nombre del jugador tal como se lee", "ayuntamiento": nivel o null, "tropas": número o null, "capacidad": número o null }
-  ]
+    { "posicion": número de la base o null, "nombre": "nombre del jugador tal como se lee", "tropas": número o null, "capacidad": número o null, "ventana": true si es la base de la ventana de abajo, false si es una etiqueta del mapa }
+  ],
+  "tropas_donadas": [ { "tropa": "nombre si lo reconoces, o null", "cantidad": número o null, "nivel": número o null } ]
 }
 
 Reglas:
-- "tropas" y "capacidad" salen de un texto con la forma "N/M" junto al icono del castillo del clan (por ejemplo "40/55": tropas 40, capacidad 55). Si solo se ve un número, ponlo en "tropas" y deja "capacidad" en null.
+- Una entrada por cada etiqueta "N/M" que se lea en el mapa (con el nombre de la base que tiene debajo) y otra para la ventana de abajo si la hay.
+- "tropas" es el número de la izquierda de la barra "N/M"; "capacidad", el de la derecha. Si solo se lee uno, pon el otro en null.
 - Copia los nombres letra a letra, con sus símbolos. No traduzcas nada.
-- Incluye todas las bases del clan propio que se lean, no las del rival.
 - Si algo no se lee con claridad, pon null. No adivines ni completes con lo que sería normal.
-- Si la imagen no es del juego, devuelve {"es_mapa_de_guerra": false, "fase": "desconocida", "clan_enemigo": null, "bases": []}.`;
+- Si la imagen no es del juego o no es el mapa de guerra, devuelve {"es_mapa_de_guerra": false, "fase": "desconocida", "clan_enemigo": null, "bases": [], "tropas_donadas": []}.`;
 
 // ---------- El juicio ----------
 
-const plano = (s) =>
+// Letras de adorno que la gente pone en los nombres y que el OCR lee como
+// la latina que imitan: «ΛVΞNTUS» es AVENTUS. Se traducen antes de
+// comparar, en los dos lados (lo que leyo el modelo y lo que dice la API).
+const ADORNOS = { 'λ': 'a', 'δ': 'a', 'ʌ': 'a', 'ξ': 'e', 'σ': 'e', 'є': 'e', 'ø': 'o', 'θ': 'o', 'φ': 'o', 'ω': 'o', 'ð': 'd', 'ß': 'b', 'π': 'n', 'и': 'n', 'я': 'r', 'ш': 'w', 'ψ': 'y', 'ѕ': 's', 'ι': 'i', 'ν': 'v', 'τ': 't', 'κ': 'k', 'ρ': 'p', 'μ': 'u', 'ч': 'y' };
+
+export const plano = (s) =>
   String(s ?? '')
+    .toLowerCase()
+    .replace(/[^\x00-\x7f]/g, (c) => ADORNOS[c] ?? c)
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
     .replace(/[^a-z0-9]+/g, '');
 
 /** Dos nombres leidos por OCR "se parecen" si, limpios, uno contiene al otro o difieren en poco. */
@@ -207,18 +216,29 @@ export function juzgar({ lectura, abajo, oponente, propio = null }) {
     return { veredicto: 'otra_guerra', leido: String(j.clan_enemigo) };
   }
 
+  // La base de abajo, entre lo leido: por posicion (si el nombre no lo
+  // contradice) o por nombre. Puede salir dos veces -la etiqueta del mapa
+  // y la ventana de abajo-; la ventana es la que esta al dia, y si no hay
+  // ventana, la etiqueta con mas tropas (la otra sera una lectura peor).
   const bases = Array.isArray(j.bases) ? j.bases : [];
+  const esElla = (b) =>
+    (numero(b?.posicion) === abajo.posicion && (b?.nombre == null || parecidos(b.nombre, abajo.nombre) || bases.length === 1)) ||
+    parecidos(b?.nombre, abajo.nombre);
+  const candidatas = bases.filter(esElla);
+  if (!candidatas.length) return { veredicto: 'no_se_ve' };
   const base =
-    bases.find((b) => numero(b?.posicion) === abajo.posicion && (b?.nombre == null || parecidos(b.nombre, abajo.nombre) || bases.length === 1)) ??
-    bases.find((b) => parecidos(b?.nombre, abajo.nombre)) ??
-    null;
-  if (!base) return { veredicto: 'no_se_ve' };
+    candidatas.find((b) => b?.ventana === true && numero(b.tropas) != null) ??
+    [...candidatas].sort((x, y) => (numero(y?.tropas) ?? -1) - (numero(x?.tropas) ?? -1))[0];
 
   const tropas = numero(base.tropas);
   const capacidad = numero(base.capacidad);
   if (tropas == null || capacidad == null || capacidad === 0) return { veredicto: 'no_se_ve', leido: base.nombre };
-  if (tropas >= capacidad) return { veredicto: 'lleno', tropas, capacidad, leido: base.nombre };
-  return { veredicto: 'incompleto', tropas, capacidad, leido: base.nombre };
+  const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : [])
+    .filter((t) => t && (t.tropa || t.cantidad))
+    .map((t) => `${numero(t.cantidad) ?? '?'}× ${t.tropa ?? '?'}${numero(t.nivel) != null ? ` n${numero(t.nivel)}` : ''}`)
+    .join(', ');
+  if (tropas >= capacidad) return { veredicto: 'lleno', tropas, capacidad, leido: base.nombre, donado };
+  return { veredicto: 'incompleto', tropas, capacidad, leido: base.nombre, donado };
 }
 
 // ---------- Todo junto ----------
@@ -312,7 +332,10 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         .eq('id', fila.id);
       await anota(`foto: ${abajo.nombre} ${fallo.tropas}/${fallo.capacidad}`);
       return {
-        texto: `✅ Foto verificada: el castillo de ${quienAbajo}, el de abajo de ${quien}, está ${fallo.tropas}/${fallo.capacidad}. +${PUNTOS_CASTILLO} puntos este mes. 📜`,
+        texto:
+          `✅ Foto verificada: el castillo de ${quienAbajo}, el de abajo de ${quien}, está ${fallo.tropas}/${fallo.capacidad}` +
+          (fallo.donado ? ` (${esc(fallo.donado)})` : '') +
+          `. +${PUNTOS_CASTILLO} puntos este mes. 📜`,
         verificado: true,
       };
     }
@@ -345,3 +368,27 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
   }
 }
 
+
+/**
+ * Modo prueba, para administradores: que ve el modelo en una captura del
+ * mapa de guerra, sin cruzarlo con nada ni anotar nada. Sirve para afinar
+ * las instrucciones con pantallas reales.
+ */
+export async function leerMapaDePrueba(admin, { token, msg }) {
+  const foto = fotoDe(msg);
+  const imagen = foto ? await bajarFoto(token, foto) : null;
+  if (!imagen) return '🔍 No pude bajar la captura.';
+  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_MAPA });
+  const j = lectura?.json;
+  if (!j) return `🔍 No pude leerla (${lectura ? 'no devolvió JSON' : 'la IA no contestó'}).`;
+  const bases = (Array.isArray(j.bases) ? j.bases : [])
+    .map((b) => `${b.posicion ?? '?'} ${esc(b.nombre ?? '?')} ${b.tropas ?? '?'}/${b.capacidad ?? '?'}${b.ventana ? ' (ventana)' : ''}`)
+    .join(' · ');
+  const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : []).map((t) => `${t.cantidad ?? '?'}× ${esc(t.tropa ?? '?')} n${t.nivel ?? '?'}`).join(', ');
+  return (
+    `🔍 <b>Prueba de lectura (mapa de guerra)</b> · ${esc(lectura.modelo)}\n` +
+    `¿Mapa de guerra? ${j.es_mapa_de_guerra ? 'sí' : 'no'} · fase: ${esc(j.fase ?? '?')} · rival leído: ${esc(j.clan_enemigo ?? '—')}\n` +
+    `Bases: ${bases || '—'}\n` +
+    `Tropas donadas: ${donado || '—'}`
+  );
+}

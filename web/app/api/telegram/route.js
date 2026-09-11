@@ -16,7 +16,8 @@ import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 import { leccionPara, reglasDelClan } from '../../../lib/entrenamiento';
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
-import { fotoDe, filaParaFoto, verificarCastilloConFoto } from '../../../lib/castillo-foto';
+import { fotoDe, filaParaFoto, verificarCastilloConFoto, leerMapaDePrueba } from '../../../lib/castillo-foto';
+import { esFotoDeFC, verificarFCConFoto, recordarMensajeReto, decidirReto, leerChatDePrueba } from '../../../lib/retos';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -145,17 +146,38 @@ export async function POST(request) {
     return Response.json({ ok: true });
   }
 
-  // Una foto: la captura del mapa de guerra con el castillo donado. Cuenta
-  // si el pie es el aviso ("ya doné mi castillo"), si nombra a un bot y
-  // habla del castillo, o si contesta al "Anotado" de un bot. La lee la IA
-  // y la cruza con la API (ver castillo-foto.js); si cuadra, los puntos se
-  // dan solos. Las fotos las mira solo Heraldo: Valquiria no lee fotos, y
-  // asi no contestan los dos.
+  // Una foto. Tres casos, por el pie:
+  //   - el aviso del castillo ("ya doné mi castillo"), o una foto
+  //     contestando al "Anotado" de un bot: la captura del mapa de guerra,
+  //     que se lee y se cruza con la API (castillo-foto.js);
+  //   - el reto de los desafios amistosos ("fc", "amistosos", "reto"): la
+  //     captura del chat del clan con cinco desafios (retos.js);
+  //   - "prueba", de un administrador: Heraldo dice que ve en la captura,
+  //     sin anotar nada. Para afinar la lectura con pantallas reales.
+  // Las fotos las mira solo Heraldo: Valquiria no lee fotos, y asi no
+  // contestan los dos.
   const foto = fotoDe(msg);
   if (foto) {
     const pie = (msg.caption || '').trim();
     const quienFoto = { id: msg.from?.id ?? chatId, nombre: esc(msg.from?.first_name || msg.from?.username || 'socio') };
     const aUnBot = msg.reply_to_message?.from?.is_bot ? msg.reply_to_message.message_id : null;
+
+    if (/\bprueba\b/i.test(pie) && (await esAdminDelGrupo(quienFoto.id))) {
+      await escribiendo(TOKEN, chatId);
+      const r = esFotoDeFC(pie) ? await leerChatDePrueba(admin, { token: TOKEN, msg }) : await leerMapaDePrueba(admin, { token: TOKEN, msg });
+      await responder(chatId, r);
+      return Response.json({ ok: true });
+    }
+
+    if (esFotoDeFC(pie) && !avisaCastillo(pie)) {
+      await escribiendo(TOKEN, chatId);
+      const r = await verificarFCConFoto(admin, { token: TOKEN, msg, tgId: quienFoto.id, quien: quienFoto.nombre });
+      const idMensaje = await responder(chatId, r.texto);
+      // Un lider lo quita contestando ❌ a ESTE mensaje.
+      if (r.verificado) await recordarMensajeReto(admin, r.id, idMensaje);
+      return Response.json({ ok: true });
+    }
+
     const reclama = avisaCastillo(pie) || (/heraldo|valqui/i.test(pie) && /castillo/i.test(pie));
     let fila = null;
     if (reclama) {
@@ -206,11 +228,8 @@ export async function POST(request) {
     const respondeA = msg.reply_to_message;
     if (respondeA?.from?.is_bot && (confirmaCastillo(texto) || rechazaCastillo(texto))) {
       if (await esAdminDelGrupo(quien.id)) {
-        const r = await decidirCastillo(admin, {
-          mensajeBotId: respondeA.message_id,
-          confirmar: confirmaCastillo(texto),
-          lider: esc(quien.nombre ?? 'un líder'),
-        });
+        const decision = { mensajeBotId: respondeA.message_id, confirmar: confirmaCastillo(texto), lider: esc(quien.nombre ?? 'un líder') };
+        const r = (await decidirCastillo(admin, decision)) ?? (await decidirReto(admin, decision));
         if (r) {
           await responder(chatId, r);
           return Response.json({ ok: true });
@@ -435,12 +454,18 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 
     // La tabla de puntos del mes.
     case 'puntos': {
-      const { data: filas } = await admin.from('castillos').select('tg_user_id, nombre, verificado, puntos').eq('temporada', temporadaDe());
-      const tabla = tablaPuntos(filas);
-      if (!tabla.length) return `Todavía nadie tiene puntos este mes. El castillo de guerra donado y avisado da puntos: <code>/castillo</code>.`;
+      const [{ data: castillos }, { data: retos }] = await Promise.all([
+        admin.from('castillos').select('tg_user_id, nombre, verificado, puntos').eq('temporada', temporadaDe()),
+        admin.from('retos').select('tg_user_id, nombre, verificado, puntos, tipo').eq('temporada', temporadaDe()),
+      ]);
+      const tabla = tablaPuntos([...(castillos ?? []), ...(retos ?? [])]);
+      if (!tabla.length) {
+        return `Todavía nadie tiene puntos este mes. Dan puntos el castillo de guerra donado y avisado con la captura (<code>/castillo</code>) y el reto de los desafíos amistosos (la captura del chat con 5, pie "fc").`;
+      }
+      const desglose = (p) => [p.castillos ? `${p.castillos} ${p.castillos === 1 ? 'castillo' : 'castillos'}` : null, p.fc ? `${p.fc} FC` : null].filter(Boolean).join(' · ');
       return (
-        `🏅 <b>Puntos de disciplina · ${temporadaDe()}</b>\n\n` +
-        tabla.slice(0, 15).map((p, i) => `${i + 1}. ${esc(p.nombre)} — ${p.puntos} pts (${p.veces} ${p.veces === 1 ? 'castillo' : 'castillos'})`).join('\n')
+        `🏅 <b>Puntos del mes · ${temporadaDe()}</b>\n\n` +
+        tabla.slice(0, 15).map((p, i) => `${i + 1}. ${esc(p.nombre)} — ${p.puntos} pts (${desglose(p)})`).join('\n')
       );
     }
 

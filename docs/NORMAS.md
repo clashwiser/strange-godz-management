@@ -29,7 +29,7 @@ Estas normas las lees antes de entrar y las aceptas al entrar. Los líderes las 
 - Cada uno llena el castillo del jugador que tiene **justo debajo** en el mapa de guerra; el último llena el del primero.
 - Se dona lo que ese jugador pidió. Si no lo tienes, avisa en el grupo para que lo done otro; no rellenes con cualquier cosa. Los líderes publican qué tropas de defensa se usan en cada nivel de ayuntamiento.
 - El castillo tiene que estar completo **antes de que empiece el día de batalla**, con margen: no en los últimos minutos.
-- Cuando dones, dilo en Telegram: "@Heraldo ya doné mi castillo". Suma puntos de disciplina, y así los líderes saben qué falta sin revisar uno por uno.
+- Cuando dones, dilo en Telegram con la captura del mapa de guerra donde se vea el castillo de abajo lleno: "@Heraldo ya doné mi castillo". Heraldo la comprueba y suma los puntos solo; sin captura, lo confirma un líder. Así los líderes saben qué falta sin revisar uno por uno.
 - Los líderes revisan los castillos antes de la batalla y completan lo que falte. Quien no donó recibe un aviso en privado; si se repite, hay sanción.
 
 ## 4. Liga de guerras (CWL)
@@ -84,7 +84,12 @@ Nunca se sanciona en público. Dejar un ataque sin usar en liga, abandonar en pl
 
 ## 12. Premios y puntos
 
-Hay premios cada mes y un sistema de puntos por disciplina: castillos donados y avisados, ataques cumplidos, juegos del clan, raids. Los premios, las cantidades y cómo se reclaman se publican en el grupo de Telegram al empezar cada mes. Lo que no se publica, no existe.
+Hay premios cada mes y un sistema de puntos con dos clases:
+
+- **Tareas**: lo que se debe hacer y se premia por cumplirlo. Hoy: el castillo de guerra donado y avisado con la captura.
+- **Retos**: lo voluntario, que premia entrenar y competir. Hoy: cinco desafíos amistosos con dos estrellas o más en una sola captura del chat del clan, mandada a Heraldo con el pie "fc", una vez al día.
+
+Los puntos los cuenta Heraldo (`/puntos`) y un líder puede quitar cualquiera que no sea limpio. Los premios, las cantidades y cómo se reclaman se publican en el grupo de Telegram al empezar cada mes. Lo que no se publica, no existe.
 
 ## 13. Cómo se entra
 

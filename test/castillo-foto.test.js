@@ -48,7 +48,31 @@ const abajo = { posicion: 2, nombre: 'Beto ツ' };
 
 test('juzgar: lleno cuando el de abajo esta a tope', () => {
   const l = lectura({ es_mapa_de_guerra: true, clan_enemigo: 'Dragones Rojos', bases: [{ posicion: 1, nombre: 'Assassins', tropas: 55, capacidad: 55 }, { posicion: 2, nombre: 'Beto', tropas: 50, capacidad: 50 }] });
-  assert.deepEqual(juzgar({ lectura: l, abajo, oponente: 'Dragones Rojos' }), { veredicto: 'lleno', tropas: 50, capacidad: 50, leido: 'Beto' });
+  assert.deepEqual(juzgar({ lectura: l, abajo, oponente: 'Dragones Rojos' }), { veredicto: 'lleno', tropas: 50, capacidad: 50, leido: 'Beto', donado: '' });
+});
+
+test('juzgar: la ventana de abajo manda sobre la etiqueta del mapa, y se cuentan las tropas donadas', () => {
+  // La captura de Cris: en el mapa "22. Axe", y la ventana "23. davinder 55/55" con 1 golem de hielo y 1 dragon.
+  const l = lectura({
+    es_mapa_de_guerra: true,
+    fase: 'preparacion',
+    clan_enemigo: 'ITALIA REIS',
+    bases: [
+      { posicion: 20, nombre: 'Adima', tropas: 0, capacidad: 55, ventana: false },
+      { posicion: 21, nombre: 'Zip', tropas: 0, capacidad: 55, ventana: false },
+      { posicion: 22, nombre: 'Axe', tropas: null, capacidad: null, ventana: false },
+      { posicion: 23, nombre: 'davinder', tropas: 0, capacidad: 55, ventana: false },
+      { posicion: 23, nombre: 'davinder', tropas: 55, capacidad: 55, ventana: true },
+    ],
+    tropas_donadas: [{ tropa: 'Ice Golem', cantidad: 1, nivel: 9 }, { tropa: 'Dragon', cantidad: 1, nivel: 13 }],
+  });
+  const r = juzgar({ lectura: l, abajo: { posicion: 23, nombre: 'davinder' }, oponente: 'ITALIA REIS', propio: 'KRIPTIC SOULS' });
+  assert.equal(r.veredicto, 'lleno');
+  assert.equal(r.tropas, 55);
+  assert.equal(r.donado, '1× Ice Golem n9, 1× Dragon n13');
+  // Y si el modelo lee "KRIPTIC SOULS" como rival (el lado equivocado de la cabecera), no se rechaza.
+  const l2 = lectura({ ...l.json, clan_enemigo: 'KRIPTIC SOULS' });
+  assert.equal(juzgar({ lectura: l2, abajo: { posicion: 23, nombre: 'davinder' }, oponente: 'ITALIA REIS', propio: 'KRIPTIC SOULS' }).veredicto, 'lleno');
 });
 
 test('juzgar: incompleto con los numeros leidos', () => {

@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import { tablaPuntos, PUNTOS_CASTILLO } from '../lib/castillos';
+import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../lib/retos';
 
 const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas' };
 
@@ -510,7 +511,8 @@ export default function Bonos({ d, demo = false, recargar }) {
 function PuntosCastillo({ d, recargar }) {
   const t = useT();
   const filas = d.castillos ?? [];
-  const tabla = useMemo(() => tablaPuntos(filas), [filas]);
+  const retos = d.retos ?? [];
+  const tabla = useMemo(() => tablaPuntos([...filas, ...retos]), [filas, retos]);
   const pendientes = filas.filter((f) => !f.verificado);
   const [ocupado, setOcupado] = useState(null);
   const fmt = (x) => new Date(x).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
@@ -536,11 +538,22 @@ function PuntosCastillo({ d, recargar }) {
     else recargar?.();
   }
 
+  async function quitarReto(r) {
+    if (!confirm(`${t('¿Quitar el reto de')} ${r.nombre} (${r.puntos} pts)?`)) return;
+    setOcupado(`r${r.id}`);
+    const { error } = await supabase.from('retos').delete().eq('id', r.id);
+    setOcupado(null);
+    if (error) alert(error.message);
+    else recargar?.();
+  }
+
   return (
     <>
-      <h2 className="sec">{t('Puntos de disciplina')} · {d.temporada}</h2>
+      <h2 className="sec">{t('Puntos del mes')} · {d.temporada}</h2>
       <p className="sub" style={{ marginTop: 0 }}>
-        {t('Cada castillo de guerra donado y avisado a los bots ("ya doné mi castillo") vale')} {PUNTOS_CASTILLO} {t('puntos. Si el aviso trae una captura del mapa de guerra, Heraldo la lee con la IA, la cruza con la API (quién está debajo de quién y contra qué clan) y confirma solo. Sin captura, o si no cuadra, lo confirma un líder: contestando ✅ al aviso en Telegram, o aquí. El que más puntos tenga al cerrar el mes se lleva el premio de los puntos.')}
+        <b>{t('Tarea')}</b>: {t('cada castillo de guerra donado y avisado a los bots ("ya doné mi castillo") vale')} {PUNTOS_CASTILLO} {t('puntos. Si el aviso trae una captura del mapa de guerra, Heraldo la lee con la IA, la cruza con la API (quién está debajo de quién y contra qué clan) y confirma solo. Sin captura, o si no cuadra, lo confirma un líder: contestando ✅ al aviso en Telegram, o aquí.')}
+        {' '}
+        <b>{t('Reto')}</b>: {FC_MINIMO} {t('desafíos amistosos con')} {FC_ESTRELLAS}⭐ {t('o más en una captura del chat del clan (pie "fc") valen')} {PUNTOS_FC} {t('puntos, una vez al día; Heraldo los cuenta y cruza el nombre del atacante con el /soy. Un líder quita cualquiera contestando ❌ en Telegram, o aquí. El que más puntos tenga al cerrar el mes se lleva el premio.')}
       </p>
       <div className="grid">
         <div className="card">
@@ -551,7 +564,9 @@ function PuntosCastillo({ d, recargar }) {
             <ol style={{ paddingLeft: 22, margin: '6px 0' }}>
               {tabla.slice(0, 20).map((p) => (
                 <li key={p.nombre}>
-                  <b>{p.nombre}</b> — {p.puntos} pts · {p.veces} {p.veces === 1 ? t('castillo') : t('castillos')}
+                  <b>{p.nombre}</b> — {p.puntos} pts
+                  {p.castillos > 0 && <> · {p.castillos} {p.castillos === 1 ? t('castillo') : t('castillos')}</>}
+                  {p.fc > 0 && <> · {p.fc} FC</>}
                 </li>
               ))}
             </ol>
@@ -576,6 +591,26 @@ function PuntosCastillo({ d, recargar }) {
                     ✓ +{PUNTOS_CASTILLO}
                   </button>
                   <button className="fantasma" onClick={() => quitar(f)} disabled={ocupado === f.id} title={t('Quitar')}>
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="card">
+          <h3>{t('Retos del mes')}</h3>
+          {!retos.length ? (
+            <p className="sub">{t('Ningún reto todavía.')}</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {retos.map((r) => (
+                <li key={r.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,.08)' }}>
+                  <span style={{ flex: 1 }}>
+                    <b>{r.nombre}</b> — {r.tipo === 'fc' ? t('desafíos amistosos') : r.tipo} · +{r.puntos} <span className="sub">{fmt(r.creado_en)}</span>
+                    {r.nota && <span className="sub"> · {r.nota}</span>}
+                  </span>
+                  <button className="fantasma" onClick={() => quitarReto(r)} disabled={ocupado === `r${r.id}`} title={t('Quitar')}>
                     ✕
                   </button>
                 </li>
