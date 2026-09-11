@@ -13,6 +13,8 @@ const estado = {
   retirados: new Set(['llama-3.3-70b-versatile']),
   peticiones: [],
   respuesta: '**Claro, mi cielo.** Bailo casino desde que tenía diez años.',
+  datos: 'Según Clash Champs (septiembre 2026), en TH16 domina Super Archer Blimp con 4 super arqueras y globos. Fuente: https://clashchamps.com',
+  busca: true,
 };
 
 let servidor;
@@ -51,6 +53,13 @@ before(async () => {
         if (estado.retirados.has(p.model)) {
           res.statusCode = 404;
           res.end(JSON.stringify({ error: { message: `The model \`${p.model}\` does not exist or you do not have access to it.`, code: 'model_not_found' } }));
+          return;
+        }
+        // El buscador: datos crudos, y executed_tools solo si "busco".
+        if (/compound/.test(p.model)) {
+          const message = { role: 'assistant', content: estado.datos };
+          if (estado.busca) message.executed_tools = [{ type: 'search', arguments: '{"query":"mejor ejercito th16 2026"}' }];
+          res.end(JSON.stringify({ choices: [{ message }] }));
           return;
         }
         res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: estado.respuesta } }] }));
@@ -107,29 +116,51 @@ test('pensar: con nombre, la pregunta lleva quien la hace', async () => {
   assert.equal(estado.peticiones[0].messages[1].content, 'Deibis dice: hola');
 });
 
-test('pensar con buscar: va al modelo con web, con el TH y sin parametros de razonar', async () => {
+test('pensar con buscar: dos pasos, el buscador sin personaje y el personaje con lo encontrado', async () => {
   estado.peticiones = [];
   const r = await pensar(admin, 'valquiria', '¿cuál es el mejor ejército ahora?', 'Cris', { buscar: true, th: 15 });
   assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
-  assert.equal(estado.peticiones.length, 1);
-  const p = estado.peticiones[0];
-  assert.equal(p.model, 'groq/compound-mini');
-  assert.equal(p.max_tokens, 700);
-  assert.equal(p.reasoning_effort, undefined, 'compound no es gpt-oss');
-  assert.match(p.messages[0].content, /BUSCA EN LA WEB/);
-  assert.match(p.messages[0].content, /Ayuntamiento 15/);
-  assert.match(p.messages[0].content, /de 2026/, 'lleva el mes de hoy');
-  assert.doesNotMatch(p.messages[0].content, /Máximo 2 frases/);
-  assert.match(p.messages[1].content, /^Cris dice: ¿cuál es el mejor ejército ahora\?\n\n\(Busca en la web/);
+  assert.equal(estado.peticiones.length, 2, 'buscar y luego contestar');
+
+  const [busca, contesta] = estado.peticiones;
+  assert.equal(busca.model, 'groq/compound-mini');
+  assert.equal(busca.messages.length, 1, 'sin personaje: solo la peticion de datos');
+  assert.equal(busca.messages[0].role, 'user');
+  assert.match(busca.messages[0].content, /Busca en la web AHORA/);
+  assert.match(busca.messages[0].content, /Pregunta: ¿cuál es el mejor ejército ahora\?$/);
+  assert.equal(busca.reasoning_effort, undefined, 'compound no es gpt-oss');
+  assert.equal(busca.temperature, 0.2, 'datos, no creatividad');
+
+  assert.equal(contesta.model, 'openai/gpt-oss-120b');
+  assert.equal(contesta.max_tokens, 700);
+  assert.match(contesta.messages[0].content, /contesta CON ESO/);
+  assert.match(contesta.messages[0].content, /Ayuntamiento 15/);
+  assert.match(contesta.messages[0].content, /de 2026/, 'lleva el mes de hoy');
+  assert.doesNotMatch(contesta.messages[0].content, /Máximo 2 frases/);
+  assert.doesNotMatch(contesta.messages[0].content, /NO se pudo buscar/);
+  assert.match(contesta.messages[1].content, /^Cris dice: ¿cuál es el mejor ejército ahora\?\n\nLo que se encontró hoy en la web:\nSegún Clash Champs/);
+});
+
+test('pensar con buscar: si el buscador contesto sin buscar, se avisa de que no hay web', async () => {
+  estado.busca = false;
+  estado.peticiones = [];
+  const r = await pensar(admin, 'heraldo', '¿qué trae la actualización?', null, { buscar: true });
+  assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
+  assert.deepEqual(estado.peticiones.map((p) => p.model), ['groq/compound-mini', 'openai/gpt-oss-120b']);
+  const contesta = estado.peticiones[1];
+  assert.match(contesta.messages[0].content, /NO se pudo buscar en la web/);
+  assert.equal(contesta.messages[1].content, '¿qué trae la actualización?', 'sin datos inventados pegados');
+  estado.busca = true;
 });
 
 test('pensar sin buscar: sigue con dos frases y sin TH', async () => {
   estado.peticiones = [];
   await pensar(admin, 'heraldo', 'hola', null);
+  assert.equal(estado.peticiones.length, 1, 'sin buscador');
   const p = estado.peticiones[0];
   assert.equal(p.model, 'openai/gpt-oss-120b');
   assert.match(p.messages[0].content, /Máximo 2 frases/);
-  assert.doesNotMatch(p.messages[0].content, /BUSCA EN LA WEB/);
+  assert.doesNotMatch(p.messages[0].content, /contesta CON ESO/);
 });
 
 test('usoDeHoy: enseña el modelo que de verdad se usa, y el que busca', async () => {
@@ -152,6 +183,7 @@ test('pensar con buscar: si el proveedor no tiene el modelo con web, contesta si
     ['groq/compound-mini', 'openai/gpt-oss-120b'],
     'probo el de web, 404, y siguio con el de charla en la misma llamada',
   );
+  assert.match(estado.peticiones[1].messages[0].content, /NO se pudo buscar en la web/);
   assert.equal(contador.fallos, antes.fallos, 'contesto: no es un fallo');
 
   estado.peticiones = [];

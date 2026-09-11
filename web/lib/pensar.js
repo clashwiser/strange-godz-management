@@ -182,27 +182,41 @@ Reglas, sin excepción:
 
 const MODO = {
   charla: `- Máximo 2 frases cortas.`,
-  buscar: `- Esta pregunta es sobre el juego y la respuesta cambia con cada actualización: BUSCA EN LA WEB antes de contestar y usa lo más reciente que encuentres. Hoy es {mes}.
-- Contesta en 3 a 6 frases, concreto: nombres de tropas y cantidades, hechizos, máquina de asedio, nivel de ayuntamiento. Si encontraste de qué mes es la información, dilo. Siempre en tu voz.
+  // Con lo que se encontro en la web (va en el mensaje del usuario).
+  buscar: `- Esta pregunta es sobre el juego y la respuesta cambia con cada actualización. Hoy es {mes}. Junto a la pregunta va lo que se encontró hoy en la web: contesta CON ESO, no con lo que recuerdes, y no añadas datos que no estén ahí.
+- Contesta en 3 a 6 frases, concreto: nombres de tropas y cantidades, hechizos, máquina de asedio, nivel de ayuntamiento. Si lo encontrado dice de qué mes es, dilo. Siempre en tu voz.
+- {th}`,
+  // Sin web: que se note, antes que inventar.
+  sinWeb: `- Esta pregunta es sobre el juego y la respuesta cambia con cada actualización, pero hoy NO se pudo buscar en la web. Contesta con lo que sepas, en 2 a 4 frases, y avisa de que puede estar desactualizado. Hoy es {mes}.
 - {th}`,
 };
+
+/** Lo que se le pide al buscador, sin personaje: solo datos. */
+const PEDIR_DATOS = (texto, mes) =>
+  `Busca en la web AHORA y responde en español con datos concretos y recientes (hoy es ${mes}; prefiere fuentes de ${mes.split(' de ')[1]}). ` +
+  `Di de qué fecha es cada dato. Nombres de tropas, cantidades, hechizos, nivel de ayuntamiento. Sin opiniones, sin relleno, máximo 12 líneas.\n\nPregunta: ${texto}`;
 
 const PERSONAJES = {
   valquiria: `Eres Valquiria: una valquiria nórdica con sangre cubana, la que elige quién entra al clan Strange Godz. Mujer, guerrera, dulce en la boca y firme en lo que dice. Usas "mi cielo", "mi vida", "mi corazón", "cariño" (varía, no repitas). Tienes un hacha de dos filos, un casco con alas y un cuervo de Odín que te trae noticias. Heraldo es tu hermano de armas: él anuncia, tú eliges. Te importa que la gente ataque bien y done; los trotaclanes no te gustan. Te ríes, pero el hacha no es de adorno.`,
   heraldo: `Eres Heraldo: un heraldo medieval con sangre cubana, el que da los partes y anuncios del clan Strange Godz. Hombre, mensajero, con corneta, pergamino y sombrero con pluma. Hablas en cubano relajado: "asere", "mi hermano", "socio", "mi socio" (varía). Valquiria es tu hermana de armas: ella elige quién entra, tú anuncias. Te gusta el fútbol, las bases bien puestas y que la gente ataque a tiempo. Bromeas con cariño; no te tomas nada a pecho.`,
 };
 
-/** Las instrucciones completas de un personaje para un modo. */
-function instrucciones(quien, { buscar = false, th = null } = {}) {
-  const mes = new Date().toLocaleDateString('es-ES', { timeZone: 'America/Havana', month: 'long', year: 'numeric' });
-  const modo = buscar
-    ? MODO.buscar.replace('{mes}', mes).replace(
-        '{th}',
-        th
-          ? `El que pregunta juega en Ayuntamiento ${th}: si la respuesta depende del nivel, dala para ese.`
-          : 'Si la respuesta depende del nivel de ayuntamiento y no lo dijo, da la de los ayuntamientos altos (15 a 17) y dilo.'
-      )
-    : MODO.charla;
+/** "septiembre de 2026", en la hora de Cuba. */
+const mesDeHoy = () =>
+  new Date().toLocaleDateString('es-ES', { timeZone: 'America/Havana', month: 'long', year: 'numeric' });
+
+/**
+ * Las instrucciones completas de un personaje para un modo: charla, con
+ * lo encontrado en la web (buscar), o sin web pudiendo haberla (sinWeb).
+ */
+function instrucciones(quien, { buscar = false, sinWeb = false, th = null } = {}) {
+  const plantilla = buscar ? (sinWeb ? MODO.sinWeb : MODO.buscar) : MODO.charla;
+  const modo = plantilla.replace('{mes}', mesDeHoy()).replace(
+    '{th}',
+    th
+      ? `El que pregunta juega en Ayuntamiento ${th}: si la respuesta depende del nivel, dala para ese.`
+      : 'Si la respuesta depende del nivel de ayuntamiento y no lo dijo, da la de los ayuntamientos altos (15 a 17) y dilo.'
+  );
   return `${PERSONAJES[quien]}${REGLAS_COMUNES}${modo}\n`;
 }
 
@@ -333,34 +347,41 @@ async function contarFallo(admin) {
  * formato que hablan Mistral, Groq, OpenRouter y la mayoria.
  */
 async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null } = {}) {
-  const mensajes = [
-    { role: 'system', content: instrucciones(quien, { buscar, th }) },
-    // Con busqueda, la peticion de buscar va tambien en el mensaje del
-    // usuario: compound decide solo si busca o no, y con la orden
-    // unicamente en las instrucciones del sistema contesto de memoria un
-    // ejercito que no existe.
-    {
-      role: 'user',
-      content: `${nombre ? `${nombre} dice: ` : ''}${texto}${
-        buscar ? '\n\n(Busca en la web antes de contestar: quiero lo más reciente, de este año.)' : ''
-      }`,
-    },
-  ];
+  const pregunta = `${nombre ? `${nombre} dice: ` : ''}${texto}`;
 
-  // Con busqueda: primero el modelo que busca. Si no existe en este
-  // proveedor (404) se apunta para no insistir; si falla por otra cosa
-  // -429 de su propio tope, 5xx- se contesta sin web con el de siempre.
-  // Un timeout no se reintenta: ya se gasto el tiempo del webhook.
+  // Con busqueda, dos pasos. Primero el buscador SIN personaje: solo "busca
+  // y dame los datos". Con el personaje delante, compound-mini decidia que
+  // era charla y contestaba de memoria un ejercito que no existe -se vio
+  // en el log: "NO busco"-. Despues, el modelo de siempre pone esos datos
+  // en la voz de Valquiria o de Heraldo.
+  //
+  // Si el buscador no existe en este proveedor (404) se apunta para no
+  // insistir; si no busco, o fallo -429 de su tope, 5xx-, se contesta sin
+  // web y diciendolo. Un timeout no se reintenta: ya se gasto el tiempo
+  // del webhook.
+  let hechos = null;
   if (buscar && buscaDisponible) {
-    const r = await llamarCompat(MODELO_BUSCA, mensajes, { max_tokens: 700, timeout: 18000 });
-    if (r.texto) return anotar(MODELO_BUSCA, r.texto);
+    const r = await llamarCompat(MODELO_BUSCA, [{ role: 'user', content: PEDIR_DATOS(texto, mesDeHoy()) }], {
+      max_tokens: 900,
+      timeout: 18000,
+      crudo: true,
+    });
     if (r.status === 404) buscaDisponible = false;
     if (r.timeout) {
       await contarFallo(admin);
       return null;
     }
-    console.error('[ia] sin web: se contesta con el modelo de charla');
+    if (r.texto && r.busco) hechos = r.texto.slice(0, 2500);
+    else console.error('[ia] sin web: se contesta con el modelo de charla, avisando');
   }
+
+  const mensajes = [
+    { role: 'system', content: instrucciones(quien, { buscar, sinWeb: buscar && !hechos, th }) },
+    {
+      role: 'user',
+      content: hechos ? `${pregunta}\n\nLo que se encontró hoy en la web:\n${hechos}` : pregunta,
+    },
+  ];
 
   // Dos intentos como mucho: si el modelo elegido ya no existe (404), se
   // descarta, se elige otro y se prueba una vez mas en la misma llamada.
@@ -368,7 +389,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
     const modelo = await elegirModeloCompat();
     if (!modelo) break;
     const r = await llamarCompat(modelo, mensajes, { max_tokens: buscar ? 700 : 400, timeout: 8000 });
-    if (r.texto) return anotar(modelo, r.texto);
+    if (r.texto) return anotar(hechos ? `${modelo} con ${MODELO_BUSCA}` : modelo, r.texto);
     if (r.status === 404) {
       descartados.add(modelo);
       modeloCompat = null;
@@ -384,12 +405,18 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
  * Una llamada a chat/completions. Devuelve { texto } si salio, o
  * { status } / { timeout } si no, con el motivo ya escrito en el log.
  */
-async function llamarCompat(modelo, messages, { max_tokens, timeout }) {
+async function llamarCompat(modelo, messages, { max_tokens, timeout, crudo = false }) {
   try {
     const r = await fetch(`${URL_COMPAT}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LLAVE_COMPAT}` },
-      body: JSON.stringify({ model: modelo, messages, temperature: 0.8, max_tokens, ...extrasPara(modelo) }),
+      body: JSON.stringify({
+        model: modelo,
+        messages,
+        temperature: crudo ? 0.2 : 0.8,
+        max_tokens,
+        ...extrasPara(modelo),
+      }),
       signal: AbortSignal.timeout(timeout),
     });
     if (!r.ok) {
@@ -402,7 +429,8 @@ async function llamarCompat(modelo, messages, { max_tokens, timeout }) {
     // Si busco, que conste que busco y que: sin esto no se distingue una
     // respuesta buscada de una inventada.
     const herramientas = Array.isArray(mensaje.executed_tools) ? mensaje.executed_tools : [];
-    if (herramientas.length) {
+    const busco = herramientas.length > 0;
+    if (busco) {
       const que = herramientas
         .map((h) => `${h.type ?? '?'} ${String(h.arguments ?? h.input ?? '').slice(0, 80)}`)
         .join(' | ');
@@ -410,10 +438,11 @@ async function llamarCompat(modelo, messages, { max_tokens, timeout }) {
     } else if (/compound/.test(modelo)) {
       console.log(`[ia] ${modelo} NO busco`);
     }
-    const texto = limpiar(mensaje.content ?? '');
+    // Crudo: los datos para el segundo paso, sin quitarles fechas ni nada.
+    const texto = crudo ? String(mensaje.content ?? '').trim() : limpiar(mensaje.content ?? '');
     // Vacio: se quedo sin tokens razonando, o devolvio solo formato.
     if (!texto) console.error(`[ia] ${modelo} devolvio vacio`);
-    return { texto };
+    return { texto, busco };
   } catch (e) {
     console.error(`[ia] ${modelo} fallo la llamada: ${e?.message ?? e}`);
     return { timeout: /abort|timeout/i.test(String(e?.name ?? e?.message ?? '')) };
