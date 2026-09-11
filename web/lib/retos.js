@@ -46,7 +46,7 @@ export const INSTRUCCIONES_FC = `Esta imagen debería ser una captura de pantall
 
 En el chat, cada desafío amistoso terminado aparece como una tarjeta con: el nombre del atacante, una flecha roja, el nombre del defensor; debajo, tres estrellas (llenas o vacías) y el porcentaje de destrucción; y a la derecha un botón "Replay". Encima del chat hay una cabecera con el nombre del clan y "Online: N/M". En la parte de la aldea, arriba a la derecha, salen los contadores de oro, elixir, elixir oscuro y gemas.
 
-Devuelve SOLO un objeto JSON con esta forma, sin comentarios:
+Devuelve SOLO un objeto JSON con esta forma, compacto (en una sola línea, sin espacios ni saltos de línea), sin comentarios:
 {
   "es_chat_del_clan": true o false,
   "clan": "nombre del clan de la cabecera tal como se lee, o null",
@@ -142,15 +142,16 @@ export async function verificarFCConFoto(admin, { token, msg, tgId, quien }) {
   const imagen = foto ? await bajarFoto(token, foto) : null;
   if (!imagen) return { texto: `📷 No pude bajar la captura (¿muy grande?). Mándala como foto normal, no como archivo.`, verificado: false, id: null };
 
-  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_FC, max_tokens: 900 });
+  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_FC, max_tokens: 450 });
   const j = lectura?.json;
   if (!j) return { texto: `📷 Ahora mismo no puedo leer la captura, ${quien}. Prueba en un rato.`, verificado: false, id: null };
   if (j.es_chat_del_clan === false) {
     return { texto: `📷 Eso no parece el chat del clan. Abre el chat donde salen los resultados de los desafíos amistosos y manda la captura con ${FC_MINIMO} seguidos.`, verificado: false, id: null };
   }
-  if (j.clan && perfil.clan?.name && !parecidos(j.clan, perfil.clan.name)) {
-    return { texto: `📷 La cabecera dice "${esc(j.clan)}" y tu clan es <b>${esc(perfil.clan.name)}</b>: esa captura no es de tu clan.`, verificado: false, id: null };
-  }
+  // El clan de la cabecera NO se comprueba: el modelo lo confunde con el
+  // nombre de la primera tarjeta (leyo «AVENTUS» donde decia x300), y no
+  // hace falta: un desafio amistoso solo se ataca dentro del propio clan,
+  // asi que unas tarjetas con tu nombre de atacante son de tu chat.
 
   const cuenta = contarFC(lectura, perfil.name);
   if (cuenta.buenas < FC_MINIMO) {
@@ -222,7 +223,7 @@ export async function leerChatDePrueba(admin, { token, msg }) {
   const foto = fotoDe(msg);
   const imagen = foto ? await bajarFoto(token, foto) : null;
   if (!imagen) return '🔍 No pude bajar la captura.';
-  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_FC, max_tokens: 900 });
+  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_FC, max_tokens: 450 });
   const j = lectura?.json;
   if (!j) return `🔍 No pude leerla (${lectura ? 'no devolvió JSON' : 'la IA no contestó'}).`;
   const tarjetas = (Array.isArray(j.tarjetas) ? j.tarjetas : []).map(normalizarTarjeta);

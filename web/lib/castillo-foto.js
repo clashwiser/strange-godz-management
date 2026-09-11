@@ -138,7 +138,7 @@ export const INSTRUCCIONES_MAPA = `Esta imagen debería ser una captura de panta
 
 Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), una barra con "N/M" junto al botón "Donate", un botón "Scout" y las tropas donadas con su cantidad ("x1") y su nivel.
 
-Devuelve SOLO un objeto JSON con esta forma, sin comentarios:
+Devuelve SOLO un objeto JSON con esta forma, compacto (en una sola línea, sin espacios ni saltos de línea), sin comentarios:
 {
   "es_mapa_de_guerra": true o false,
   "fase": "preparacion" | "batalla" | "desconocida",

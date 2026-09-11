@@ -4,9 +4,12 @@
 // qwen/qwen3.6-27b (console.groq.com/docs/vision, sep 2026): OCR y
 // preguntas sobre la imagen, hasta 3 imagenes de 20 MB por llamada, y cada
 // imagen cuesta 2.048 tokens de entrada. En el plan Free van a 30 llamadas
-// por minuto, 1.000 al dia y 8.000 tokens por minuto: con una imagen y un
-// prompt corto caben dos o tres lecturas por minuto, que para un grupo de
-// sesenta es de sobra.
+// por minuto, 1.000 al dia, 8.000 tokens de entrada por minuto y -el que
+// muerde- 1.000 tokens de SALIDA por minuto y modelo, descontando
+// max_tokens entero al pedir. Con max_tokens en 400 caben dos lecturas por
+// minuto por modelo, cuatro con los dos modelos; para un grupo de sesenta
+// alcanza, y si un dia diez mandan el castillo a la vez, los ultimos
+// esperan unos segundos o vuelven al ✅ de un lider.
 //
 // La imagen va en base64 dentro de la peticion, no como URL: la URL de un
 // archivo de Telegram lleva el token del bot, y mandarsela a un tercero
@@ -63,7 +66,7 @@ export function extraerJson(texto) {
  * @param {object} admin   Supabase con service_role (para el tope)
  * @param {{ base64:string, mime?:string, instrucciones:string, max_tokens?:number, timeout?:number }} p
  */
-export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 700, timeout = 20000 }) {
+export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 20000 }) {
   if (!visionConfigurada || !base64 || !instrucciones) return null;
   if (!(await ajusteWeb(admin, 'ia_activa', true))) return null;
 
@@ -80,8 +83,19 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
     },
   ];
 
-  for (const modelo of MODELOS_VISION) {
-    if (descartados.has(modelo)) continue;
+  // El limite que muerde en el plan Free no es el de entrada sino el de
+  // SALIDA: 1.000 tokens de salida por minuto y modelo, y Groq descuenta
+  // max_tokens entero al pedir, no lo que sale. Por eso max_tokens va
+  // justo (el JSON de una captura son 150-250 tokens), y ante un 429 se
+  // prueba el otro modelo -tiene su propio cupo- y, si tambien esta a
+  // tope, se espera lo que Groq pide ("try again in 8.4s") y se repite,
+  // una vez, si cabe en lo que le queda de vida a la funcion.
+  const t0 = Date.now();
+  const candidatos = MODELOS_VISION.filter((m) => !descartados.has(m));
+  const cola = [...candidatos];
+  let esperoYa = false;
+  while (cola.length) {
+    const modelo = cola.shift();
     try {
       const r = await fetch(`${URL_BASE}/chat/completions`, {
         method: 'POST',
@@ -102,6 +116,22 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
         descartados.add(modelo);
         continue;
       }
+      if (r.status === 429) {
+        const detalle = (await r.text().catch(() => '')).slice(0, 300);
+        console.error(`[vision] ${modelo} respondio 429: ${detalle}`);
+        if (cola.length) continue;
+        const segundos = Number(/try again in ([\d.]+)s/i.exec(detalle)?.[1] ?? NaN);
+        const cabe = Number.isFinite(segundos) && segundos <= 12 && Date.now() - t0 + segundos * 1000 < 18000;
+        if (cabe && !esperoYa) {
+          esperoYa = true;
+          console.log(`[vision] espero ${segundos}s y repito con ${candidatos[0]}`);
+          await new Promise((res) => setTimeout(res, segundos * 1000 + 300));
+          cola.push(candidatos[0]);
+          continue;
+        }
+        await contarFallo(admin);
+        return null;
+      }
       if (!r.ok) {
         const detalle = (await r.text().catch(() => '')).slice(0, 300);
         console.error(`[vision] ${modelo} respondio ${r.status}: ${detalle}`);
@@ -110,7 +140,8 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
       }
       const j = await r.json();
       const texto = String(j?.choices?.[0]?.message?.content ?? '').trim();
-      console.log(`[vision] ${modelo}: ${texto.slice(0, 400)}`);
+      // Entero, o casi: es lo que un lider mira cuando una lectura no cuadra.
+      console.log(`[vision] ${modelo}: ${texto.slice(0, 1500)}`);
       if (!texto) return null;
       return { texto, json: extraerJson(texto), modelo };
     } catch (e) {
