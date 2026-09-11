@@ -1,0 +1,131 @@
+// El motor compatible con OpenAI de pensar.js, contra un proveedor falso
+// en local: elige el modelo entre los que la llave tiene, y si el elegido
+// devuelve 404 lo descarta y vuelve a elegir en la misma llamada. Es
+// exactamente lo que paso el primer dia con Groq.
+
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+
+// Lo que el proveedor falso contesta y lo que recibe.
+const estado = {
+  modelos: ['whisper-large-v3', 'llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+  retirados: new Set(['llama-3.3-70b-versatile']),
+  peticiones: [],
+  respuesta: '**Claro, mi cielo.** Bailo casino desde que tenía diez años.',
+};
+
+let servidor;
+let pensar;
+let usoDeHoy;
+
+// El admin de Supabase, de mentira: cuenta llamadas y fallos como ia_contar.
+const contador = { llamadas: 0, fallos: 0 };
+const admin = {
+  rpc: async (_fn, { p_fallo } = {}) => {
+    if (p_fallo) contador.fallos++;
+    contador.llamadas++;
+    return { data: contador.llamadas, error: null };
+  },
+  from: () => ({
+    select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { llamadas: contador.llamadas, fallos: contador.fallos } }) }) }),
+  }),
+};
+
+before(async () => {
+  servidor = createServer((req, res) => {
+    let cuerpo = '';
+    req.on('data', (c) => (cuerpo += c));
+    req.on('end', () => {
+      if (req.url === '/v1/models') {
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ data: estado.modelos.map((id) => ({ id, object: 'model' })) }));
+        return;
+      }
+      if (req.url === '/v1/chat/completions') {
+        const p = JSON.parse(cuerpo);
+        estado.peticiones.push(p);
+        res.setHeader('content-type', 'application/json');
+        if (estado.retirados.has(p.model)) {
+          res.statusCode = 404;
+          res.end(JSON.stringify({ error: { message: `The model \`${p.model}\` does not exist or you do not have access to it.`, code: 'model_not_found' } }));
+          return;
+        }
+        res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: estado.respuesta } }] }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end('{}');
+    });
+  });
+  await new Promise((ok) => servidor.listen(0, '127.0.0.1', ok));
+  const puerto = servidor.address().port;
+
+  // Las variables se leen al cargar el modulo, asi que van antes del import.
+  process.env.IA_LLAVE = 'llave-de-prueba';
+  process.env.IA_URL = `http://127.0.0.1:${puerto}/v1/`;
+  process.env.IA_MODELO = 'llama-3.3-70b-versatile'; // el forzado, que ya no existe
+  delete process.env.GEMINI_API_KEY;
+  ({ pensar, usoDeHoy } = await import('../web/lib/pensar.js'));
+});
+
+after(() => servidor.close());
+
+test('pensar: el modelo forzado da 404, se descarta, se elige otro y contesta en la misma llamada', async () => {
+  const r = await pensar(admin, 'valquiria', '¿tú sabes bailar casino?', 'Cris');
+  assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.', 'sin markdown, texto limpio');
+
+  assert.equal(estado.peticiones.length, 2, 'dos intentos: el retirado y el bueno');
+  assert.equal(estado.peticiones[0].model, 'llama-3.3-70b-versatile');
+  assert.equal(estado.peticiones[1].model, 'openai/gpt-oss-120b', 'el primero de la lista que la llave tiene');
+  assert.equal(contador.fallos, 0, 'un 404 con reintento bueno no cuenta como fallo');
+  assert.equal(contador.llamadas, 1, 'una llamada gastada, no dos');
+});
+
+test('pensar: la segunda vez va directo al modelo bueno', async () => {
+  estado.peticiones = [];
+  await pensar(admin, 'heraldo', 'pizza con piña', null);
+  assert.equal(estado.peticiones.length, 1);
+  assert.equal(estado.peticiones[0].model, 'openai/gpt-oss-120b');
+});
+
+test('pensar: a los gpt-oss se les pide razonar poco y no devolver el razonamiento', () => {
+  const p = estado.peticiones[0];
+  assert.equal(p.reasoning_effort, 'low');
+  assert.equal(p.include_reasoning, false);
+  assert.ok(p.max_tokens >= 300, 'el razonamiento cuenta en max_tokens; con 120 saldria vacio');
+  assert.equal(p.messages[0].role, 'system');
+  assert.match(p.messages[0].content, /Heraldo/);
+  assert.equal(p.messages[1].content, 'pizza con piña');
+});
+
+test('pensar: con nombre, la pregunta lleva quien la hace', async () => {
+  estado.peticiones = [];
+  await pensar(admin, 'valquiria', 'hola', 'Deibis');
+  assert.equal(estado.peticiones[0].messages[1].content, 'Deibis dice: hola');
+});
+
+test('usoDeHoy: enseña el modelo que de verdad se usa', async () => {
+  const u = await usoDeHoy(admin);
+  assert.equal(u.motor, 'openai');
+  assert.equal(u.configurada, true);
+  assert.equal(u.modelo, 'openai/gpt-oss-120b');
+  assert.equal(u.tope, 300);
+});
+
+test('pensar: sin ningun modelo de texto, se rinde con fallo contado y sin reventar', async () => {
+  const antes = { ...contador };
+  estado.retirados.add('openai/gpt-oss-120b');
+  estado.retirados.add('openai/gpt-oss-20b');
+  estado.peticiones = [];
+  const r = await pensar(admin, 'valquiria', 'otra cosa', null);
+  assert.equal(r, null);
+  assert.ok(contador.fallos > antes.fallos, 'cuenta el fallo');
+  assert.deepEqual(
+    estado.peticiones.map((p) => p.model),
+    ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+    'probo los dos que quedaban y no el whisper',
+  );
+  // Y a partir de aqui no hay modelo: la pestaña Bots lo enseña como tal.
+  assert.equal((await usoDeHoy(admin)).modelo, null);
+});

@@ -40,12 +40,70 @@ const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
 //
 //   IA_LLAVE     la llave del proveedor
 //   IA_URL       la base, p. ej. https://api.groq.com/openai/v1
-//   IA_MODELO    el modelo, p. ej. llama-3.3-70b-versatile
+//   IA_MODELO    opcional; si no, se elige solo entre los que la llave tenga
 const LLAVE_COMPAT = process.env.IA_LLAVE;
 const URL_COMPAT = (process.env.IA_URL || '').replace(/\/$/, '');
 const MOTOR = LLAVE_COMPAT && URL_COMPAT ? 'openai' : LLAVE ? 'gemini' : null;
 
 export const iaConfigurada = Boolean(MOTOR);
+
+// Modelos del motor compatible, por orden de preferencia. Tampoco van
+// escritos a fuego: el primer dia, llama-3.3-70b-versatile -que estaba en
+// la lista publica de Groq- contesto 404 "does not exist or you do not
+// have access": Groq lo habia pasado al plan Enterprise. Se pregunta a
+// GET {IA_URL}/models y se coge el primero de aqui que exista; si uno
+// devuelve 404 se descarta y se vuelve a elegir, en la misma llamada.
+//
+// Los gpt-oss son modelos que razonan antes de contestar, y ese
+// razonamiento cuenta en max_tokens: por eso van con esfuerzo bajo y sin
+// devolver el razonamiento. Groq gratis: 1000 llamadas al dia, 30 por
+// minuto (console.groq.com/docs/rate-limits, plan Free).
+const PREFERIDOS_COMPAT = [
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'qwen/qwen3.8-27b',
+  'qwen/qwen3.6-27b',
+  'groq/compound-mini',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'mistral-small-latest',
+  'open-mistral-nemo',
+];
+// Lo que no sirve para charlar: audio, guardias, embeddings.
+const NO_CHARLA = /whisper|tts|orpheus|guard|safeguard|embed|moderation|ocr|rerank/i;
+let modeloCompat = process.env.IA_MODELO || null;
+const descartados = new Set();
+
+async function modelosCompat() {
+  try {
+    const r = await fetch(`${URL_COMPAT}/models`, {
+      headers: { Authorization: `Bearer ${LLAVE_COMPAT}` },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j.data ?? []).map((m) => String(m.id));
+  } catch {
+    return [];
+  }
+}
+
+async function elegirModeloCompat() {
+  if (modeloCompat && !descartados.has(modeloCompat)) return modeloCompat;
+  const hay = (await modelosCompat()).filter((m) => !descartados.has(m));
+  const conjunto = new Set(hay);
+  modeloCompat = PREFERIDOS_COMPAT.find((m) => conjunto.has(m)) ?? hay.find((m) => !NO_CHARLA.test(m)) ?? null;
+  if (modeloCompat) console.log(`[ia] modelo elegido: ${modeloCompat}`);
+  else console.error(`[ia] la llave de ${URL_COMPAT} no tiene ningun modelo de texto disponible`);
+  return modeloCompat;
+}
+
+/** Parametros que solo entienden algunos modelos; a los demas no se les mandan. */
+function extrasPara(modelo) {
+  if (/gpt-oss/.test(modelo)) return { reasoning_effort: 'low', include_reasoning: false };
+  if (/qwen3/.test(modelo)) return { reasoning_effort: 'none' };
+  return {};
+}
 
 // Que modelo usar. Google retira modelos sin avisar: gemini-2.5-flash-lite
 // salia como gratis en la pagina de precios y la API devolvia 404. Asi
@@ -210,36 +268,52 @@ async function contarFallo(admin) {
  * formato que hablan Mistral, Groq, OpenRouter y la mayoria.
  */
 async function pensarCompat(admin, quien, texto, nombre) {
-  const modelo = process.env.IA_MODELO || 'llama-3.3-70b-versatile';
-  try {
-    const r = await fetch(`${URL_COMPAT}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LLAVE_COMPAT}` },
-      body: JSON.stringify({
-        model: modelo,
-        messages: [
-          { role: 'system', content: PERSONAJES[quien] },
-          { role: 'user', content: `${nombre ? `${nombre} dice: ` : ''}${texto}` },
-        ],
-        temperature: 0.9,
-        max_tokens: 120,
-      }),
-      signal: AbortSignal.timeout(7000),
-    });
-    if (!r.ok) {
-      const detalle = (await r.text().catch(() => '')).slice(0, 300);
-      console.error(`[ia] ${modelo} en ${URL_COMPAT} respondio ${r.status}: ${detalle}`);
+  // Dos intentos como mucho: si el modelo elegido ya no existe (404), se
+  // descarta, se elige otro y se prueba una vez mas en la misma llamada.
+  for (let intento = 0; intento < 2; intento++) {
+    const modelo = await elegirModeloCompat();
+    if (!modelo) {
       await contarFallo(admin);
       return null;
     }
-    const j = await r.json();
-    const salida = j?.choices?.[0]?.message?.content ?? '';
-    return limpiar(salida) || null;
-  } catch (e) {
-    console.error(`[ia] fallo la llamada: ${e?.message ?? e}`);
-    await contarFallo(admin);
-    return null;
+    try {
+      const r = await fetch(`${URL_COMPAT}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LLAVE_COMPAT}` },
+        body: JSON.stringify({
+          model: modelo,
+          messages: [
+            { role: 'system', content: PERSONAJES[quien] },
+            { role: 'user', content: `${nombre ? `${nombre} dice: ` : ''}${texto}` },
+          ],
+          temperature: 0.8,
+          max_tokens: 400,
+          ...extrasPara(modelo),
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) {
+        const detalle = (await r.text().catch(() => '')).slice(0, 300);
+        console.error(`[ia] ${modelo} en ${URL_COMPAT} respondio ${r.status}: ${detalle}`);
+        if (r.status === 404) {
+          descartados.add(modelo);
+          modeloCompat = null;
+          continue;
+        }
+        await contarFallo(admin);
+        return null;
+      }
+      const j = await r.json();
+      const salida = j?.choices?.[0]?.message?.content ?? '';
+      return limpiar(salida) || null;
+    } catch (e) {
+      console.error(`[ia] fallo la llamada: ${e?.message ?? e}`);
+      await contarFallo(admin);
+      return null;
+    }
   }
+  await contarFallo(admin);
+  return null;
 }
 
 /**
@@ -266,7 +340,7 @@ export async function usoDeHoy(admin) {
     motor: MOTOR,
     modelo:
       MOTOR === 'openai'
-        ? process.env.IA_MODELO || 'llama-3.3-70b-versatile'
+        ? await elegirModeloCompat()
         : (modeloElegido ?? (MOTOR === 'gemini' ? await elegirModelo() : null)),
     hoy: data?.llamadas ?? 0,
     fallos: data?.fallos ?? 0,
