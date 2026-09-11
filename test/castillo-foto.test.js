@@ -61,9 +61,11 @@ test('juzgar: la ventana de una sola base, sin posicion, se casa por el nombre',
   assert.equal(juzgar({ lectura: l, abajo, oponente: 'Dragones Rojos' }).veredicto, 'lleno');
 });
 
-test('juzgar: otra guerra si el rival leido no es el de ahora', () => {
+test('juzgar: otra guerra si el rival leido no es el de ahora; nuestro propio nombre no cuenta', () => {
   const l = lectura({ es_mapa_de_guerra: true, clan_enemigo: 'Los Pollos', bases: [{ posicion: 2, nombre: 'Beto', tropas: 50, capacidad: 50 }] });
-  assert.deepEqual(juzgar({ lectura: l, abajo, oponente: 'Dragones Rojos' }), { veredicto: 'otra_guerra', leido: 'Los Pollos' });
+  assert.deepEqual(juzgar({ lectura: l, abajo, oponente: 'Dragones Rojos', propio: 'x300' }), { veredicto: 'otra_guerra', leido: 'Los Pollos' });
+  const nuestro = lectura({ es_mapa_de_guerra: true, clan_enemigo: 'x300', bases: [{ posicion: 2, nombre: 'Beto', tropas: 50, capacidad: 50 }] });
+  assert.equal(juzgar({ lectura: nuestro, abajo, oponente: 'Dragones Rojos', propio: 'x300' }).veredicto, 'lleno');
 });
 
 test('juzgar: no se ve si el de abajo no sale, o la posicion cuadra pero el nombre no', () => {

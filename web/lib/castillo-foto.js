@@ -193,13 +193,17 @@ const numero = (v) => {
  *
  * @returns {{ veredicto: 'lleno'|'incompleto'|'no_se_ve'|'otra_guerra'|'no_es_mapa'|'ilegible', tropas?:number, capacidad?:number, leido?:string }}
  */
-export function juzgar({ lectura, abajo, oponente }) {
+export function juzgar({ lectura, abajo, oponente, propio = null }) {
   const j = lectura?.json;
   if (!j || typeof j !== 'object') return { veredicto: 'ilegible' };
   if (j.es_mapa_de_guerra === false) return { veredicto: 'no_es_mapa' };
 
-  // Si se lee el rival y no es el de esta guerra, la captura es de otra.
-  if (j.clan_enemigo && oponente && !parecidos(j.clan_enemigo, oponente)) {
+  // El rival no pinta nada en la donacion -el castillo es el del aliado de
+  // abajo-; su nombre solo sirve de sello de QUE guerra es la captura. Si
+  // se lee y no es el de esta guerra, la captura es de otra. Si el modelo
+  // leyo el nombre de nuestro propio clan (la cabecera dice "x300 vs
+  // Rival" y puede coger el lado equivocado), no se le hace caso.
+  if (j.clan_enemigo && oponente && !parecidos(j.clan_enemigo, oponente) && !(propio && parecidos(j.clan_enemigo, propio))) {
     return { veredicto: 'otra_guerra', leido: String(j.clan_enemigo) };
   }
 
@@ -296,7 +300,7 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
   }
 
   const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_MAPA });
-  const fallo = juzgar({ lectura, abajo, oponente: guerra.opponent?.name });
+  const fallo = juzgar({ lectura, abajo, oponente: guerra.opponent?.name, propio: guerra.clan?.name });
 
   switch (fallo.veredicto) {
     case 'lleno': {
