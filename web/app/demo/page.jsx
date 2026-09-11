@@ -248,7 +248,7 @@ export default function Demo() {
         {t('· aún no hay Supabase conectado')}
       </div>
       <header className="top">
-        <h1>Strange Godz Alliance · Management</h1>
+        <h1>Strange Godz Alliance · Management <span className="os">OS</span></h1>
         {/* Mismo orden que el panel de verdad: idioma, correo, temas y Salir
             al final. Si la demo lo pone distinto deja de servir para mirar
             como queda. */}
@@ -262,7 +262,7 @@ export default function Demo() {
       <div className="wrap">
         <nav className="tabs">
           {TABS.map(([k, l]) => (
-            <button key={k} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
+            <button key={k} className={k === 'cerebro' ? 'tab-cerebro' : undefined} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
               {t(l)}
             </button>
           ))}

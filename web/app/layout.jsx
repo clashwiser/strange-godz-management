@@ -3,7 +3,7 @@ import { guionAntiParpadeo } from './temas';
 import { ProveedorIdioma, AvisoLegal } from './idioma';
 
 export const metadata = {
-  title: 'Strange Godz Alliance · Management',
+  title: 'Strange Godz Alliance · Management OS',
   description: 'Rendimiento, CWL y premios de la alianza Strange Godz',
   manifest: '/manifest.webmanifest',
   // iOS ignora los iconos del manifest y solo mira apple-touch-icon.

@@ -1276,3 +1276,134 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
 .lab-prompt button:hover:not(:disabled), .lab-sugerencias button:hover:not(:disabled) { background: rgba(125, 255, 154, .12); }
 .lab-sugerencias { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: clamp(14px, 1.3vw, 18px); }
 @media (max-width: 640px) { .lab-pantalla { padding: 12px 3% 10px; } .lab-terminal { font-size: 14px; } }
+
+/* ---------- Cerebro: el mundo del laboratorio ----------
+   Todo lo de la pestaña vive dentro de .lab-mundo y NO cambia con los
+   temas: es el laboratorio, siempre oscuro, con cables por los bordes. */
+.lab-mundo {
+  position: relative; margin: 14px -6px 0; padding: 22px 28px 30px;
+  border-radius: 22px;
+  color: #d7e6f5;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(40, 120, 200, .22), transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(0, 200, 255, .10), transparent 50%),
+    repeating-linear-gradient(0deg, rgba(120, 200, 255, .035) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, rgba(120, 200, 255, .035) 0 1px, transparent 1px 34px),
+    #05080f;
+  border: 2px solid #12304a;
+  box-shadow: 0 0 0 1px rgba(80, 220, 255, .12), 0 30px 60px rgba(0,0,0,.6), inset 0 0 80px rgba(0, 60, 120, .25);
+  overflow: hidden;
+}
+.lab-contenido { position: relative; z-index: 1; }
+.lab-cables { position: absolute; top: 0; bottom: 0; width: 26px; z-index: 0; pointer-events: none; opacity: .9; }
+.lab-cables.izq { left: 0; }
+.lab-cables.der { right: 0; transform: scaleX(-1); }
+.lab-cables .cable { fill: none; stroke: #1f2733; stroke-width: 6px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.lab-cables .cable-luz {
+  fill: none; stroke: #7ff0ff; stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linecap: round;
+  stroke-dasharray: 14 320; stroke-dashoffset: 334;
+  filter: drop-shadow(0 0 4px #7ff0ff) drop-shadow(0 0 9px rgba(80, 220, 255, .8));
+  animation: lab-electricidad 3.5s linear infinite;
+}
+@keyframes lab-electricidad { from { stroke-dashoffset: 334; } to { stroke-dashoffset: -334; } }
+.lab-mundo .sec { color: #9ff7ff; text-shadow: 0 0 10px rgba(80, 220, 255, .6); -webkit-text-stroke: 0; display: flex; align-items: center; gap: 8px; }
+.lab-mundo .sec::after { background: linear-gradient(90deg, rgba(80, 220, 255, .7), transparent) !important; }
+.lab-mundo .card, .lab-mundo .col {
+  background: linear-gradient(180deg, rgba(14, 24, 40, .92), rgba(8, 14, 26, .92));
+  border: 1px solid rgba(80, 220, 255, .35); border-radius: 12px;
+  box-shadow: 0 0 18px rgba(0, 170, 255, .10), inset 0 1px 0 rgba(255,255,255,.05);
+  color: #d7e6f5; animation: lab-aparece .55s both;
+}
+.lab-mundo .card::after, .lab-mundo .col::after { display: none; }
+.lab-mundo .card h3, .lab-mundo .col h3 { color: #9ff7ff; -webkit-text-stroke: 0; text-shadow: 0 0 8px rgba(80, 220, 255, .45); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lab-mundo .card .big { color: #ffffff; text-shadow: 0 0 14px rgba(80, 220, 255, .9), 0 0 2px #fff; }
+.lab-mundo .card .sub, .lab-mundo .sub { color: #8fa6bf; }
+.lab-mundo .card p { color: #d7e6f5; }
+.lab-mundo table { color: #d7e6f5; }
+.lab-mundo th { background: rgba(80, 220, 255, .12); color: #9ff7ff; -webkit-text-stroke: 0; border-bottom-color: rgba(80, 220, 255, .35); }
+.lab-mundo td { border-bottom-color: rgba(80, 220, 255, .12); }
+.lab-mundo code { color: #ffe27a; background: rgba(255, 226, 122, .08); padding: 1px 5px; border-radius: 4px; }
+.lab-mundo button.accion {
+  color: #04121c; -webkit-text-stroke: 0; text-shadow: none;
+  background: linear-gradient(180deg, #8ff4ff, #22b8e8); border-color: #0b6d8f;
+  box-shadow: 0 0 14px rgba(80, 220, 255, .55), inset 0 2px 0 rgba(255,255,255,.5);
+}
+.lab-mundo button.fantasma {
+  color: #9ff7ff; border-color: rgba(80, 220, 255, .55); background: rgba(80, 220, 255, .06);
+  -webkit-text-stroke: 0; text-shadow: none;
+}
+.lab-mundo button.fantasma:hover:not(:disabled) { background: rgba(80, 220, 255, .16); }
+.lab-mundo .campo, .lab-mundo input.campo, .lab-mundo textarea.campo, .lab-mundo select.campo {
+  background: #0a1220; color: #e6f2ff; border-color: rgba(80, 220, 255, .4);
+}
+.lab-mundo .campo:focus { border-color: #7ff0ff; box-shadow: 0 0 0 3px rgba(80, 220, 255, .2); }
+.lab-mundo .pill { -webkit-text-stroke: 0; }
+.lab-mundo .pill:not(.ok):not(.mal):not(.aviso) { color: #9ff7ff; background: rgba(80, 220, 255, .12); border-color: rgba(80, 220, 255, .4); }
+.lab-mundo .aviso, .lab-mundo .error { position: relative; z-index: 2; }
+.lab-mundo .tabla-scroll { border-color: rgba(80, 220, 255, .3); background: rgba(8, 14, 26, .9); }
+.lab-mundo .fila-check, .lab-mundo label { color: #d7e6f5; }
+.lab-mundo .vacio { color: #8fa6bf; }
+@keyframes lab-aparece { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.lab-linea { animation: lab-aparece .35s both; }
+.lab-bit { padding: 6px 0; border-bottom: 1px solid rgba(80, 220, 255, .12); }
+.lab-info-escena { position: absolute; left: 2%; top: 5%; }
+.lab-guia { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 14px; font-size: clamp(14px, 1.3vw, 18px); }
+.lab-guia-fila { display: flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) { .lab-mundo { margin: 10px -4px 0; padding: 14px 16px 22px; } .lab-cables { width: 14px; } }
+
+/* La "i" de informacion */
+.info-caja { position: relative; display: inline-block; vertical-align: middle; }
+.info-boton {
+  width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(80, 220, 255, .7);
+  background: rgba(80, 220, 255, .12); color: #9ff7ff; font: 700 12px/18px Georgia, serif; font-style: italic;
+  cursor: pointer; padding: 0; box-shadow: 0 0 8px rgba(80, 220, 255, .35); vertical-align: middle;
+}
+.info-boton:hover { background: rgba(80, 220, 255, .3); }
+.info-globo {
+  position: absolute; z-index: 30; left: 0; top: 26px; width: min(340px, 78vw);
+  background: #0b1626; color: #e6f2ff; border: 1px solid rgba(80, 220, 255, .55); border-radius: 10px;
+  padding: 10px 30px 10px 12px; font: 400 14px/1.4 system-ui, sans-serif; text-shadow: none; text-transform: none; letter-spacing: 0;
+  box-shadow: 0 10px 30px rgba(0,0,0,.6), 0 0 16px rgba(80, 220, 255, .25); white-space: normal; -webkit-text-stroke: 0;
+}
+.info-globo b { display: block; margin-bottom: 4px; color: #9ff7ff; }
+.info-cerrar { position: absolute; right: 6px; top: 4px; background: none; border: 0; color: #9ff7ff; font-size: 18px; cursor: pointer; line-height: 1; }
+
+/* La pestaña Cerebro: neon azul con chispas, siempre, este el tema que este. */
+nav.tabs button.tab-cerebro, nav.tabs button.tab-cerebro[data-on="1"] {
+  position: relative; overflow: hidden;
+  color: #fff; -webkit-text-stroke: 0; text-shadow: 0 0 8px #9ff7ff, 0 0 2px #fff;
+  background: linear-gradient(180deg, #37d6ff 0%, #0b74d8 100%);
+  border-color: #0a3d7a; border-bottom-color: #062a55;
+  box-shadow: 0 0 14px rgba(55, 214, 255, .8), 0 0 30px rgba(20, 140, 255, .5), inset 0 2px 0 rgba(255,255,255,.45);
+  animation: tab-neon 2.4s ease-in-out infinite;
+}
+nav.tabs button.tab-cerebro::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(circle 2px at 18% 32%, #fff 55%, transparent 60%),
+    radial-gradient(circle 1.5px at 66% 62%, #fff 55%, transparent 60%),
+    radial-gradient(circle 1.3px at 44% 78%, #fff 55%, transparent 60%),
+    radial-gradient(circle 1.8px at 84% 24%, #fff 55%, transparent 60%),
+    radial-gradient(circle 1.2px at 30% 70%, #fff 55%, transparent 60%);
+  animation: tab-chispas 1.7s linear infinite;
+}
+@keyframes tab-neon {
+  0%, 100% { box-shadow: 0 0 14px rgba(55, 214, 255, .8), 0 0 30px rgba(20, 140, 255, .5), inset 0 2px 0 rgba(255,255,255,.45); }
+  50% { box-shadow: 0 0 22px rgba(55, 214, 255, 1), 0 0 44px rgba(20, 140, 255, .8), inset 0 2px 0 rgba(255,255,255,.6); }
+}
+@keyframes tab-chispas {
+  0% { opacity: 0; transform: translateY(2px); }
+  30% { opacity: 1; }
+  60% { opacity: .2; transform: translateY(-2px) translateX(1px); }
+  80% { opacity: .9; }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+
+/* "OS": lo que hemos construido. Neon, como la pestaña Cerebro. */
+header.top h1 .os {
+  display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 8px;
+  color: #fff; -webkit-text-stroke: 0; text-shadow: 0 0 8px #9ff7ff, 0 0 2px #fff;
+  background: linear-gradient(180deg, #37d6ff 0%, #0b74d8 100%); border: 2px solid #0a3d7a;
+  box-shadow: 0 0 12px rgba(55, 214, 255, .75); font-size: .85em; vertical-align: 2px;
+  animation: tab-neon 2.4s ease-in-out infinite;
+}

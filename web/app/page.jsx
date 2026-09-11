@@ -209,7 +209,7 @@ export default function Panel() {
   return (
     <>
       <header className="top">
-        <h1>Strange Godz Alliance · Management</h1>
+        <h1>Strange Godz Alliance · Management <span className="os">OS</span></h1>
         {/* Los controles van juntos en su propia caja. Antes eran hermanos
             sueltos del titulo y, cuando el titulo crecia -los temas Strange y
             Godz usan Cinzel, mas ancha que Lilita One-, se iban a una segunda
@@ -240,8 +240,8 @@ export default function Panel() {
       <div className="wrap">
         <nav className="tabs">
           {TABS.map(([k, label]) => (
-            <button key={k} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
-              {t(label)}
+            <button key={k} className={k === 'cerebro' ? 'tab-cerebro' : undefined} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
+              {k === 'cerebro' ? '🧠 ' : ''}{t(label)}
             </button>
           ))}
           <span style={{ flex: 1 }} />

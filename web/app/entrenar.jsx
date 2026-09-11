@@ -21,6 +21,7 @@ import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { elegirLeccion, aplicarLeccion } from '../lib/lecciones';
 import { useT } from './idioma';
+import { Info } from './info';
 
 const BOTS = [
   ['ambos', 'Los dos'],
@@ -120,7 +121,7 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
 
   return (
     <>
-      <h2 className="sec">{t('Entrenar a los bots')}</h2>
+      <h2 className="sec">{t('Entrenar a los bots')} <Info clave="lecciones" /></h2>
       <p className="sub" style={{ marginTop: 0 }}>
         {t(
           'Lo que enseñes aquí lo aplican antes que su cerebro de frases y que la IA. Tarda un minuto en entrar en vigor.'
@@ -130,7 +131,7 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
       <div className="grid">
         {/* ---- Nueva leccion ---- */}
         <form className="card" onSubmit={guardarLeccion}>
-          <h3>{t('Nueva lección')}</h3>
+          <h3>{t('Nueva lección')} <Info clave="lecciones" /></h3>
           <p className="sub">
             {t('Cuando alguien diga algo parecido a esto (sin importar tildes ni el orden), el bot contesta eso.')}
           </p>
@@ -169,7 +170,7 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
 
         {/* ---- Probador ---- */}
         <div className="card">
-          <h3>{t('Probar')}</h3>
+          <h3>{t('Probar')} <Info clave="probar" /></h3>
           <p className="sub">{t('Escribe lo que diría alguien en el grupo y mira qué lección saltaría (incluida la que estás escribiendo).')}</p>
           <input className="campo" value={prueba} placeholder={t('Heraldo, ¿cómo entro al clan?')} onChange={(e) => setPrueba(e.target.value)} />
           {resultado && (
@@ -195,7 +196,7 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
 
         {/* ---- Lo que saben ---- */}
         <div className="card">
-          <h3>{t('Lo que deben saber')}</h3>
+          <h3>{t('Lo que deben saber')} <Info clave="memoriaLideres" /></h3>
           <p className="sub">
             {t(
               'Cosas del clan que la IA no puede saber sola: quién reparte los premios, cuándo se juega la CWL, reglas de la casa. Entra en sus instrucciones tal cual.'
@@ -223,7 +224,7 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
       {propuestas.length > 0 && (
         <div className="card" style={{ marginTop: 12 }}>
           <h3>
-            🧠 {t('Propuestas del cerebro')} <span className="pill aviso">{propuestas.length}</span>
+            🧠 {t('Propuestas del cerebro')} <span className="pill aviso">{propuestas.length}</span> <Info clave="propuestas" />
           </h3>
           <p className="sub" style={{ marginTop: 0 }}>
             {t('Alguien corrigió a un bot en el grupo contestando a un mensaje suyo. Completa qué frase la dispara y qué debe responder, y apruébala; o descártala.')}
@@ -368,7 +369,7 @@ function FuentesDelMeta({ d, recargar, aviso }) {
 
   return (
     <>
-      <h2 className="sec">{t('De dónde sale el meta')}</h2>
+      <h2 className="sec">{t('De dónde sale el meta')} <Info clave="fuentes" /></h2>
       <p className="sub" style={{ marginTop: 0 }}>
         {t(
           'Cuando preguntan por ejércitos, la IA lee primero lo último de estos canales (títulos y enlaces de ejército de sus videos, por la API de YouTube) y los artículos de estos feeds; la búsqueda web se limita a estas webs. Se renueva solo cada seis horas.'
@@ -389,7 +390,7 @@ function FuentesDelMeta({ d, recargar, aviso }) {
           <textarea className="campo" rows={3} value={f.webs} onChange={(e) => setF((x) => ({ ...x, webs: e.target.value }))} spellCheck={false} />
         </div>
         <div className="card">
-          <h3>{t('El digesto')}</h3>
+          <h3>{t('El digesto')} <Info clave="meta" /></h3>
           {digesto?.actualizado ? (
             <p className="sub">
               {t('Último')}: {new Date(digesto.actualizado).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })} · {digesto.videos} videos · {digesto.articulos} {t('artículos')}
