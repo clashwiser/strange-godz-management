@@ -1,0 +1,164 @@
+-- =====================================================================
+-- Las normas del clan, editables desde el panel y aprendidas por los bots
+-- Ejecutar DESPUES de 025_meta_fuentes.sql
+-- =====================================================================
+--
+-- Las normas viejas vivian en un .docx de hace años (donaciones diarias
+-- con cuentas de apoyo, WhatsApp, findthisbase). Las nuevas viven aqui:
+--
+--   reglas          el texto completo, en Markdown, editable en Reglas
+--   reglas_resumen  lo que cabe en un mensaje de Telegram
+--   reglas_fecha    cuando se tocaron por ultima vez
+--
+-- Los bots las leen (web/lib/entrenamiento.js) para contestarlas en el
+-- grupo, y Valquiria las hace leer y aceptar antes de entrar: paso
+-- 'reglas' de la entrevista, con acepto_normas en la solicitud.
+--
+-- Y los puntos de disciplina: la tabla castillos guarda cada "ya doné mi
+-- castillo" con la comprobacion que se pudo hacer (la API de Clash no
+-- enseña el castillo de guerra; si el contador de donaciones subio desde
+-- el ultimo snapshot, se da por verificado; si no, lo decide un lider).
+
+insert into config (clave, valor, descripcion) values
+  ('reglas', to_jsonb($md$# Normas de Strange Godz
+
+*x300 · STRANGE-WORLD · Cuba · Olympus · Cuban Pirates — versión septiembre 2026*
+
+x300 es uno de los primeros clanes del juego y esto es una alianza **competitiva**: jugamos en serio, para subir de liga, ganar guerras y ser el mejor clan de Cuba. Nadie tiene que ser el mejor jugador del mundo, pero aquí se cumple. Si buscas un clan para pasar el rato, hay muchos; este no es uno de ellos.
+
+Estas normas las lees antes de entrar y las aceptas al entrar. Los líderes las aplican a todos por igual.
+
+## 1. Comunicación
+
+- **Telegram es obligatorio.** Es donde salen las listas de CWL, los avisos de guerra, las bases y los premios. Al entrar al grupo preséntate con `/soy TuNombreDelJuego` para que Heraldo te reconozca y te avise cuando haga falta.
+- WhatsApp es secundario y manual: lo que salga por ahí es copia de lo de Telegram.
+- Contesta cuando te mencionen. Un aviso sin respuesta cuenta como que no lo viste, y las decisiones se toman con lo que hay.
+- Si vas a estar fuera (viaje, trabajo, sin datos), avísalo antes en el grupo o a un líder. Con aviso no hay problema; sin aviso sí.
+- Respeto siempre. Aquí no se insulta, no se humilla a nadie por un ataque, y no se habla de política. Las quejas y reclamaciones se hacen **en privado con un líder**, nunca en el grupo ni en el chat del juego.
+- Las decisiones de guerra y liga las toman los líderes. Se puede opinar; no se discute en medio de una guerra.
+
+## 2. Guerra normal
+
+- Te apuntas a guerra solo si vas a usar los dos ataques. Si no puedes, marca que no participas antes del sorteo.
+- Los dos ataques son obligatorios. Dejar un ataque sin usar es una falta grave.
+- **No atacamos al espejo.** Se hace scouting, eliges una base a la que le puedes hacer tres estrellas, la marcas en el mapa, la estudias y la atacas. Si otro ya marcó esa base, elige otra o coordínalo en el grupo.
+- Primer ataque, a por tres estrellas en una base marcada. Segundo ataque, a cerrar lo que quedó abierto (la base más alta que aún no tenga tres).
+- No dejes los ataques para la última hora. Si sabes que atacarás tarde, dilo.
+- Planifica: pide la base de guerra a Heraldo con `/base`, busca el ataque en video, entrena en amistosas. Nadie te va a regañar por un ataque que salió mal; sí por uno que no se hizo o que se tiró sin pensar.
+
+## 3. Castillos de guerra y de liga
+
+- Cada uno llena el castillo del jugador que tiene **justo debajo** en el mapa de guerra; el último llena el del primero.
+- Se dona lo que ese jugador pidió. Si no lo tienes, avisa en el grupo para que lo done otro; no rellenes con cualquier cosa. Los líderes publican qué tropas de defensa se usan en cada nivel de ayuntamiento.
+- El castillo tiene que estar completo **antes de que empiece el día de batalla**, con margen: no en los últimos minutos.
+- Cuando dones, dilo en Telegram: "@Heraldo ya doné mi castillo". Suma puntos de disciplina, y así los líderes saben qué falta sin revisar uno por uno.
+- Los líderes revisan los castillos antes de la batalla y completan lo que falte. Quien no donó recibe un aviso en privado; si se repite, hay sanción.
+
+## 4. Liga de guerras (CWL)
+
+- Cuando salga la lista de la liga, apúntate con el nombre de tu cuenta (si tienes varias, indica cuál es la principal). Reacciona a la lista publicada para confirmar que la viste. Los líderes no van detrás de nadie.
+- **Héroes disponibles**: en CWL se entra con todos los héroes. Si tienes uno en mejora, dilo al apuntarte; los líderes deciden si entras o esperas. Planifica las mejoras de héroes para que no caigan en la semana de liga.
+- Un ataque por ronda y es obligatorio. Dejar un ataque sin usar en liga es la falta más grave que hay aquí: te deja fuera de la siguiente liga y puede sacarte del clan.
+- Igual que en guerra: scouting, marcar la base, estudiarla, atacarla. Nada de espejos por costumbre.
+- La alineación y el clan al que vas los deciden los líderes según rendimiento y disponibilidad, no por antigüedad. Puedes quedar en reserva un mes; no es un castigo.
+- Los bonos de medallas se reparten con reglas publicadas antes de la liga (rendimiento y disciplina), no por simpatía.
+
+## 5. Juegos del clan
+
+- Participan todas las cuentas. Mínimo **4.000 puntos** por cuenta, que es lo que desbloquea el premio extra; el tope es 10.000 y se agradece llegar.
+- Si tienes varias cuentas y una no va a llegar, avísalo a un líder antes de que termine.
+
+## 6. Capital del clan (raids)
+
+- Los raids funcionan distinto: aquí no se marca nada, se ataca lo que toca. Se hacen **los 6 ataques** (5 más el de bonificación) todos los fines de semana.
+- No se deja un distrito al 90 %: si quedan ataques, se cierra lo que está abierto antes de empezar otro.
+- Contribuye oro de la capital cuando puedas.
+
+## 7. Donaciones normales
+
+- Ya no hay mínimo de donaciones: hoy con las multicuentas nadie se queda sin castillo. Lo que sí: dona lo que te pidan si lo tienes al nivel, y pide con mensaje lo que necesitas.
+- No pidas tropas para tirarlas. Un castillo lleno para guerra o liga se respeta.
+
+## 8. Tu base y tu progreso
+
+- Cuentas sin rush: los héroes y las defensas acordes al ayuntamiento. Una cuenta comprada o rusheada se nota en guerra.
+- Base de guerra y de liga con trampas puestas y actualizada. Pide una del pack a Heraldo (`/base`) y pruébala en amistosas.
+- Aquí se empuja: trofeos y modo Ranked suman para que el clan sea el primero de Cuba. No es obligatorio vivir en Leyenda, pero sí tomárselo en serio.
+
+## 9. Actividad, ausencias y multicuentas
+
+- Actividad diaria normal. Siete días sin conexión y sin aviso: se te saca del clan para dejar sitio; se te vuelve a admitir cuando vuelvas si avisas.
+- Se permiten multicuentas si todas cumplen las normas: cada cuenta es un compromiso.
+- Los trotaclanes no entran: si vienes, vienes a quedarte. Salir en medio de una guerra o de una liga sin avisar es expulsión.
+
+## 10. Rangos
+
+- **Veterano**: se gana con una liga completa cumpliendo todo (ataques, castillos, juegos) y participando en el grupo.
+- **Colíder**: solo por confianza demostrada durante meses y con tiempo real para ayudar a dirigir. Se pide por privado, no en público.
+
+## 11. Sanciones
+
+1. Aviso en privado.
+2. Una guerra o una liga de suspensión.
+3. Expulsión.
+
+Nunca se sanciona en público. Dejar un ataque sin usar en liga, abandonar en plena guerra o faltar el respeto pueden ir directo al punto 3.
+
+## 12. Premios y puntos
+
+Hay premios cada mes y un sistema de puntos por disciplina: castillos donados y avisados, ataques cumplidos, juegos del clan, raids. Los premios, las cantidades y cómo se reclaman se publican en el grupo de Telegram al empezar cada mes. Lo que no se publica, no existe.
+
+## 13. Cómo se entra
+
+1. Escribes a **@Valqui_bot** en Telegram. Valquiria te pide el tag, mira tu perfil y te hace cuatro preguntas.
+2. Lees estas normas y las aceptas.
+3. Los líderes revisan tu solicitud y te mandan la puerta del clan.
+4. Al entrar te retamos en una **amistosa**: no es un examen, es para saber en qué guerra ponerte.
+5. Tu primera liga completa es tu período de prueba.
+
+Bienvenido. Aquí se juega en serio, y se juega en equipo.$md$::text), 'Las normas del clan, en Markdown'),
+  ('reglas_resumen', to_jsonb($md$📜 Normas de Strange Godz (resumen)
+
+1. Telegram es obligatorio; preséntate con /soy. Las reclamaciones, en privado con un líder, nunca en el grupo.
+2. Guerra: los dos ataques, obligatorios. Sin espejos: scouting, marcas la base, la estudias, la atacas.
+3. Castillos: llenas el del jugador de abajo antes del día de batalla, y avisas: "@Heraldo ya doné mi castillo".
+4. CWL: con todos los héroes; un ataque por ronda, sin excepción. Dejar uno sin usar te deja fuera de la siguiente liga.
+5. Juegos del clan: mínimo 4.000 puntos por cuenta. Raids: los 6 ataques.
+6. Sin rush, base de guerra actualizada, y aquí se empuja.
+7. Siete días sin conexión y sin aviso, fuera. Los trotaclanes no entran.
+8. Premios mensuales y puntos por disciplina: se publican en el grupo.$md$::text), 'Las normas en corto, para Telegram'),
+  ('reglas_fecha', to_jsonb('2026-09-11'::text), 'Ultima edicion de las normas')
+on conflict (clave) do nothing;
+
+-- La entrevista: un paso mas, leer y aceptar las normas.
+alter table solicitudes drop constraint if exists solicitudes_paso_check;
+alter table solicitudes add constraint solicitudes_paso_check
+  check (paso in ('tag', 'confirmar', 'pleno', 'ejercito', 'heroe', 'clanes', 'prueba', 'video', 'cuenta', 'reglas', 'listo'));
+alter table solicitudes add column if not exists acepto_normas boolean not null default false;
+
+-- Puntos de disciplina: castillos de guerra donados y avisados.
+create table if not exists castillos (
+  id            bigserial primary key,
+  temporada     text not null,                 -- YYYY-MM, el mes del premio
+  tg_user_id    bigint not null,
+  player_tag    text,                          -- si se presento con /soy
+  nombre        text not null,
+  -- Que dijo y que se pudo comprobar.
+  mensaje       text,
+  donaciones_antes int,                        -- del ultimo snapshot
+  donaciones_ahora int,                        -- de la API al momento
+  verificado    boolean not null default false,
+  verificado_por text,                         -- 'api' o el correo del lider
+  puntos        int not null default 0,
+  creado_en     timestamptz not null default now()
+);
+create index if not exists idx_castillos_temporada on castillos (temporada, tg_user_id);
+
+alter table castillos enable row level security;
+drop policy if exists "lideres leen castillos" on castillos;
+create policy "lideres leen castillos" on castillos for select using (es_lider_autorizado());
+drop policy if exists "editores deciden castillos" on castillos;
+create policy "editores deciden castillos" on castillos for update using (puede_editar()) with check (puede_editar());
+drop policy if exists "editores borran castillos" on castillos;
+create policy "editores borran castillos" on castillos for delete using (puede_editar());
+-- Inserta el webhook con la service_role.

@@ -284,6 +284,12 @@ export default function Solicitudes({ d, demo = false, recargar }) {
                 </ul>
               )}
               <p style={{ margin: '6px 0 0' }}>
+                {/* Si acepto las normas al final de la entrevista (paso 'reglas'). */}
+                {s.paso === 'listo' && (
+                  <span className={s.acepto_normas ? 'bandera' : 'bandera grave'}>
+                    {s.acepto_normas ? t('aceptó las normas') : t('sin aceptar las normas')}
+                  </span>
+                )}
                 {[...banderasRespuestas(s.respuestas ?? {}), ...historialConNosotros(s, d)].map((b) => (
                   <span key={b.txt} className={b.grave ? 'bandera grave' : 'bandera'}>
                     {b.txt}

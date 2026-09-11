@@ -34,7 +34,7 @@ import { pedirPerfil } from './coc-perfil';
 import { entenderValquiria, cuantosEsperan } from './charla-valquiria';
 import { pensar, thDe } from './pensar';
 import { esPreguntaDelJuego } from './conocimiento';
-import { leccionPara } from './entrenamiento';
+import { leccionPara, reglasDelClan } from './entrenamiento';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
@@ -106,6 +106,10 @@ const VOZ = {
     ultima:
       `Bien, mi corazón. Una cosa más y te dejo:\n\n` +
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
+    reglas: (resumen, url) =>
+      `📜 Ya casi, mi cielo. Antes de anotarte, léete las normas de la casa; aquí se juega en serio.\n\n${resumen}\n\n` +
+      `Completas: ${url}\n\nSi las aceptas, tócame <b>Acepto las normas</b>.`,
+    reglasNo: (url) => `Sin aceptar las normas no sigo, mi cielo. Léelas aquí: ${url} y, si estás de acuerdo, dime <b>acepto</b>.`,
     listo:
       `⚔️ <b>Anotado, mi cielo.</b> Ya sé cómo peleas.\n\n` +
       `Ahora lo miran los líderes. Si te eligen te escribo por aquí con la puerta del clan.\n\n` +
@@ -152,6 +156,10 @@ const VOZ = {
     ultima:
       `Perfecto. Última cosa y te dejo tranquilo:\n\n` +
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
+    reglas: (resumen, url) =>
+      `📜 Ya casi. Antes de anotarte, lee las normas de la casa; aquí se juega en serio.\n\n${resumen}\n\n` +
+      `Completas: ${url}\n\nSi las aceptas, dale a <b>Acepto las normas</b>.`,
+    reglasNo: (url) => `Sin aceptar las normas no sigo, mi hermano. Léelas aquí: ${url} y, si estás de acuerdo, dime <b>acepto</b>.`,
     listo:
       `📯 <b>Listo.</b> Tu solicitud queda anotada en mi pergamino.\n\n` +
       `Ahora la miran los líderes. Si te aceptan te escribo por aquí con el enlace del clan.\n\n` +
@@ -517,11 +525,22 @@ export async function flujoSolicitud(admin, msg, texto, via) {
     // cualquiera puede llenar la tabla desde el telefono.
     const cuenta = texto.slice(0, 600);
     const respuestas = { ...resp, cuenta };
-    await guardar({ paso: 'listo', estado: 'pendiente', respuestas, creado_en: new Date().toISOString() });
+    // Antes de cerrar, las normas: se leen y se aceptan. Es lo que pidio
+    // Cris: nadie entra sin haberlas visto.
+    await guardar({ paso: 'reglas', respuestas });
+    const r = await reglasDelClan(admin);
+    const resumen = r.resumen || r.texto.slice(0, 2500) || 'Las normas están en el enlace.';
+    return { texto: v.reglas(esc(resumen), `${SITIO}/reglas`), teclado: [['Acepto las normas']] };
+  }
+
+  if (sol.paso === 'reglas') {
+    const acepta = /\b(acepto|aceptar|acepta|si|sí|ok|dale|de acuerdo|claro|vale|yes)\b/i.test(texto);
+    if (!acepta) return v.reglasNo(`${SITIO}/reglas`);
+    await guardar({ paso: 'listo', estado: 'pendiente', acepto_normas: true, creado_en: new Date().toISOString() });
 
     // Que no se caiga la respuesta al aspirante si falla el aviso.
     try {
-      await avisarLideres({ ...sol, respuestas }, via);
+      await avisarLideres({ ...sol, acepto_normas: true }, via);
     } catch {
       /* el lider la vera igual en el panel */
     }

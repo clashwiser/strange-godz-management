@@ -14,7 +14,7 @@
 import { elegirLeccion, aplicarLeccion } from './lecciones.js';
 
 const CACHE_MS = 60_000;
-const CLAVES = ['bots_memoria', 'ia_activa', 'valquiria_grupo', 'bienvenida', 'avisos_youtube', 'meta_digest', 'meta_webs', 'glosario_juego'];
+const CLAVES = ['bots_memoria', 'ia_activa', 'valquiria_grupo', 'bienvenida', 'avisos_youtube', 'meta_digest', 'meta_webs', 'glosario_juego', 'reglas', 'reglas_resumen', 'reglas_fecha'];
 let cache = { hasta: 0, lecciones: [], config: {} };
 
 async function cargar(admin) {
@@ -86,6 +86,20 @@ export async function glosarioJuego(admin) {
   const { config } = await cargar(admin);
   const v = config.glosario_juego;
   return Array.isArray(v) ? v : [];
+}
+
+/**
+ * Las normas del clan (pestaña Reglas): { texto, resumen, fecha }. El
+ * texto va a la IA cuando preguntan por ellas; el resumen, con el enlace,
+ * es lo que mandan los bots.
+ */
+export async function reglasDelClan(admin) {
+  const { config } = await cargar(admin);
+  return {
+    texto: String(config.reglas ?? '').trim(),
+    resumen: String(config.reglas_resumen ?? '').trim(),
+    fecha: config.reglas_fecha ? String(config.reglas_fecha) : null,
+  };
 }
 
 /** Los dominios a los que se limita la busqueda web del meta. */

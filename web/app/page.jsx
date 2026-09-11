@@ -6,6 +6,7 @@ import Alineacion from './alineacion';
 import SelectorTema, { Mascota } from './temas';
 import Clanes from './clanes';
 import Bots from './bots';
+import ReglasTab from './reglas-tab';
 import Bases from './bases';
 import GrupoCWL from './grupo-cwl';
 import Salud from './salud';
@@ -26,6 +27,7 @@ const TABS = [
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
   ['bonos', 'Bonos'],
+  ['reglas', 'Reglas'],
   ['bots', 'Bots'],
 ];
 
@@ -51,7 +53,7 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc] =
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc, cast] =
         await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
@@ -85,6 +87,8 @@ export default function Panel() {
           .limit(120),
         // Lo que los lideres les enseñaron a los bots (pestaña Bots).
         supabase.from('lecciones').select('*').order('creado_en', { ascending: false }).limit(200),
+        // Los castillos avisados este mes: los puntos de disciplina (Bonos).
+        supabase.from('castillos').select('*').eq('temporada', temporada).order('creado_en', { ascending: false }),
       ]);
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
@@ -152,6 +156,7 @@ export default function Panel() {
         ligas: ligas.data ?? [],
         memberships: membres.data ?? [],
         lecciones: lecc.data ?? [],
+        castillos: cast.data ?? [],
         solicitudes: soli.data ?? [],
         snaps,
         players: players ?? [],
@@ -261,6 +266,7 @@ export default function Panel() {
         {d && tab === 'solicitudes' && <Solicitudes d={d} recargar={cargar} />}
         {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
+        {d && tab === 'reglas' && <ReglasTab d={d} recargar={cargar} />}
         {d && tab === 'bots' && (
           <>
             {/* La gestion completa vive aca; el empujon de la cabecera solo

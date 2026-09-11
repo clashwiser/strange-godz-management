@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
+import { tablaPuntos, PUNTOS_CASTILLO } from '../lib/castillos';
 
 const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas' };
 
@@ -446,6 +447,9 @@ export default function Bonos({ d, demo = false, recargar }) {
         </p>
       )}
 
+      {/* Los puntos de disciplina: castillos de guerra donados y avisados. */}
+      <PuntosCastillo d={d} recargar={recargar} />
+
       <h2 className="sec">Medallas de CWL · {d.temporada}</h2>
       {!medallas.length ? (
         <p className="vacio">
@@ -491,6 +495,96 @@ export default function Bonos({ d, demo = false, recargar }) {
           </div>
         </>
       )}
+    </>
+  );
+}
+
+
+// ---------------------------------------------------------------------
+// Puntos de disciplina: cada "ya doné mi castillo" que anotaron los bots
+// (web/lib/castillos.js). Los verificados por la API suman solos; los
+// demas los confirma o los quita un lider aqui. La tabla del mes es la
+// que decide el premio de los puntos.
+// ---------------------------------------------------------------------
+function PuntosCastillo({ d, recargar }) {
+  const t = useT();
+  const filas = d.castillos ?? [];
+  const tabla = useMemo(() => tablaPuntos(filas), [filas]);
+  const pendientes = filas.filter((f) => !f.verificado);
+  const [ocupado, setOcupado] = useState(null);
+  const fmt = (x) => new Date(x).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+
+  async function confirmar(f) {
+    setOcupado(f.id);
+    const { data: sesion } = await supabase.auth.getSession();
+    const { error } = await supabase
+      .from('castillos')
+      .update({ verificado: true, puntos: PUNTOS_CASTILLO, verificado_por: sesion?.session?.user?.email ?? 'lider' })
+      .eq('id', f.id);
+    setOcupado(null);
+    if (error) alert(error.message);
+    else recargar?.();
+  }
+
+  async function quitar(f) {
+    if (!confirm(`${t('¿Quitar el castillo de')} ${f.nombre}?`)) return;
+    setOcupado(f.id);
+    const { error } = await supabase.from('castillos').delete().eq('id', f.id);
+    setOcupado(null);
+    if (error) alert(error.message);
+    else recargar?.();
+  }
+
+  return (
+    <>
+      <h2 className="sec">{t('Puntos de disciplina')} · {d.temporada}</h2>
+      <p className="sub" style={{ marginTop: 0 }}>
+        {t('Cada castillo de guerra donado y avisado a los bots ("ya doné mi castillo") vale')} {PUNTOS_CASTILLO} {t('puntos. Si la API vio donaciones nuevas, cuenta solo; si no, lo confirmas aquí. El que más puntos tenga al cerrar el mes se lleva el premio de los puntos.')}
+      </p>
+      <div className="grid">
+        <div className="card">
+          <h3>{t('Tabla del mes')}</h3>
+          {!tabla.length ? (
+            <p className="sub">{t('Nadie tiene puntos todavía.')}</p>
+          ) : (
+            <ol style={{ paddingLeft: 22, margin: '6px 0' }}>
+              {tabla.slice(0, 20).map((p) => (
+                <li key={p.nombre}>
+                  <b>{p.nombre}</b> — {p.puntos} pts · {p.veces} {p.veces === 1 ? t('castillo') : t('castillos')}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+        <div className="card">
+          <h3>
+            {t('Por confirmar')} {pendientes.length > 0 && <span className="pill aviso">{pendientes.length}</span>}
+          </h3>
+          {!pendientes.length ? (
+            <p className="sub">{t('Nada pendiente.')}</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {pendientes.map((f) => (
+                <li key={f.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,.08)' }}>
+                  <span style={{ flex: 1 }}>
+                    <b>{f.nombre}</b> <span className="sub">{fmt(f.creado_en)}</span>
+                    {f.donaciones_antes != null && f.donaciones_ahora != null && (
+                      <span className="sub"> · {t('donaciones')}: {f.donaciones_antes} → {f.donaciones_ahora}</span>
+                    )}
+                    {!f.player_tag && <span className="sub"> · {t('sin /soy')}</span>}
+                  </span>
+                  <button className="accion" onClick={() => confirmar(f)} disabled={ocupado === f.id}>
+                    ✓ +{PUNTOS_CASTILLO}
+                  </button>
+                  <button className="fantasma" onClick={() => quitar(f)} disabled={ocupado === f.id} title={t('Quitar')}>
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </>
   );
 }

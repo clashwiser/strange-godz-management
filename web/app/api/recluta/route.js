@@ -33,7 +33,9 @@ import {
 } from '../../../lib/charla-valquiria';
 import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
-import { leccionPara, ajusteWeb } from '../../../lib/entrenamiento';
+import { leccionPara, ajusteWeb, reglasDelClan } from '../../../lib/entrenamiento';
+import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
+import { avisaCastillo, anotarCastillo } from '../../../lib/castillos';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -151,6 +153,17 @@ export async function POST(request) {
   const enseñado = await leccionPara(admin, 'valquiria', texto, msg.from?.first_name);
   if (enseñado) {
     await decirCon(TOKEN, chatId, esc(enseñado));
+    return Response.json({ ok: true });
+  }
+
+  // "Ya doné mi castillo" y "las normas": lo mismo que Heraldo, con su voz.
+  if (avisaCastillo(texto)) {
+    await decirCon(TOKEN, chatId, await anotarCastillo(admin, { tgId: msg.from?.id, nombre: esc(msg.from?.first_name ?? 'mi cielo'), texto }));
+    return Response.json({ ok: true });
+  }
+  if (pideLasReglas(texto)) {
+    const r = await reglasDelClan(admin);
+    await decirCon(TOKEN, chatId, r.resumen || r.texto ? mensajeReglas({ resumen: r.resumen || r.texto.slice(0, 3000), url: `${SITIO}/reglas`, fecha: r.fecha, esc }) : 'Los líderes todavía no publicaron las normas, mi cielo.');
     return Response.json({ ok: true });
   }
 

@@ -32,7 +32,8 @@
 //   IA_MODELO_BUSCA  opcional; el que busca en la web (motor 2), por
 //                    defecto groq/compound-mini
 
-import { ajusteWeb, memoriaDeLideres, digestoMeta, websMeta, glosarioJuego } from './entrenamiento.js';
+import { ajusteWeb, memoriaDeLideres, digestoMeta, websMeta, glosarioJuego, reglasDelClan } from './entrenamiento.js';
+import { esPreguntaDeReglas } from './reglas.js';
 import { esPreguntaDeMeta } from './conocimiento.js';
 import { investigar } from './wiki.js';
 
@@ -315,7 +316,16 @@ export async function pensar(admin, quien, pregunta, nombre = null, { buscar = f
   const wiki = await investigar(texto, await glosarioJuego(admin));
   if (wiki) buscar = true;
 
-  if (MOTOR === 'openai') return pensarCompat(admin, quien, texto, nombre, { buscar, th, memoria, panel, wiki });
+  // Y si preguntan por las normas -que se puede, que pasa si, los
+  // castillos-, el texto oficial de la pestaña Reglas va delante: se
+  // contesta con lo que dicen, no con lo que el modelo crea razonable.
+  let reglas = null;
+  if (esPreguntaDeReglas(texto)) {
+    const r = await reglasDelClan(admin);
+    if (r.texto) reglas = r.texto.slice(0, 9000);
+  }
+
+  if (MOTOR === 'openai') return pensarCompat(admin, quien, texto, nombre, { buscar, th, memoria, panel, wiki, reglas });
 
   // Gemini no tiene busqueda web aqui: contesta con lo que sabe, y las
   // instrucciones de "buscar" al menos le piden que sea concreto.
@@ -395,7 +405,7 @@ async function contarFallo(admin) {
  * con system + user, y el texto en choices[0].message.content. Es el
  * formato que hablan Mistral, Groq, OpenRouter y la mayoria.
  */
-async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null, memoria = '', panel = false, wiki = null } = {}) {
+async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null, memoria = '', panel = false, wiki = null, reglas = null } = {}) {
   const pregunta = `${nombre ? `${nombre} dice: ` : ''}${texto}`;
 
   // Con busqueda, dos pasos. Primero el buscador SIN personaje: solo "busca
@@ -446,6 +456,11 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
     partes.push(
       `Lo que dicen los creadores de confianza y Blueprint (digesto del ${digesto.actualizado.slice(0, 10)}; ` +
         `los videos más recientes mandan sobre los artículos; las únicas fechas válidas son las que van entre corchetes; si hay enlace de ejército, dalo tal cual):\n${digesto.texto}`
+    );
+  }
+  if (reglas) {
+    partes.push(
+      `Las NORMAS DEL CLAN, texto oficial que escribieron los líderes (si la pregunta es sobre qué se puede, qué hay que hacer o qué pasa si, contesta con esto y solo con esto; cita la norma):\n${reglas}`
     );
   }
   if (wiki) {

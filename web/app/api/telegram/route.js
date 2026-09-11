@@ -13,7 +13,9 @@ import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 import { flujoSolicitud, decirCon, escribiendo } from '../../../lib/solicitud';
 import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
-import { leccionPara } from '../../../lib/entrenamiento';
+import { leccionPara, reglasDelClan } from '../../../lib/entrenamiento';
+import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
+import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe } from '../../../lib/castillos';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -241,6 +243,11 @@ export function entender(texto) {
   const m = /(?:jugador|ficha|quien es|como va)\s+(.+)/.exec(q);
   if (m) return { comando: 'jugador', arg: m[1].trim() };
 
+  // "Ya doné mi castillo": puntos de disciplina. Y "las normas": el
+  // resumen con el enlace. Los dos antes que la IA y que las frases.
+  if (avisaCastillo(q)) return { comando: 'castillo', arg: texto };
+  if (pideLasReglas(q)) return { comando: 'reglas', arg: '' };
+
   // Una pregunta de conocimiento del juego -que ejercito, que trae la
   // actualizacion- va a la IA con busqueda web, ANTES de las frases: la
   // frase de "el mejor ejercito es el que practicas" esta bien como
@@ -356,6 +363,30 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 
     // Nada caso en el cerebro de frases: se le pregunta a la IA con la voz
     // de Heraldo. Sin llave o con el tope del dia gastado, la ayuda.
+    // Las normas del clan, de la pestaña Reglas: el resumen y el enlace.
+    case 'reglas':
+    case 'normas': {
+      const r = await reglasDelClan(admin);
+      if (!r.resumen && !r.texto) return 'Los líderes todavía no publicaron las normas en el panel.';
+      return mensajeReglas({ resumen: r.resumen || r.texto.slice(0, 3000), url: `${SITIO}/reglas`, fecha: r.fecha, esc });
+    }
+
+    // "Ya doné mi castillo": se anota, se comprueba lo que se pueda y
+    // suman puntos. Ver web/lib/castillos.js.
+    case 'castillo':
+      return await anotarCastillo(admin, { tgId: quien.id, nombre: esc(quien.nombre ?? 'socio'), texto: arg });
+
+    // La tabla de puntos del mes.
+    case 'puntos': {
+      const { data: filas } = await admin.from('castillos').select('tg_user_id, nombre, verificado, puntos').eq('temporada', temporadaDe());
+      const tabla = tablaPuntos(filas);
+      if (!tabla.length) return `Todavía nadie tiene puntos este mes. El castillo de guerra donado y avisado da puntos: <code>/castillo</code>.`;
+      return (
+        `🏅 <b>Puntos de disciplina · ${temporadaDe()}</b>\n\n` +
+        tabla.slice(0, 15).map((p, i) => `${i + 1}. ${esc(p.nombre)} — ${p.puntos} pts (${p.veces} ${p.veces === 1 ? 'castillo' : 'castillos'})`).join('\n')
+      );
+    }
+
     case 'pensar': {
       await escribiendo(TOKEN, chatId);
       const r = await pensar(admin, 'heraldo', arg, quien.nombre);

@@ -11,6 +11,7 @@ import Alineacion from '../alineacion';
 import SelectorTema from '../temas';
 import { SelectorIdioma, useT } from '../idioma';
 import Bots from '../bots';
+import ReglasTab from '../reglas-tab';
 import Bases from '../bases';
 import Bonos from '../bonos';
 import Salud from '../salud';
@@ -231,6 +232,7 @@ const TABS = [
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
   ['bonos', 'Bonos'],
+  ['reglas', 'Reglas'],
   ['bots', 'Bots'],
 ];
 
@@ -277,6 +279,7 @@ export default function Demo() {
         {tab === 'mensajes' && <Mensajes d={d} recargar={() => {}} />}
         {tab === 'bases' && <Bases d={d} demo />}
         {tab === 'bonos' && <Bonos d={d} demo />}
+        {tab === 'reglas' && <ReglasTab d={d} />}
         {tab === 'bots' && <Bots d={d} demo />}
       </div>
       <Heraldo d={d} />
