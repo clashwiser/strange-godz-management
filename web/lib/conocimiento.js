@@ -9,6 +9,8 @@
 //
 // Puro: sin red, sin base. Se prueba en test/conocimiento.test.js.
 
+import { entidadesEn } from './wiki.js';
+
 const plano = (s) =>
   String(s ?? '')
     .normalize('NFD')
@@ -21,7 +23,7 @@ const plano = (s) =>
 // Tiene que PREGUNTAR: signo de interrogacion, o empezar como pregunta o
 // como peticion ("dime", "recomiendame").
 const PREGUNTA =
-  /\?|^(que|cual|cuales|como|cuando|cuanto|cuanta|cuantos|donde|hay|existe|sirve|vale|conviene|merece|recomienda|recomiendame|me recomiendas|dime|dame|explica|explicame|ensename|sabes|conoces)\b/;
+  /\?|^(que|cual|cuales|como|cuando|cuanto|cuanta|cuantos|donde|hay|existe|sirve|vale|conviene|merece|recomienda|recomiendame|me recomiendas|dime|dame|explica|explicame|ensename|sabes|conoces|cuentame|hablame|has visto|viste|que opinas|que tal)\b/;
 
 // Y tiene que ser DEL JUEGO: tropas, hechizos, heroes, niveles, meta,
 // actualizaciones. Sin "valquiria": es una tropa, pero tambien es ella, y
@@ -34,11 +36,17 @@ const JUEGO =
 const DEL_CLAN =
   /\b(base|bases|layout|falta|faltan|sin atacar|estrellas de|tabla|ranking|premio|premios|bono|bonos|cobro|cobrar|alineacion|alineado|mi clan|que clan|quien es|ficha|jugador|vamos|estamos|nuestro|nuestra|nosotros)\b/;
 
-/** True si conviene buscar en la web para contestar bien. */
-export function esPreguntaDelJuego(texto) {
+/**
+ * True si conviene investigar para contestar bien. Con `glosario` (las
+ * entidades del juego segun la wiki, ver wiki.js), nombrar una tropa o un
+ * hechizo en una pregunta tambien cuenta: "Throwers with ruin witches?"
+ * no lleva ninguna palabra generica y era del juego.
+ */
+export function esPreguntaDelJuego(texto, glosario = []) {
   const q = plano(texto);
   if (!q || DEL_CLAN.test(q)) return false;
-  return PREGUNTA.test(q) && JUEGO.test(q);
+  if (!PREGUNTA.test(q)) return false;
+  return JUEGO.test(q) || entidadesEn(texto, glosario).length > 0;
 }
 
 // Dentro de las del juego, las de META: que ejercito, que ataque, que

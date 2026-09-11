@@ -59,7 +59,8 @@ export default function Panel() {
         supabase.from('wa_estado').select('*').eq('id', 1).maybeSingle(),
         supabase.from('cwl_seasons').select('*').eq('temporada', temporada),
         supabase.from('alineaciones').select('player_tag, clan_tag, posicion').eq('temporada', temporada),
-        supabase.from('config').select('clave, valor'),
+        // Sin el glosario del juego: son 20 KB que solo leen los webhooks.
+        supabase.from('config').select('clave, valor').not('clave', 'eq', 'glosario_juego'),
         supabase.from('base_packs').select('*').order('subido_en', { ascending: false }),
         supabase.from('bases').select('*').order('th', { ascending: false }),
         supabase.from('bonos').select('*').eq('temporada', temporada),

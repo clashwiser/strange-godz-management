@@ -11,6 +11,7 @@
 
 import { db, chk, correrJob } from '../lib/db.js';
 import { CANALES_DEFECTO, FEEDS_DEFECTO, construirDigesto } from '../../web/lib/meta-fuentes.js';
+import { glosarioDesdeWiki } from '../../web/lib/wiki.js';
 
 const SECO = process.argv.includes('--seco');
 
@@ -25,6 +26,17 @@ await correrJob('meta', async () => {
   });
   console.log(`  ${digesto.videos} videos, ${digesto.articulos} articulos, ${digesto.texto.length} chars, ${digesto.ms} ms`);
   for (const e of digesto.errores) console.log(`  ! ${e}`);
+
+  // Y el glosario del juego desde la wiki: las tropas, hechizos, heroes...
+  // con sus nombres, para que la IA sepa de que hablan y lea su pagina
+  // antes de contestar. Si la wiki falla, se queda el anterior.
+  let glosario = null;
+  try {
+    glosario = await glosarioDesdeWiki();
+    console.log(`  glosario: ${glosario.length} entidades`);
+  } catch (e) {
+    console.log(`  ! glosario: ${e.message}`);
+  }
 
   if (SECO) {
     console.log(`\n${digesto.texto}\n`);
@@ -42,5 +54,14 @@ await correrJob('meta', async () => {
     ),
     'guardar digesto'
   );
-  return { filas: 1, detalle: { videos: digesto.videos, articulos: digesto.articulos, chars: digesto.texto.length, errores: digesto.errores } };
+  if (glosario?.length) {
+    chk(
+      await db.from('config').upsert(
+        { clave: 'glosario_juego', valor: glosario, descripcion: 'Entidades del juego segun la wiki, con nombres (lo rehace src/jobs/meta.js)', actualizado: new Date().toISOString() },
+        { onConflict: 'clave' }
+      ),
+      'guardar glosario'
+    );
+  }
+  return { filas: 1, detalle: { videos: digesto.videos, articulos: digesto.articulos, chars: digesto.texto.length, glosario: glosario?.length ?? 0, errores: digesto.errores } };
 });

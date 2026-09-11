@@ -14,7 +14,7 @@
 import { elegirLeccion, aplicarLeccion } from './lecciones.js';
 
 const CACHE_MS = 60_000;
-const CLAVES = ['bots_memoria', 'ia_activa', 'valquiria_grupo', 'bienvenida', 'avisos_youtube', 'meta_digest', 'meta_webs'];
+const CLAVES = ['bots_memoria', 'ia_activa', 'valquiria_grupo', 'bienvenida', 'avisos_youtube', 'meta_digest', 'meta_webs', 'glosario_juego'];
 let cache = { hasta: 0, lecciones: [], config: {} };
 
 async function cargar(admin) {
@@ -75,6 +75,17 @@ export async function digestoMeta(admin) {
   const edad = Date.now() - new Date(d.actualizado).getTime();
   if (edad > 3 * 24 * 3_600_000) return null;
   return { texto: String(d.texto), actualizado: d.actualizado };
+}
+
+/**
+ * El glosario del juego (web/lib/wiki.js): las entidades con sus nombres,
+ * para saber de que tropa hablan y traer su pagina. Vacio si el job del
+ * meta no lo ha guardado todavia.
+ */
+export async function glosarioJuego(admin) {
+  const { config } = await cargar(admin);
+  const v = config.glosario_juego;
+  return Array.isArray(v) ? v : [];
 }
 
 /** Los dominios a los que se limita la busqueda web del meta. */
