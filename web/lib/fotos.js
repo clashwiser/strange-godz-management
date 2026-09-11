@@ -102,6 +102,9 @@ export async function atenderFoto(admin, { token, msg, quien, esAdmin, aUnBot = 
   if (!fotoDe(msg)) return null;
   const pie = (msg.caption || '').trim();
   const modo = modoDeFoto(pie, { aUnBot });
+  // Queda en el log que foto llego y como se entendio: es lo primero que
+  // se mira cuando un pie no hace lo que la gente esperaba.
+  console.log(`[foto] pie=${JSON.stringify(pie.slice(0, 80))} modo=${modo ?? 'ninguno'}${aUnBot ? ' (contesta a un bot)' : ''}`);
   if (!modo) return null;
 
   switch (modo) {
