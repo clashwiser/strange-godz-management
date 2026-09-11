@@ -535,7 +535,7 @@ function anotar(modelo, texto) {
     console.error(`[ia] ${modelo} devolvio vacio`);
     return null;
   }
-  console.log(`[ia] ${modelo}: ${texto.slice(0, 200)}`);
+  console.log(`[ia] ${modelo}: ${texto.slice(0, 400)}`);
   return texto;
 }
 
