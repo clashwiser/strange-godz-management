@@ -745,6 +745,7 @@ export const EN = {
   'glosario': 'glossary',
   'hace menos de 1 h': 'less than 1 h ago',
   'hace {x} h': '{x} h ago',
+  'Soy el cerebro del OS. ¿Qué necesitas?': 'I am the OS brain. What do you need?',
   'hace {x} d': '{x} d ago',
   'lecciones': 'lessons',
   'lo corrigió': 'corrected by',

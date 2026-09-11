@@ -1281,7 +1281,7 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
    Todo lo de la pestaña vive dentro de .lab-mundo y NO cambia con los
    temas: es el laboratorio, siempre oscuro, con cables por los bordes. */
 .lab-mundo {
-  position: relative; margin: 14px -6px 0; padding: 22px 28px 30px;
+  position: relative; margin: 14px -6px 0; padding: 22px 84px 30px;
   border-radius: 22px;
   color: #d7e6f5;
   background:
@@ -1295,17 +1295,22 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
   overflow: hidden;
 }
 .lab-contenido { position: relative; z-index: 1; }
-.lab-cables { position: absolute; top: 0; bottom: 0; width: 26px; z-index: 0; pointer-events: none; opacity: .9; }
-.lab-cables.izq { left: 0; }
-.lab-cables.der { right: 0; transform: scaleX(-1); }
-.lab-cables .cable { fill: none; stroke: #1f2733; stroke-width: 6px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
-.lab-cables .cable-luz {
-  fill: none; stroke: #7ff0ff; stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linecap: round;
-  stroke-dasharray: 14 320; stroke-dashoffset: 334;
-  filter: drop-shadow(0 0 4px #7ff0ff) drop-shadow(0 0 9px rgba(80, 220, 255, .8));
-  animation: lab-electricidad 3.5s linear infinite;
+.lab-cables {
+  position: absolute; top: 0; bottom: 0; width: 72px; z-index: 0; pointer-events: none;
+  background: url('/cerebro-cables.webp') left top / 100% auto repeat-y;
 }
-@keyframes lab-electricidad { from { stroke-dashoffset: 334; } to { stroke-dashoffset: -334; } }
+.lab-cables.izq { left: 4px; }
+.lab-cables.der { right: 4px; transform: scaleX(-1); }
+/* La luz: un barrido vertical recortado con la propia tira de cables. */
+.lab-cables-luz {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(160, 250, 255, .95) 45%, #ffffff 50%, rgba(160, 250, 255, .95) 55%, transparent 100%);
+  background-size: 100% 260px; background-repeat: no-repeat;
+  -webkit-mask: url('/cerebro-cables.webp') left top / 100% auto repeat-y; mask: url('/cerebro-cables.webp') left top / 100% auto repeat-y;
+  mix-blend-mode: screen; animation: lab-electricidad 2.8s linear infinite; opacity: .95;
+}
+.lab-cables.der .lab-cables-luz { animation-duration: 3.4s; animation-delay: 1.1s; }
+@keyframes lab-electricidad { from { background-position: 0 -260px; } to { background-position: 0 calc(100% + 260px); } }
 .lab-mundo .sec { color: #9ff7ff; text-shadow: 0 0 10px rgba(80, 220, 255, .6); -webkit-text-stroke: 0; display: flex; align-items: center; gap: 8px; }
 .lab-mundo .sec::after { background: linear-gradient(90deg, rgba(80, 220, 255, .7), transparent) !important; }
 .lab-mundo .card, .lab-mundo .col {
@@ -1349,7 +1354,7 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
 .lab-info-escena { position: absolute; left: 2%; top: 5%; }
 .lab-guia { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 14px; font-size: clamp(14px, 1.3vw, 18px); }
 .lab-guia-fila { display: flex; align-items: center; gap: 6px; }
-@media (max-width: 640px) { .lab-mundo { margin: 10px -4px 0; padding: 14px 16px 22px; } .lab-cables { width: 14px; } }
+@media (max-width: 640px) { .lab-mundo { margin: 10px -4px 0; padding: 14px 40px 22px; } .lab-cables { width: 34px; } }
 
 /* La "i" de informacion */
 .info-caja { position: relative; display: inline-block; vertical-align: middle; }
@@ -1407,3 +1412,93 @@ header.top h1 .os {
   box-shadow: 0 0 12px rgba(55, 214, 255, .75); font-size: .85em; vertical-align: 2px;
   animation: tab-neon 2.4s ease-in-out infinite;
 }
+
+/* ---------- Modo laboratorio: toda la pagina, mientras la pestaña Cerebro esta abierta ----------
+   Se enciende con html.lab-activo (page.jsx). Pisa las variables del tema
+   que este puesto: cabecera, pestañas, fondo, burbuja del cerebro, todo se
+   vuelve azul electrico. Al salir de la pestaña, la clase se quita y vuelve
+   el tema elegido. */
+html.lab-activo, html.lab-activo[data-tema] {
+  --fuente:      'Lilita One', system-ui, sans-serif;
+  --fondo:       #04070d;
+  --panel:       #0d1626;
+  --panel-2:     #091120;
+  --texto:       #d7e6f5;
+  --tenue:       #8fa6bf;
+  --barra-a:     #16456b;
+  --barra-b:     #0a2138;
+  --barra-texto: #bfefff;
+  --marco:       #0a3d7a;
+  --bronce:      #1f7fb8;
+  --bronce-2:    #0b3552;
+  --oro:         #37d6ff;
+  --oro-claro:   #9ff7ff;
+  --oro-hondo:   #0b74d8;
+  --accion-a:    #8ff4ff;
+  --accion-b:    #22b8e8;
+  --accion-bord: #0b6d8f;
+  --realce:      #22b8e8;
+  --tinta:       #04121c;
+  --titulo:      #9ff7ff;
+  --titulo-trazo: 0px;
+  --neb-1: rgba(40, 120, 200, .28);
+  --neb-2: rgba(0, 200, 255, .16);
+  --neb-3: rgba(0, 60, 120, .40);
+  --textura: none;
+}
+html.lab-activo body {
+  background-image:
+    radial-gradient(ellipse 70% 50% at 12% -8%, var(--neb-1), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 88% 0%, var(--neb-2), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% 108%, var(--neb-3), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(120, 200, 255, .03) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, rgba(120, 200, 255, .03) 0 1px, transparent 1px 34px);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat;
+  background-size: auto, auto, auto, auto, auto;
+  background-blend-mode: normal;
+}
+/* La cabecera: viga de metal con luz corriendo por el borde. */
+html.lab-activo header.top {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.10) 0%, transparent 45%, rgba(0,0,0,.45) 100%);
+  border-bottom: 3px solid #37d6ff;
+  box-shadow: 0 4px 0 #0b3552, 0 0 26px rgba(55, 214, 255, .35), 0 8px 22px rgba(0,0,0,.55);
+  position: relative;
+}
+html.lab-activo header.top::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, #fff 50%, transparent 100%);
+  background-size: 220px 100%; background-repeat: no-repeat;
+  animation: lab-luz-borde 3.2s linear infinite; opacity: .9;
+}
+@keyframes lab-luz-borde { from { background-position: -220px 0; } to { background-position: calc(100% + 220px) 0; } }
+html.lab-activo header.top h1 { color: #dff7ff; text-shadow: 0 0 10px rgba(80, 220, 255, .5); }
+/* Las demas pestañas: azul quieto. Solo Cerebro chispea. */
+html.lab-activo nav.tabs button:not(.tab-cerebro) {
+  color: #bfefff; -webkit-text-stroke: 0; text-shadow: none;
+  background: linear-gradient(180deg, #1b4f7a, #0f2f4d);
+  border-color: #0a3d7a; border-bottom-color: #062a55;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.12), 0 0 8px rgba(55, 214, 255, .15);
+}
+html.lab-activo nav.tabs button:not(.tab-cerebro):hover { filter: brightness(1.25); }
+html.lab-activo .aviso-legal { color: #8fa6bf; }
+html.lab-activo .aviso-legal a { color: #9ff7ff; }
+html.lab-activo .idioma button, html.lab-activo .temas-caja { filter: saturate(.7); }
+
+/* ---------- La burbuja: el cerebro del OS, con anillo electrico ---------- */
+.heraldo-burbuja.cerebro-burbuja {
+  overflow: visible; background: #05080f; border: 3px solid #0a3d7a;
+  box-shadow: 0 0 18px rgba(55, 214, 255, .7), 0 0 40px rgba(20, 140, 255, .35), 0 10px 26px rgba(0,0,0,.55);
+  animation: tab-neon 2.4s ease-in-out infinite;
+}
+.cerebro-anillo {
+  position: absolute; inset: -7px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 40%, #9ff7ff 47%, #37d6ff 52%, transparent 60%, transparent 80%, #7ff0ff 88%, transparent 94%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%);
+  animation: cerebro-gira 2.2s linear infinite; filter: drop-shadow(0 0 4px #7ff0ff);
+}
+@keyframes cerebro-gira { to { transform: rotate(360deg); } }
+.cerebro-mini { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: relative; animation: cerebro-parpadeo 6s infinite; }
+@keyframes cerebro-parpadeo { 0%, 92%, 100% { filter: none; } 93% { filter: brightness(1.6) hue-rotate(20deg); } 95% { filter: none; } 97% { filter: brightness(1.3); } }
+.cerebro-cara-cab { position: relative; display: inline-block; width: 40px; height: 40px; flex: 0 0 auto; }
+.cerebro-cara-cab .cerebro-anillo { inset: -4px; }
+.cerebro-cara-cab .cerebro-mini { border: 2px solid #0a3d7a; }

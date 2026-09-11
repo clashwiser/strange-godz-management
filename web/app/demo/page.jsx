@@ -4,7 +4,7 @@
 // antes de que haya datos reales, y para mostrarselo a Carlos y Deibis.
 // Los CLANES son los de verdad; los numeros son inventados.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Resumen, CWL, Jugadores, Mensajes } from '../page';
 import GrupoCWL from '../grupo-cwl';
 import Alineacion from '../alineacion';
@@ -241,6 +241,10 @@ const TABS = [
 export default function Demo() {
   const t = useT();
   const [tab, setTab] = useState('resumen');
+  useEffect(() => {
+    document.documentElement.classList.toggle('lab-activo', tab === 'cerebro');
+    return () => document.documentElement.classList.remove('lab-activo');
+  }, [tab]);
   return (
     <>
       <div className="banda-demo">

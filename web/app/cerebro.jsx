@@ -27,6 +27,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import { Info } from './info';
+import { esPreguntaDelJuego } from '../lib/conocimiento';
 import Entrenar from './entrenar';
 
 const TITULO_ANIMO = { sano: 'EN FORMA', atento: 'ATENTO', sobrecargado: 'SOBRECARGADO', pensando: 'PENSANDO' };
@@ -83,30 +84,17 @@ function Contador({ valor, duracion = 900 }) {
   return <>{esNumero ? Number(v).toLocaleString('es') : v}</>;
 }
 
-/** Los cables por los bordes, con la electricidad corriendo. */
+/**
+ * Los cables por los bordes: la misma tira de cables 3D (Nano Banana, con
+ * la escena del barbaro de referencia) repetida hacia abajo hasta donde
+ * llegue la pagina, y encima una luz que corre por ellos (CSS, con la
+ * propia tira de mascara). A la derecha, la misma tira en espejo.
+ */
 function Cables() {
-  const lados = [
-    { d: 'M 3 0 C 9 15, -3 30, 4 45 S -2 75, 3 100', dur: 3.2 },
-    { d: 'M 7 0 C 1 20, 11 40, 5 60 S 10 88, 6 100', dur: 4.1 },
-  ];
   return (
     <>
-      <svg className="lab-cables izq" viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true">
-        {lados.map((c, i) => (
-          <g key={i}>
-            <path className="cable" d={c.d} />
-            <path className="cable-luz" d={c.d} style={{ animationDuration: `${c.dur}s`, animationDelay: `${i * 0.7}s` }} />
-          </g>
-        ))}
-      </svg>
-      <svg className="lab-cables der" viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true">
-        {lados.map((c, i) => (
-          <g key={i}>
-            <path className="cable" d={c.d} />
-            <path className="cable-luz" d={c.d} style={{ animationDuration: `${c.dur + 0.6}s`, animationDelay: `${i * 0.9 + 0.4}s` }} />
-          </g>
-        ))}
-      </svg>
+      <div className="lab-cables izq" aria-hidden="true"><div className="lab-cables-luz" /></div>
+      <div className="lab-cables der" aria-hidden="true"><div className="lab-cables-luz" /></div>
     </>
   );
 }
@@ -238,7 +226,7 @@ export default function Cerebro({ d, recargar, demo = false }) {
       if (texto == null) {
         const j = demo
           ? { respuesta: `${t('SALUD')} ${nota}/100, ${t(TITULO_ANIMO[animo])}. Vercel, Supabase, la API de Clash, la IA y los dos bots responden; los 5 jobs corrieron bien. Sé 246 tropas y defensas del glosario, 7 lecciones de los líderes y las normas del 11 de septiembre. (Demo: aquí contestaría la IA con el estado real.)` }
-          : await conSesion('/api/asistente', { pregunta: q, contexto: v?.resumen ?? '' });
+          : await conSesion('/api/asistente', { pregunta: q, contexto: esPreguntaDelJuego(q) ? '' : (v?.resumen ?? '') });
         texto = j?.respuesta || t('Ahora mismo no puedo pensar (sin IA o tope del día). Mira los vitales de arriba.');
       }
       setTerminal((c) => [...c, { quien: 'cerebro', texto }]);

@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
+import { esPreguntaDelJuego } from '../lib/conocimiento';
 
 const SIN = '__sin__';
 
@@ -32,7 +33,7 @@ function saludoDelDia(h = new Date().getHours()) {
 
 const SALUDO = /^(hola|holaa+|buenas|buenos dias|buenas tardes|buenas noches|buen dia|hey|ey|oye|que bola|que tal|saludos|hi|hello)\b/;
 
-export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
+export default function Heraldo({ d, nombreBot = 'Cerebro' }) {
   const t = useT();
   const [abierto, setAbierto] = useState(false);
   const [texto, setTexto] = useState('');
@@ -43,6 +44,9 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
   // Deibis). Cada uno puede leer su propia fila (sql/002_rls.sql). Si no
   // hay fila, lo que va antes de la arroba del correo.
   const [usuario, setUsuario] = useState(null);
+  // El estado del sistema, para que conteste "¿como estas?" con datos. Se
+  // pide una vez, al abrir, y solo si hay sesion (la ruta es de lideres).
+  const [estado, setEstado] = useState('');
   useEffect(() => {
     let vivo = true;
     (async () => {
@@ -68,8 +72,21 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
     setHilo((h) =>
       h.length
         ? h
-        : [{ yo: false, texto: `📯 ${saludoDelDia()}${usuario ? `, ${usuario}` : ''}. ${t('¿En qué te ayudo hoy?')}` }]
+        : [{ yo: false, texto: `🧠 ${saludoDelDia()}${usuario ? `, ${usuario}` : ''}. ${t('Soy el cerebro del OS. ¿Qué necesitas?')}` }]
     );
+    if (!estado) {
+      (async () => {
+        try {
+          const { data: sesion } = await supabase.auth.getSession();
+          if (!sesion?.session) return;
+          const r = await fetch('/api/cerebro', { headers: { Authorization: `Bearer ${sesion.session.access_token}` } });
+          const j = await r.json().catch(() => ({}));
+          if (j?.ok && j.resumen) setEstado(j.resumen);
+        } catch {
+          /* sin estado, contesta igual */
+        }
+      })();
+    }
   }
 
   const nombre = useMemo(
@@ -225,7 +242,9 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
       const r = await fetch('/api/asistente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion?.session?.access_token}` },
-        body: JSON.stringify({ pregunta }),
+        // Con el estado del sistema delante, salvo si preguntan por el
+        // juego: ahi hace falta el digesto y la web, no los vitales.
+        body: JSON.stringify({ pregunta, contexto: esPreguntaDelJuego(pregunta) ? '' : estado }),
       });
       const j = await r.json().catch(() => ({}));
       return j?.respuesta || sinRespuesta();
@@ -254,11 +273,11 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
 
   if (!abierto) {
     return (
-      <button className="heraldo-burbuja" onClick={abrir} title={nombreBot}>
-        {/* El mismo Heraldo en video que lleva el bot en Telegram, tambien
-            en la burbuja: Cris lo pidio asi. Es un clip de 89 KB que el
-            navegador cachea; el poster es la imagen fija por si no carga. */}
-        <VideoQueArranca src="/heraldo-lee.mp4" poster="/heraldo.png" tamano={44} />
+      <button className="heraldo-burbuja cerebro-burbuja" onClick={abrir} title={nombreBot}>
+        {/* El cerebro del OS, recortado de la escena del laboratorio, con
+            un anillo de electricidad (CSS). Antes iba Heraldo en video. */}
+        <span className="cerebro-anillo" aria-hidden="true" />
+        <img className="cerebro-mini" src="/cerebro-mini.jpg" alt="" />
       </button>
     );
   }
@@ -275,20 +294,11 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
             negro. Y si el video no carga -o el navegador no lo reproduce
             solo-, lo que queda es la imagen, que es exactamente lo que
             habia antes. */}
-        <video
-          className="heraldo-cara heraldo-video"
-          src="/heraldo-lee.mp4"
-          poster="/heraldo.png"
-          width={38}
-          height={38}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="none"
-          aria-hidden="true"
-        />
-        <strong>{nombreBot}</strong>
+        <span className="cerebro-cara-cab" aria-hidden="true">
+          <span className="cerebro-anillo" />
+          <img className="cerebro-mini" src="/cerebro-mini.jpg" alt="" />
+        </span>
+        <strong>🧠 {nombreBot}</strong>
         <span className="sub">{t('los datos, de la base; lo demás, con IA')}</span>
         <span style={{ flex: 1 }} />
         <button className="fantasma" onClick={() => setAbierto(false)}>

@@ -40,6 +40,13 @@ export default function Panel() {
   const t = useT();
   const [sesion, setSesion] = useState(undefined); // undefined = aun cargando
   const [tab, setTab] = useState('resumen');
+
+  // Con la pestaña Cerebro abierta, toda la pagina se vuelve laboratorio
+  // (html.lab-activo pisa las variables del tema). Al salir, vuelve el tema.
+  useEffect(() => {
+    document.documentElement.classList.toggle('lab-activo', tab === 'cerebro');
+    return () => document.documentElement.classList.remove('lab-activo');
+  }, [tab]);
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
 
@@ -284,7 +291,7 @@ export default function Panel() {
 
       {/* Flotante sobre todo el panel: la pregunta llega cuando llega, no
           cuando estas en la pestana correcta. */}
-      {d && <Heraldo d={d} nombreBot={d.config?.find((c) => c.clave === 'bot_nombre')?.valor ?? 'Heraldo'} />}
+      {d && <Heraldo d={d} nombreBot="Cerebro" />}
     </>
   );
 }
