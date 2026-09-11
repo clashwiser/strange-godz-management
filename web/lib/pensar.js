@@ -187,7 +187,7 @@ const MODO = {
   charla: `- Máximo 2 frases cortas.`,
   // Con lo que se encontro en la web (va en el mensaje del usuario).
   buscar: `- Esta pregunta es sobre el juego y la respuesta cambia con cada actualización. Hoy es {mes}. Junto a la pregunta va lo que se encontró hoy en la web: contesta CON ESO, no con lo que recuerdes, y no añadas datos que no estén ahí.
-- Contesta en 3 a 6 frases, concreto: nombres de tropas y cantidades, hechizos, máquina de asedio, nivel de ayuntamiento. Si lo encontrado dice de qué mes es, dilo. Siempre en tu voz.
+- Contesta en 3 a 6 frases, concreto: nombres de tropas y cantidades, hechizos, máquina de asedio, nivel de ayuntamiento, PERO solo las que estén en lo encontrado. Si de una estrategia solo tienes el nombre, quién la usa y el enlace, di eso y da el enlace para copiarla: NUNCA inventes cantidades ni tropas. Si lo encontrado dice de qué fecha es, dilo. Siempre en tu voz.
 - {th}`,
   // Sin web: que se note, antes que inventar.
   sinWeb: `- Esta pregunta es sobre el juego y la respuesta cambia con cada actualización, pero hoy NO se pudo buscar en la web. Contesta con lo que sepas, en 2 a 4 frases, y avisa de que puede estar desactualizado. Hoy es {mes}.
