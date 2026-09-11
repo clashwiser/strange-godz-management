@@ -42,25 +42,52 @@ export function botNombrado(pie) {
 }
 
 /**
- * Decide que es la foto por el pie y el contexto.
+ * El pie trae un comando: /fc, /castillo, /prueba (con o sin @bot detras,
+ * que es como los pega Telegram desde el menu). Tambien vale el pie que
+ * es SOLO esa palabra ("fc", "castillo", "prueba fc"): corto y sin
+ * ambiguedad. Una palabra suelta dentro de una frase, no.
+ */
+export function comandoDelPie(pie) {
+  const q = plano(pie).trim();
+  const m = /(?:^|\s)\/(fc|castillo|prueba)(?:@\w+)?\b/.exec(q);
+  if (m) return m[1];
+  const solo = /^(fc|castillo|prueba)( (fc|chat|castillo|mapa|guerra))?$/.exec(q);
+  return solo ? solo[1] : null;
+}
+
+/**
+ * Si la foto va dirigida a un bot. Solo entonces se mira: con un comando
+ * en el pie (/fc, /castillo, /prueba), con el bot nombrado o mencionado
+ * (@Strange_godz_heraldo_bot, "Heraldo", @Valqui_bot, "Valquiria"), o
+ * contestando a un mensaje de un bot. Una foto suelta con "reto" o
+ * "entrenando" en el pie, sin nada de eso, no es para nosotros: la gente
+ * habla de FC en el grupo todo el dia y eso no puede disparar al bot.
+ */
+export function fotoDirigida(pie, { aUnBot = null } = {}) {
+  return Boolean(comandoDelPie(pie) || botNombrado(pie) || aUnBot);
+}
+
+/**
+ * Decide que es la foto por el pie y el contexto, si va dirigida a un bot.
  *
  * @param {string} pie
  * @param {{ aUnBot: number|null }} ctx  id del mensaje del bot al que responde, si responde a uno
  * @returns {'prueba_chat'|'prueba_mapa'|'fc'|'castillo'|'castillo_respuesta'|'duda'|null}
  */
 export function modoDeFoto(pie, { aUnBot = null } = {}) {
+  if (!fotoDirigida(pie, { aUnBot })) return null;
   const q = plano(pie);
-  if (esPruebaDeLectura(pie)) return /fc|chat/.test(q) ? 'prueba_chat' : 'prueba_mapa';
-  if (avisaCastillo(pie) || (botNombrado(pie) && /castillo/.test(q))) return 'castillo';
-  if (esFotoDeFC(pie)) return 'fc';
+  const comando = comandoDelPie(pie);
+  if (comando === 'prueba' || esPruebaDeLectura(pie)) return /fc|chat/.test(q) ? 'prueba_chat' : 'prueba_mapa';
+  if (comando === 'castillo' || avisaCastillo(pie) || /castillo/.test(q)) return 'castillo';
+  if (comando === 'fc' || esFotoDeFC(pie)) return 'fc';
   if (aUnBot) return 'castillo_respuesta';
-  if (botNombrado(pie)) return 'duda';
-  return null;
+  return 'duda';
 }
 
 export const TEXTO_DUDA =
-  '📷 ¿Qué te reviso? Si es el castillo de guerra, manda la captura con "ya doné mi castillo" en el pie; ' +
-  'si son tus desafíos amistosos, con "fc" (o "amistosos", "entrenando"). Los administradores pueden poner solo "prueba" para ver qué leo.';
+  '📷 ¿Qué te reviso? Si es el castillo de guerra, manda la captura del mapa con <code>/castillo</code> en el pie (o "@Heraldo ya doné mi castillo"); ' +
+  'si son tus desafíos amistosos, la captura del chat con <code>/fc</code>. Los administradores pueden poner <code>/prueba</code> para ver qué leo.';
 
 /**
  * Atiende la foto y devuelve { texto, despues } o null si no es para

@@ -8,13 +8,13 @@
 // una y otra.
 //
 // Lo que se lee de la captura (web/lib/vision.js): las tarjetas del chat
-// -atacante ➡ defensor, estrellas, porcentaje- y, si sale, la cabecera
-// con el nombre del clan y los contadores de recursos de la aldea. Lo que
-// se cruza con la API: el nombre del atacante contra el /soy del que la
-// manda, y el clan de la cabecera contra el suyo. Y contra la trampa de
-// mandar la misma captura otro dia: la firma (secuencia de tarjetas mas
-// contadores de recursos, que cambian a cada rato) y el id unico del
-// archivo en Telegram.
+// -atacante ➡ defensor, estrellas, porcentaje- y los contadores de
+// recursos de la aldea. Lo que se cruza con la API: el nombre del atacante
+// contra el /soy del que la manda (con los adornos traducidos, nombres.js).
+// Y contra la trampa de mandar la misma captura otro dia: la firma
+// (secuencia de tarjetas mas contadores de recursos, que cambian a cada
+// rato). La captura llega con /fc en el pie o con el bot mencionado; el
+// reparto de que foto es que esta en fotos.js.
 //
 // Las estrellas se leen mal con facilidad (una vacia y una llena se
 // parecen); el porcentaje no. Asi que manda el porcentaje: 100% son tres
@@ -163,7 +163,7 @@ export async function verificarFCConFoto(admin, { token, msg, tgId, quien }) {
       ? 'no distingo ninguna tarjeta de desafío'
       : `veo ${cuenta.total} ${cuenta.total === 1 ? 'tarjeta' : 'tarjetas'}, ${cuenta.mias} con tu nombre (<b>${esc(perfil.name)}</b>) y ${cuenta.buenas} con ${FC_ESTRELLAS}⭐ o más`;
     return {
-      texto: `📷 En la captura ${detalle}. El reto son ${FC_MINIMO} desafíos amistosos tuyos con ${FC_ESTRELLAS}⭐ o más en una sola captura; cuando los tengas, mándala.`,
+      texto: `📷 En la captura ${detalle}. El reto son ${FC_MINIMO} desafíos amistosos tuyos con ${FC_ESTRELLAS}⭐ o más en una sola captura; cuando los tengas, mándala con <code>/fc</code>.`,
       verificado: false,
       id: null,
     };

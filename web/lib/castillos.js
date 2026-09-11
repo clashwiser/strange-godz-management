@@ -105,7 +105,7 @@ export async function anotarCastillo(admin, { tgId, nombre, texto }) {
     fila: { id: fila.id, tg_user_id: tgId, player_tag: vinculo?.player_tag ?? null, nombre, verificado: false, puntos: 0, mensaje_bot_id: null },
     texto:
       `📜 Anotado, ${nombre}: castillo de guerra donado. ` +
-      `Manda una captura del mapa de guerra donde se vea el castillo de abajo lleno y lo verifico yo; si no, un líder lo confirma contestando ✅ a este mensaje (o desde el panel). Suman +${PUNTOS_CASTILLO} puntos este mes.` +
+      `Manda la captura del mapa de guerra (con el castillo de abajo lleno) contestando a este mensaje o con <code>/castillo</code> en el pie, y lo verifico yo; si no, un líder lo confirma contestando ✅ a este mensaje (o desde el panel). Suman +${PUNTOS_CASTILLO} puntos este mes.` +
       (vinculo?.player_tag ? '' : ` Preséntate con <code>/soy TuNombre</code> para que sepan qué castillo mirar.`),
   };
 }

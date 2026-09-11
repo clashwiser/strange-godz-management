@@ -551,9 +551,9 @@ function PuntosCastillo({ d, recargar }) {
     <>
       <h2 className="sec">{t('Puntos del mes')} · {d.temporada}</h2>
       <p className="sub" style={{ marginTop: 0 }}>
-        <b>{t('Tarea')}</b>: {t('cada castillo de guerra donado y avisado a los bots ("ya doné mi castillo") vale')} {PUNTOS_CASTILLO} {t('puntos. Si el aviso trae una captura del mapa de guerra, Heraldo la lee con la IA, la cruza con la API (quién está debajo de quién y contra qué clan) y confirma solo. Sin captura, o si no cuadra, lo confirma un líder: contestando ✅ al aviso en Telegram, o aquí.')}
+        <b>{t('Tarea')}</b>: {t('cada castillo de guerra donado y avisado a los bots (/castillo o "@Heraldo ya doné mi castillo") vale')} {PUNTOS_CASTILLO} {t('puntos. Si el aviso trae una captura del mapa de guerra, Heraldo la lee con la IA, la cruza con la API (quién está debajo de quién y contra qué clan) y confirma solo. Sin captura, o si no cuadra, lo confirma un líder: contestando ✅ al aviso en Telegram, o aquí.')}
         {' '}
-        <b>{t('Reto')}</b>: {FC_MINIMO} {t('desafíos amistosos con')} {FC_ESTRELLAS}⭐ {t('o más en una captura del chat del clan (pie "fc") valen')} {PUNTOS_FC} {t('puntos, una vez al día; Heraldo los cuenta y cruza el nombre del atacante con el /soy. Un líder quita cualquiera contestando ❌ en Telegram, o aquí. El que más puntos tenga al cerrar el mes se lleva el premio.')}
+        <b>{t('Reto')}</b>: {FC_MINIMO} {t('desafíos amistosos con')} {FC_ESTRELLAS}⭐ {t('o más en una captura del chat del clan mandada con /fc en el pie valen')} {PUNTOS_FC} {t('puntos, una vez al día; Heraldo los cuenta y cruza el nombre del atacante con el /soy. Un líder quita cualquiera contestando ❌ en Telegram, o aquí. El que más puntos tenga al cerrar el mes se lleva el premio.')}
       </p>
       <div className="grid">
         <div className="card">

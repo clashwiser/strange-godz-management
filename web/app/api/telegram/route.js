@@ -17,7 +17,7 @@ import { leccionPara, reglasDelClan, ajusteWeb } from '../../../lib/entrenamient
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
 import { fotoDe } from '../../../lib/castillo-foto';
-import { decidirReto } from '../../../lib/retos';
+import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { plano as planoNombre } from '../../../lib/nombres';
 
@@ -416,9 +416,10 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
         `/puntos — la tabla de puntos del mes\n\n` +
-        `<b>Con foto</b> (en el pie de la captura):\n` +
-        `"ya doné mi castillo" + captura del mapa de guerra → +5 si el de abajo está lleno\n` +
-        `"fc" o "estuve entrenando" + captura del chat con 5 desafíos amistosos de 2⭐ o más → +5, una vez al día`
+        `<b>Con foto</b> (el comando va en el pie de la captura):\n` +
+        `/castillo + captura del mapa de guerra → +5 si el castillo de abajo está lleno\n` +
+        `/fc + captura del chat con 5 desafíos amistosos de 2⭐ o más → +5, una vez al día\n` +
+        `También vale mencionarme: "@Heraldo ya doné mi castillo", "@Heraldo mis fc"`
       );
 
     // Charla suelta: la frase ya viene elegida, aca solo se dice.
@@ -443,6 +444,14 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       if (!r.existente) await recordarMensaje(admin, r.id, idMensaje);
       return null;
     }
+
+    // "/fc" sin foto: se explica como va. Con foto no llega aqui: el pie
+    // con /fc lo atiende fotos.js.
+    case 'fc':
+      return (
+        `🏹 El reto de los desafíos amistosos: ${FC_MINIMO} con ${FC_ESTRELLAS}⭐ o más en una sola captura del chat del clan, una vez al día, +${PUNTOS_FC} puntos. ` +
+        `Manda la captura como foto con <code>/fc</code> en el pie y la leo yo.`
+      );
 
     // La tabla de puntos del mes.
     case 'puntos': {
