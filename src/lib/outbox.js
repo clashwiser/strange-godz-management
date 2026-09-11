@@ -10,7 +10,15 @@ import { avisar as avisarTelegram, telegramConfigurado } from './telegram.js';
  * aviso: si ya existe una fila con esa clave, no se inserta otra.
  * Devuelve true si el mensaje es nuevo.
  */
-export async function encolar({ tipo, cuerpo, clave = null, destino = 'grupo_clan', pose = null, menciones = [] }) {
+export async function encolar({
+  tipo,
+  cuerpo,
+  clave = null,
+  destino = 'grupo_clan',
+  pose = null,
+  menciones = [],
+  fotos = [],
+}) {
   const { data, error } = await db
     .from('outbox')
     .upsert(
@@ -29,10 +37,24 @@ export async function encolar({ tipo, cuerpo, clave = null, destino = 'grupo_cla
 
   console.log(`  [outbox] encolado #${data[0].id} (${tipo})`);
 
-  // Telegram es opcional y secundario: si esta configurado, duplica el aviso.
-  // Un fallo aca nunca debe tumbar el job. Con `pose`, va como foto de
-  // Heraldo con el texto de pie.
-  if (telegramConfigurado) await avisarTelegram(cuerpo, { pose, menciones }).catch(() => {});
+  // Telegram es opcional y secundario: si esta configurado, manda el aviso
+  // por Heraldo. Un fallo aca nunca debe tumbar el job. Con `pose`, va con
+  // Heraldo delante; con `fotos`, con esas imagenes (la miniatura de un
+  // video) delante de Heraldo.
+  //
+  // Si salio, la fila queda como enviada. Hasta ahora se quedaba en
+  // "pendiente" aunque Heraldo ya lo hubiera dicho en el grupo: la pestaña
+  // Mensajes lo enseñaba como "por enviar" y un lider podia mandarlo dos
+  // veces.
+  if (telegramConfigurado) {
+    const salio = await avisarTelegram(cuerpo, { pose, menciones, fotos }).catch(() => false);
+    if (salio) {
+      await db
+        .from('outbox')
+        .update({ estado: 'enviado', enviado_en: new Date().toISOString() })
+        .eq('id', data[0].id);
+    }
+  }
 
   return true;
 }

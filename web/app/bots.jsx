@@ -33,7 +33,7 @@ const SALUD_DEMO = {
     recluta: { clave: 'recluta', configurado: true, usuario: 'Valqui_bot', nombre: 'Valquiria', oyeTodo: true, enGrupo: true, esAdmin: false, webhook: { ok: true, pendientes: 0, ultimoError: null } },
   },
   actividad: { solicitudesPendientes: 3, solicitudesTotal: 7, aceptadas: 2, vinculados: 18, basesHoy: 4, outboxPendientes: 1 },
-  ia: { configurada: true, motor: 'openai', modelo: 'openai/gpt-oss-120b', hoy: 37, fallos: 0, tope: 300 },
+  ia: { configurada: true, motor: 'openai', modelo: 'openai/gpt-oss-120b', busca: 'groq/compound-mini', hoy: 37, fallos: 0, tope: 300 },
 };
 
 const FICHAS = {
@@ -238,6 +238,11 @@ export default function Bots({ d, demo = false, recargar }) {
           {salud?.ia?.configurada && (
             <p className="sub" style={{ marginTop: 0 }}>
               {salud.ia.motor === 'openai' ? t('motor compatible OpenAI') : 'Gemini'} · <code>{salud.ia.modelo ?? '?'}</code>
+              {salud.ia.busca && (
+                <>
+                  {' '}· {t('con web')}: <code>{salud.ia.busca}</code>
+                </>
+              )}
             </p>
           )}
           <p className="sub">

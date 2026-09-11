@@ -132,17 +132,37 @@ export async function POST(request) {
   // Ya estaba: lo anuncio el cron o un aviso repetido del hub.
   if (!data?.length) return new Response('', { status: 204 });
 
-  await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      photo: `${SITIO}/heraldo-corneta.jpg`,
-      caption: cuerpo,
-      parse_mode: 'HTML',
-    }),
-  }).catch(() => {});
+  // Con la miniatura del video delante: la grande solo existe si el video
+  // se subio en HD, la hq existe siempre. Si ninguna carga, Heraldo con la
+  // corneta, y si tampoco, texto. Igual que src/lib/telegram.js.
+  const intentos = [
+    ['sendPhoto', { photo: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, caption: cuerpo }],
+    ['sendPhoto', { photo: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, caption: cuerpo }],
+    ['sendPhoto', { photo: `${SITIO}/heraldo-corneta.jpg`, caption: cuerpo }],
+    ['sendMessage', { text: cuerpo }],
+  ];
+  let salio = false;
+  for (const [metodo, extra] of intentos) {
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: CHAT_ID, parse_mode: 'HTML', ...extra }),
+    }).catch(() => null);
+    if (r?.ok) {
+      salio = true;
+      break;
+    }
+    console.log(`[youtube] ${metodo} fallo: ${r ? (await r.text().catch(() => '')).slice(0, 120) : 'sin respuesta'}`);
+  }
 
-  console.log(`[youtube] anunciado ${videoId} de ${canal.nombre}`);
+  // Si salio, la fila no se queda como "por enviar" en la pestaña Mensajes.
+  if (salio) {
+    await admin
+      .from('outbox')
+      .update({ estado: 'enviado', enviado_en: new Date().toISOString() })
+      .eq('id', data[0].id);
+  }
+
+  console.log(`[youtube] ${salio ? 'anunciado' : 'NO anunciado'} ${videoId} de ${canal.nombre}`);
   return new Response('', { status: 204 });
 }

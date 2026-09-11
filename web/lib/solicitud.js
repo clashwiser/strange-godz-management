@@ -32,7 +32,8 @@ import {
 } from './aspirante';
 import { pedirPerfil } from './coc-perfil';
 import { entenderValquiria, cuantosEsperan } from './charla-valquiria';
-import { pensar } from './pensar';
+import { pensar, thDe } from './pensar';
+import { esPreguntaDelJuego } from './conocimiento';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
@@ -184,6 +185,26 @@ async function esAdminDelGrupo(uid) {
  * no escribiendo "el 75 por ciento mas o menos". Sin teclado, se quita el
  * que hubiera, para que no se quede colgado de la pregunta anterior.
  */
+/**
+ * "Escribiendo..." en el chat durante unos segundos. Se manda antes de
+ * preguntarle a la IA: con busqueda web son varios segundos, y un grupo en
+ * silencio despues de nombrar al bot parece un bot roto. Nunca falla hacia
+ * fuera; es cosmetica.
+ */
+export async function escribiendo(token, chatId) {
+  if (!token || !chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, action: 'typing' }),
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch {
+    /* cosmetica */
+  }
+}
+
 export async function decirCon(token, chatId, respuesta) {
   if (!token || !respuesta) return false;
   const { texto, teclado } = typeof respuesta === 'string' ? { texto: respuesta } : respuesta;
@@ -320,8 +341,13 @@ export async function flujoSolicitud(admin, msg, texto, via) {
           .in('estado', ['pendiente', 'prueba']);
         return cuantosEsperan(count ?? 0);
       }
-      if (leido?.categoria === 'no entiendo') {
-        return (await pensar(admin, 'valquiria', texto, msg.from?.first_name)) ?? leido.texto;
+      // Pregunta del juego: IA con busqueda web, antes que la frase. Lo
+      // que ninguna frase entiende: IA sin web. Si la IA no puede, la frase.
+      const buscar = esPreguntaDelJuego(texto);
+      if (buscar || leido?.categoria === 'no entiendo') {
+        await escribiendo(process.env.RECLUTA_BOT_TOKEN, uid);
+        const th = buscar ? await thDe(admin, uid) : null;
+        return (await pensar(admin, 'valquiria', texto, msg.from?.first_name, { buscar, th })) ?? leido?.texto ?? v.deCasa;
       }
       return leido?.texto ?? v.deCasa;
     }

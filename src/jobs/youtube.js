@@ -15,6 +15,7 @@
 
 import { db, chk, correrJob } from '../lib/db.js';
 import { encolar } from '../lib/outbox.js';
+import { miniaturasYoutube } from '../lib/telegram.js';
 
 const LLAVE = process.env.YOUTUBE_API_KEY;
 const SECO = process.argv.includes('--seco') || process.env.YOUTUBE_SECO === '1';
@@ -128,12 +129,14 @@ await correrJob('youtube', async () => {
         console.log(`\n----- ${v.canal} -----\n${cuerpo}\n`);
         continue;
       }
-      // La cara de la corneta: es un anuncio, no una alerta.
+      // Con la miniatura del video delante; si YouTube no la tiene, la
+      // cara de la corneta: es un anuncio, no una alerta.
       const nuevo = await encolar({
         tipo: 'youtube',
         cuerpo,
         clave: `yt:${v.videoId}`,
         pose: 'corneta',
+        fotos: miniaturasYoutube(v.videoId),
       });
       if (nuevo) mandados += 1;
     }

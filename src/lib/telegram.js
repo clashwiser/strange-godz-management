@@ -45,6 +45,16 @@ export function aHtmlTelegram(texto) {
 // descarga solas si le pasas la URL, asi que no hay que subir nada.
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
 
+/**
+ * Las miniaturas de un video de YouTube, de mejor a peor. La grande
+ * (1280x720) solo existe si el video se subio en HD; la hq (480x360)
+ * existe siempre. Telegram las descarga el solo con la URL.
+ */
+export const miniaturasYoutube = (videoId) => [
+  `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+  `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+];
+
 // Un pie de foto de Telegram tope a 1024 caracteres. Los partes rondan los
 // 500, pero uno largo -siete clanes en zona de descenso- podria pasarse, y
 // entonces sendPhoto falla ENTERO y el aviso no llega. Se comprueba antes.
@@ -63,8 +73,11 @@ const TOPE_PIE = 1024;
  * lo trata como GIF, arranca solo y se repite. La escalera de respaldo es
  * video -> foto -> texto: un despliegue a medias, o un pie de mas de 1024
  * caracteres, nunca se lleva por delante el aviso.
+ *
+ * Con `fotos`, esas URL van ANTES que Heraldo: es como sale la miniatura
+ * de un video de YouTube. Si ninguna carga, sigue la escalera de siempre.
  */
-export async function avisar(texto, { silencioso = false, pose = null, menciones = [] } = {}) {
+export async function avisar(texto, { silencioso = false, pose = null, menciones = [], fotos = [] } = {}) {
   if (!telegramConfigurado) {
     console.log('[telegram] no configurado, mensaje no enviado:\n' + texto);
     return false;
@@ -87,15 +100,23 @@ export async function avisar(texto, { silencioso = false, pose = null, menciones
 
 👉 ${enlaces}`;
   }
-  // Con Heraldo delante solo si el pie cabe; si no, texto y no se pierde nada.
-  const conPose = Boolean(pose) && html.length <= TOPE_PIE;
+  // Con imagen delante solo si el pie cabe; si no, texto y no se pierde nada.
+  const cabe = html.length <= TOPE_PIE;
 
-  // La escalera: video, foto, texto. Cada peldaño solo se prueba si el
-  // anterior fallo, y el ultimo no puede fallar por la imagen.
-  const intentos = conPose
+  // La escalera: primero las fotos propias del aviso -la miniatura de un
+  // video de YouTube, en varios tamaños por si el grande no existe-,
+  // despues Heraldo en video, en foto, y al final texto. Cada peldaño solo
+  // se prueba si el anterior fallo, y el ultimo no puede fallar por la
+  // imagen.
+  const intentos = cabe
     ? [
-        ['sendAnimation', { animation: `${SITIO}/heraldo-${pose}.mp4`, caption: html }],
-        ['sendPhoto', { photo: `${SITIO}/heraldo-${pose}.jpg`, caption: html }],
+        ...fotos.map((url) => ['sendPhoto', { photo: url, caption: html }]),
+        ...(pose
+          ? [
+              ['sendAnimation', { animation: `${SITIO}/heraldo-${pose}.mp4`, caption: html }],
+              ['sendPhoto', { photo: `${SITIO}/heraldo-${pose}.jpg`, caption: html }],
+            ]
+          : []),
         ['sendMessage', { text: html }],
       ]
     : [['sendMessage', { text: html }]];

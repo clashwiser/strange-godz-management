@@ -10,8 +10,9 @@
 
 import { admin } from '../../../lib/supabase-admin';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
-import { flujoSolicitud, decirCon } from '../../../lib/solicitud';
-import { pensar } from '../../../lib/pensar';
+import { flujoSolicitud, decirCon, escribiendo } from '../../../lib/solicitud';
+import { pensar, thDe } from '../../../lib/pensar';
+import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -22,6 +23,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+// Su propio id de usuario: la parte del token antes de los dos puntos.
+// Para saber si un mensaje es respuesta a EL y no a Valquiria.
+const MI_ID = Number((TOKEN || '').split(':')[0]) || 0;
 const SECRETO = process.env.TELEGRAM_SECRET_TOKEN;
 // Lista blanca de chats. Sin esto, cualquiera que encuentre al bot consulta
 // los datos del clan.
@@ -162,8 +166,10 @@ export async function POST(request) {
     // pidiera.
     //
     // Cuenta como dirigido a nosotros: que nombren a Heraldo, que usen el
-    // @usuario, o que respondan a un mensaje suyo.
-    const respondeAlBot = msg.reply_to_message?.from?.is_bot === true;
+    // @usuario, o que respondan a un mensaje SUYO. Suyo y no "de un bot":
+    // con Valquiria en el mismo grupo, responderle a ella le llegaba
+    // tambien a Heraldo y contestaban los dos.
+    const respondeAlBot = msg.reply_to_message?.from?.id === MI_ID;
     const nombrado = /heraldo/i.test(texto);
     if (!respondeAlBot && !nombrado) return Response.json({ ok: true });
 
@@ -202,7 +208,9 @@ export function entender(texto) {
   if (/\b(base|bases|dise|layout|aldea)\b/.test(q)) return { comando: 'base', arg: q };
   if (/(falta|sin atacar|no\s+(ha\s+|han\s+)?atac|quien debe|pendiente)/.test(q))
     return { comando: 'faltan', arg: '' };
-  if (/(estrella|tabla|ranking|quien va gan|mejor)/.test(q)) return { comando: 'estrellas', arg: '' };
+  // "mejor" a secas no: "cual es el mejor ejercito" no pide la tabla.
+  if (/(estrella|tabla|ranking|quien va gan|quien (es|va) (el )?mejor|los mejores|mejores del clan)/.test(q))
+    return { comando: 'estrellas', arg: '' };
   if (/(resumen|como vamos|estado|situacion)/.test(q)) return { comando: 'resumen', arg: '' };
 
   // "pa que clan voy yo", "a donde me toca", "en que clan estoy"
@@ -223,6 +231,13 @@ export function entender(texto) {
 
   const m = /(?:jugador|ficha|quien es|como va)\s+(.+)/.exec(q);
   if (m) return { comando: 'jugador', arg: m[1].trim() };
+
+  // Una pregunta de conocimiento del juego -que ejercito, que trae la
+  // actualizacion- va a la IA con busqueda web, ANTES de las frases: la
+  // frase de "el mejor ejercito es el que practicas" esta bien como
+  // chiste, pero el que pregunta quiere la respuesta. Va con el texto
+  // original, con tildes, que es lo que la IA lee mejor.
+  if (esPreguntaDelJuego(q)) return { comando: 'buscar', arg: texto };
 
   // Charla: va DESPUES de los datos -si alguien pide una base, se le da la
   // base, no un chiste- y ANTES del "no entendi". Es lo que hace que
@@ -333,8 +348,20 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     // Nada caso en el cerebro de frases: se le pregunta a la IA con la voz
     // de Heraldo. Sin llave o con el tope del dia gastado, la ayuda.
     case 'pensar': {
+      await escribiendo(TOKEN, chatId);
       const r = await pensar(admin, 'heraldo', arg, quien.nombre);
       return r ?? (await ejecutar('ayuda', '', quien, chatId));
+    }
+
+    // Pregunta de conocimiento del juego: IA con busqueda web, con el TH
+    // del que pregunta si se presento. Mientras busca, "escribiendo...":
+    // son varios segundos y un grupo en silencio parece un bot roto. Si
+    // la IA no puede, la frase del cerebro; y si tampoco, la ayuda.
+    case 'buscar': {
+      await escribiendo(TOKEN, chatId);
+      const th = await thDe(admin, quien.id);
+      const r = await pensar(admin, 'heraldo', arg, quien.nombre, { buscar: true, th });
+      return r ?? charlar(plano(arg)) ?? (await ejecutar('ayuda', '', quien, chatId));
     }
 
     case 'resumen':

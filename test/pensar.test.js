@@ -18,6 +18,7 @@ const estado = {
 let servidor;
 let pensar;
 let usoDeHoy;
+let limpiar;
 
 // El admin de Supabase, de mentira: cuenta como ia_contar (sql/023): una
 // llamada, o un fallo, nunca las dos cosas.
@@ -67,7 +68,7 @@ before(async () => {
   process.env.IA_URL = `http://127.0.0.1:${puerto}/v1/`;
   process.env.IA_MODELO = 'llama-3.3-70b-versatile'; // el forzado, que ya no existe
   delete process.env.GEMINI_API_KEY;
-  ({ pensar, usoDeHoy } = await import('../web/lib/pensar.js'));
+  ({ pensar, usoDeHoy, limpiar } = await import('../web/lib/pensar.js'));
 });
 
 after(() => servidor.close());
@@ -106,12 +107,62 @@ test('pensar: con nombre, la pregunta lleva quien la hace', async () => {
   assert.equal(estado.peticiones[0].messages[1].content, 'Deibis dice: hola');
 });
 
-test('usoDeHoy: enseña el modelo que de verdad se usa', async () => {
+test('pensar con buscar: va al modelo con web, con el TH y sin parametros de razonar', async () => {
+  estado.peticiones = [];
+  const r = await pensar(admin, 'valquiria', '¿cuál es el mejor ejército ahora?', 'Cris', { buscar: true, th: 15 });
+  assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
+  assert.equal(estado.peticiones.length, 1);
+  const p = estado.peticiones[0];
+  assert.equal(p.model, 'groq/compound-mini');
+  assert.equal(p.max_tokens, 700);
+  assert.equal(p.reasoning_effort, undefined, 'compound no es gpt-oss');
+  assert.match(p.messages[0].content, /BUSCA EN LA WEB/);
+  assert.match(p.messages[0].content, /Ayuntamiento 15/);
+  assert.match(p.messages[0].content, /de 2026/, 'lleva el mes de hoy');
+  assert.doesNotMatch(p.messages[0].content, /Máximo 2 frases/);
+  assert.equal(p.messages[1].content, 'Cris dice: ¿cuál es el mejor ejército ahora?');
+});
+
+test('pensar sin buscar: sigue con dos frases y sin TH', async () => {
+  estado.peticiones = [];
+  await pensar(admin, 'heraldo', 'hola', null);
+  const p = estado.peticiones[0];
+  assert.equal(p.model, 'openai/gpt-oss-120b');
+  assert.match(p.messages[0].content, /Máximo 2 frases/);
+  assert.doesNotMatch(p.messages[0].content, /BUSCA EN LA WEB/);
+});
+
+test('usoDeHoy: enseña el modelo que de verdad se usa, y el que busca', async () => {
   const u = await usoDeHoy(admin);
   assert.equal(u.motor, 'openai');
   assert.equal(u.configurada, true);
   assert.equal(u.modelo, 'openai/gpt-oss-120b');
+  assert.equal(u.busca, 'groq/compound-mini');
   assert.equal(u.tope, 300);
+});
+
+test('pensar con buscar: si el proveedor no tiene el modelo con web, contesta sin web y no insiste', async () => {
+  estado.retirados.add('groq/compound-mini');
+  estado.peticiones = [];
+  const antes = { ...contador };
+  const r = await pensar(admin, 'valquiria', '¿qué trae la actualización?', null, { buscar: true });
+  assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
+  assert.deepEqual(
+    estado.peticiones.map((p) => p.model),
+    ['groq/compound-mini', 'openai/gpt-oss-120b'],
+    'probo el de web, 404, y siguio con el de charla en la misma llamada',
+  );
+  assert.equal(contador.fallos, antes.fallos, 'contesto: no es un fallo');
+
+  estado.peticiones = [];
+  await pensar(admin, 'valquiria', '¿y los héroes?', null, { buscar: true });
+  assert.deepEqual(estado.peticiones.map((p) => p.model), ['openai/gpt-oss-120b'], 'ya no vuelve a probar el de web');
+  assert.equal((await usoDeHoy(admin)).busca, null);
+});
+
+test('limpiar: quita enlaces, citas y markdown, y deja el texto', () => {
+  const sucio = 'El meta es **Super Archer Blimp** [1] según [Clash Champs](https://clashchamps.com/meta) y https://x.com/a.\n\n\n- Punto';
+  assert.equal(limpiar(sucio), 'El meta es Super Archer Blimp según Clash Champs y\n\n- Punto');
 });
 
 test('pensar: sin ningun modelo de texto, se rinde con fallo contado y sin reventar', async () => {

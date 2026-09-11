@@ -247,6 +247,7 @@ export const EN = {
   'Falta': 'Missing',
   'en Vercel (gratis en aistudio.google.com/apikey).': 'in Vercel (free at aistudio.google.com/apikey).',
   'motor compatible OpenAI': 'OpenAI-compatible engine',
+  'con web': 'with web search',
   'Falta la llave en Vercel:': 'Missing the key in Vercel:',
   'o': 'or',
   // ---- Borrar un mensaje ----

@@ -24,14 +24,15 @@
 //   RECLUTA_SECRET_TOKEN   uno inventado, el mismo que lleva el webhook
 
 import { admin } from '../../../lib/supabase-admin';
-import { flujoSolicitud, decirCon, decirConVideo, esc } from '../../../lib/solicitud';
+import { flujoSolicitud, decirCon, decirConVideo, escribiendo, esc } from '../../../lib/solicitud';
 import {
   entenderValquiria,
   cuantosEsperan,
   presentaElegido,
   bienvenidaValquiria,
 } from '../../../lib/charla-valquiria';
-import { pensar } from '../../../lib/pensar';
+import { pensar, thDe } from '../../../lib/pensar';
+import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -142,6 +143,19 @@ export async function POST(request) {
   const leido = entenderValquiria(texto);
   if (!leido) return Response.json({ ok: true });
 
+  // Pregunta de conocimiento del juego -que ejercito, que trae la
+  // actualizacion- va a la IA con busqueda web ANTES de las frases: la
+  // frase de "el mejor ejercito es el que practicas" esta bien como
+  // chiste, pero el que pregunta quiere la respuesta. Con el TH del que
+  // pregunta si se presento. Mientras busca, "escribiendo...".
+  if (esPreguntaDelJuego(texto)) {
+    await escribiendo(TOKEN, chatId);
+    const th = await thDe(admin, msg.from?.id);
+    const r = await pensar(admin, 'valquiria', texto, msg.from?.first_name, { buscar: true, th });
+    await decirCon(TOKEN, chatId, r ?? leido.texto);
+    return Response.json({ ok: true });
+  }
+
   if (leido.tipo === 'esperando') {
     const { count } = await admin
       .from('solicitudes')
@@ -155,6 +169,7 @@ export async function POST(request) {
   // llave, tope del dia, fallo- sale la frase de "no entendi" de siempre.
   let texto_ = leido.texto;
   if (leido.categoria === 'no entiendo') {
+    await escribiendo(TOKEN, chatId);
     texto_ = (await pensar(admin, 'valquiria', texto, msg.from?.first_name)) ?? leido.texto;
   }
   await decirCon(TOKEN, chatId, texto_);
