@@ -40,3 +40,14 @@ export function esPreguntaDelJuego(texto) {
   if (!q || DEL_CLAN.test(q)) return false;
   return PREGUNTA.test(q) && JUEGO.test(q);
 }
+
+// Dentro de las del juego, las de META: que ejercito, que ataque, que
+// esta pegando. Para esas la IA lee ademas el digesto de los creadores
+// (web/lib/meta-fuentes.js) y limita la busqueda a webs de confianza.
+const META =
+  /\b(ejercito|ejercitos|army|tropa|tropas|ataque|ataques|atacar|ataco|estrategia|estrategias|meta|spam|hydra|lalo|lavaloon|zapquake|composicion|super ?[a-z]+|dragon|dragones|edrag|electro|yeti|yetis|bruja|brujas|golem|golems|bowler|bowlers|root ?rider|jinete|jinetes|hechizo|hechizos|leyenda|legend|esports|guerra|cwl|liga)\b/;
+
+/** True si, ademas de ser del juego, va de ejercitos y ataques. */
+export function esPreguntaDeMeta(texto) {
+  return esPreguntaDelJuego(texto) && META.test(plano(texto));
+}

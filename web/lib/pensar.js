@@ -32,7 +32,8 @@
 //   IA_MODELO_BUSCA  opcional; el que busca en la web (motor 2), por
 //                    defecto groq/compound-mini
 
-import { ajusteWeb, memoriaDeLideres } from './entrenamiento.js';
+import { ajusteWeb, memoriaDeLideres, digestoMeta, websMeta } from './entrenamiento.js';
+import { esPreguntaDeMeta } from './conocimiento.js';
 
 const LLAVE = process.env.GEMINI_API_KEY;
 const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
@@ -173,7 +174,7 @@ async function elegirModelo() {
 // a "cual es el mejor ejercito" contesto que eso lo sabia /faltan.
 const REGLAS_COMUNES = `
 Reglas, sin excepción:
-- Contesta en español de Cuba, tuteando. Sin listas, sin markdown, sin asteriscos, sin comillas raras, sin enlaces.
+- Contesta en español de Cuba, tuteando. Sin listas, sin markdown, sin asteriscos, sin comillas raras. Sin enlaces, salvo los de link.clashofclans.com para copiar un ejército: esos sí, tal cual.
 - Eres un personaje de un grupo de Telegram de un clan de Clash of Clans llamado Strange Godz (clanes x300, STRANGE-WORLD, Cuba, Olympus, Cuban Pirates). Habla de Clash of Clans, del clan, de la vida del grupo y de cualquier tema ligero.
 - Los datos de ESTE clan no los sabes y no los inventas: estrellas, quién no ha atacado, bases, premios, alineaciones. Si te los piden, di que eso lo saben los comandos de Heraldo (/faltan, /estrellas, /base, /yo, /cobro). Todo lo demás del juego —ejércitos, meta, héroes, equipamiento, actualizaciones, estrategia— sí lo contestas.
 - NUNCA hables de política, religión, sexo, drogas, ni del gobierno de ningún país. Si te lo sacan, cambia de tema con gracia hacia el juego.
@@ -380,6 +381,16 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
   // insistir; si no busco, o fallo -429 de su tope, 5xx-, se contesta sin
   // web y diciendolo. Un timeout no se reintenta: ya se gasto el tiempo
   // del webhook.
+  //
+  // Y si la pregunta es de META -que ejercito, que esta pegando-, la web a
+  // secas no vale: devuelve granjas SEO con ejercitos de hace meses. Ahi
+  // entra el digesto de los creadores de confianza y de Blueprint
+  // (meta-fuentes.js), que es lo mas fresco que hay, y la busqueda se
+  // limita a los dominios que los lideres pusieron en la pestaña Bots.
+  const meta = buscar && esPreguntaDeMeta(texto);
+  const digesto = meta ? await digestoMeta(admin) : null;
+  const webs = meta ? await websMeta(admin) : [];
+
   let hechos = null;
   if (buscar && buscaDisponible) {
     const r = await llamarCompat(MODELO_BUSCA, [{ role: 'user', content: PEDIR_DATOS(texto, mesDeHoy()) }], {
@@ -387,22 +398,29 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
       timeout: 18000,
       crudo: true,
       cabeceras: /groq\.com/.test(URL_COMPAT) ? { 'Groq-Model-Version': VERSION_BUSCA } : {},
+      extra: webs.length ? { search_settings: { include_domains: webs } } : {},
     });
     if (r.status === 404) buscaDisponible = false;
-    if (r.timeout) {
+    if (r.timeout && !digesto) {
       await contarFallo(admin);
       return null;
     }
     if (r.texto && r.busco) hechos = r.texto.slice(0, 2500);
-    else console.error('[ia] sin web: se contesta con el modelo de charla, avisando');
+    else if (!digesto) console.error('[ia] sin web: se contesta con el modelo de charla, avisando');
   }
 
+  const partes = [pregunta];
+  if (digesto) {
+    partes.push(
+      `Lo que dicen los creadores de confianza y Blueprint (digesto del ${digesto.actualizado.slice(0, 10)}; ` +
+        `los videos más recientes mandan sobre los artículos y sobre la web; si hay enlace de ejército, dalo tal cual):\n${digesto.texto}`
+    );
+  }
+  if (hechos) partes.push(`Lo que se encontró hoy en la web:\n${hechos}`);
+
   const mensajes = [
-    { role: 'system', content: instrucciones(quien, { buscar, sinWeb: buscar && !hechos, th, memoria, panel }) },
-    {
-      role: 'user',
-      content: hechos ? `${pregunta}\n\nLo que se encontró hoy en la web:\n${hechos}` : pregunta,
-    },
+    { role: 'system', content: instrucciones(quien, { buscar, sinWeb: buscar && !hechos && !digesto, th, memoria, panel }) },
+    { role: 'user', content: partes.join('\n\n') },
   ];
 
   // Dos intentos como mucho: si el modelo elegido ya no existe (404), se
@@ -411,7 +429,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
     const modelo = await elegirModeloCompat();
     if (!modelo) break;
     const r = await llamarCompat(modelo, mensajes, { max_tokens: buscar ? 700 : 400, timeout: 8000 });
-    if (r.texto) return anotar(hechos ? `${modelo} con ${MODELO_BUSCA}` : modelo, r.texto);
+    if (r.texto) return anotar(`${modelo}${hechos ? ` con ${MODELO_BUSCA}` : ''}${digesto ? ' con digesto' : ''}`, r.texto);
     if (r.status === 404) {
       descartados.add(modelo);
       modeloCompat = null;
@@ -427,7 +445,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
  * Una llamada a chat/completions. Devuelve { texto } si salio, o
  * { status } / { timeout } si no, con el motivo ya escrito en el log.
  */
-async function llamarCompat(modelo, messages, { max_tokens, timeout, crudo = false, cabeceras = {} }) {
+async function llamarCompat(modelo, messages, { max_tokens, timeout, crudo = false, cabeceras = {}, extra = {} }) {
   try {
     const r = await fetch(`${URL_COMPAT}/chat/completions`, {
       method: 'POST',
@@ -438,6 +456,7 @@ async function llamarCompat(modelo, messages, { max_tokens, timeout, crudo = fal
         temperature: crudo ? 0.2 : 0.8,
         max_tokens,
         ...extrasPara(modelo),
+        ...extra,
       }),
       signal: AbortSignal.timeout(timeout),
     });
@@ -491,7 +510,16 @@ function anotar(modelo, texto) {
  * aunque el modelo ignore la regla de las frases. Exportada para probarla.
  */
 export function limpiar(s) {
-  return String(s ?? '')
+  // Los enlaces de copiar ejercito se quedan tal cual: son la respuesta
+  // util, y llevan guiones bajos que la limpieza de markdown se comeria.
+  // Se apartan antes y se devuelven al final.
+  const enlaces = [];
+  const texto = String(s ?? '')
+    .replace(/\[([^\]]+)\]\((https?:\/\/link\.clashofclans\.com[^)\s]*)\)/g, '$1 $2')
+    .replace(/https?:\/\/link\.clashofclans\.com\S*/g, (m) => {
+      enlaces.push(m.replace(/[.,;:)]+$/, ''));
+      return `§ENLACE${enlaces.length - 1}§`;
+    })
     .replace(/\[([^\]]+)\]\((?:https?:\/\/)[^)]*\)/g, '$1')
     .replace(/https?:\/\/\S+/g, '')
     .replace(/\[\d+\]/g, '')
@@ -503,7 +531,8 @@ export function limpiar(s) {
     .replace(/\n{3,}/g, '\n\n')
     .replace(/ {2,}/g, ' ')
     .trim()
-    .slice(0, 1000);
+    .slice(0, 1200);
+  return texto.replace(/§ENLACE(\d+)§/g, (_, i) => enlaces[Number(i)] ?? '');
 }
 
 /** Cuantas van hoy, para la pestaña Bots. */

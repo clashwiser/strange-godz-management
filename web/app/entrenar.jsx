@@ -207,6 +207,9 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
         </div>
       </div>
 
+      {/* ---- De donde sale el meta ---- */}
+      <FuentesDelMeta d={d} recargar={recargar} aviso={aviso} />
+
       {/* ---- Las lecciones que hay ---- */}
       {lecciones.length > 0 && (
         <div className="tabla-scroll" style={{ marginTop: 12 }}>
@@ -242,6 +245,129 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
           </table>
         </div>
       )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------
+// De donde saca la IA el meta del juego. Ver web/lib/meta-fuentes.js: los
+// canales de YouTube de confianza (la API oficial, con nuestra llave),
+// los feeds de Blueprint, y los dominios a los que se limita la busqueda
+// web. El digesto lo rehace /api/meta cada seis horas o con el boton.
+// ---------------------------------------------------------------------
+function FuentesDelMeta({ d, recargar, aviso }) {
+  const t = useT();
+  const cfg = useMemo(() => Object.fromEntries((d.config ?? []).map((c) => [c.clave, c.valor])), [d.config]);
+  const aLineas = (v) => (Array.isArray(v) ? v : []);
+  const inicial = useMemo(
+    () => ({
+      canales: aLineas(cfg.meta_canales).map((c) => `${c.nombre ?? ''} | ${c.id ?? ''}`).join('\n'),
+      feeds: aLineas(cfg.meta_feeds).join('\n'),
+      webs: aLineas(cfg.meta_webs).join('\n'),
+    }),
+    [cfg.meta_canales, cfg.meta_feeds, cfg.meta_webs]
+  );
+  const [f, setF] = useState(inicial);
+  const [ocupado, setOcupado] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const digesto = cfg.meta_digest;
+  const cambiado = f.canales !== inicial.canales || f.feeds !== inicial.feeds || f.webs !== inicial.webs;
+
+  async function guardar() {
+    const canales = f.canales
+      .split('\n')
+      .map((l) => l.split('|').map((x) => x.trim()))
+      .filter(([n, id]) => n && /^UC[\w-]{22}$/.test(id ?? ''))
+      .map(([nombre, id]) => ({ nombre, id }));
+    const feeds = f.feeds.split('\n').map((x) => x.trim()).filter((x) => /^https?:\/\//.test(x));
+    const webs = f.webs.split('\n').map((x) => x.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')).filter(Boolean);
+    setOcupado(true);
+    try {
+      for (const [clave, valor] of [['meta_canales', canales], ['meta_feeds', feeds], ['meta_webs', webs]]) {
+        const { error } = await supabase.from('config').update({ valor, actualizado: new Date().toISOString() }).eq('clave', clave);
+        if (error) throw error;
+      }
+      aviso(`${t('Fuentes guardadas')}: ${canales.length} ${t('canales')}, ${feeds.length} feeds, ${webs.length} webs.`);
+      recargar?.();
+    } catch (e) {
+      aviso(`Error: ${e.message}`, true);
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function actualizar() {
+    setOcupado(true);
+    setResultado(null);
+    try {
+      const { data: sesion } = await supabase.auth.getSession();
+      const r = await fetch('/api/meta', { method: 'POST', headers: { Authorization: `Bearer ${sesion?.session?.access_token}` } });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error ?? r.status);
+      setResultado(j);
+      aviso(`${t('Digesto actualizado')}: ${j.videos} videos, ${j.articulos} ${t('artículos')}.`);
+      recargar?.();
+    } catch (e) {
+      aviso(`Error: ${e.message}`, true);
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <>
+      <h2 className="sec">{t('De dónde sale el meta')}</h2>
+      <p className="sub" style={{ marginTop: 0 }}>
+        {t(
+          'Cuando preguntan por ejércitos, la IA lee primero lo último de estos canales (títulos y enlaces de ejército de sus videos, por la API de YouTube) y los artículos de estos feeds; la búsqueda web se limita a estas webs. Se renueva solo cada seis horas.'
+        )}
+      </p>
+      <div className="grid">
+        <div className="card">
+          <h3>{t('Canales de YouTube')}</h3>
+          <p className="sub">{t('Uno por línea: Nombre | id del canal (empieza por UC). Applesauce, ShocK, Habibi, Ace, TK, Blueprint, iTzu vienen de serie.')}</p>
+          <textarea className="campo" rows={8} value={f.canales} onChange={(e) => setF((x) => ({ ...x, canales: e.target.value }))} spellCheck={false} />
+        </div>
+        <div className="card">
+          <h3>{t('Feeds de artículos')}</h3>
+          <p className="sub">{t('Atom o RSS, una URL por línea. Los blogs de Blueprint (TH18, TH17, Leyenda) vienen de serie.')}</p>
+          <textarea className="campo" rows={4} value={f.feeds} onChange={(e) => setF((x) => ({ ...x, feeds: e.target.value }))} spellCheck={false} />
+          <h3 style={{ marginTop: 10 }}>{t('Webs para buscar')}</h3>
+          <p className="sub">{t('Un dominio por línea. Solo en estas busca la IA cuando la pregunta es de meta.')}</p>
+          <textarea className="campo" rows={3} value={f.webs} onChange={(e) => setF((x) => ({ ...x, webs: e.target.value }))} spellCheck={false} />
+        </div>
+        <div className="card">
+          <h3>{t('El digesto')}</h3>
+          {digesto?.actualizado ? (
+            <p className="sub">
+              {t('Último')}: {new Date(digesto.actualizado).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })} · {digesto.videos} videos · {digesto.articulos} {t('artículos')}
+              {digesto.errores?.length > 0 && <> · <span className="mal">{digesto.errores.length} {t('errores')}</span></>}
+            </p>
+          ) : (
+            <p className="sub">{t('Todavía no se ha hecho ninguno.')}</p>
+          )}
+          {resultado && (
+            <p className="sub">
+              {t('Ahora')}: {resultado.videos} videos, {resultado.articulos} {t('artículos')}, {resultado.chars} {t('caracteres')}, {Math.round(resultado.ms / 100) / 10} s
+              {resultado.errores?.length > 0 && <> · {resultado.errores.join(' · ')}</>}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            <button className="accion" onClick={actualizar} disabled={ocupado}>
+              {ocupado ? t('Trabajando…') : t('Actualizar el digesto ahora')}
+            </button>
+            <button className="accion" onClick={guardar} disabled={ocupado || !cambiado}>
+              {t('Guardar fuentes')}
+            </button>
+          </div>
+          {digesto?.texto && (
+            <details style={{ marginTop: 10 }}>
+              <summary className="sub">{t('Ver lo que lee la IA')}</summary>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 320, overflow: 'auto' }}>{digesto.texto}</pre>
+            </details>
+          )}
+        </div>
+      </div>
     </>
   );
 }

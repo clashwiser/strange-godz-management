@@ -15,6 +15,12 @@ const estado = {
   respuesta: '**Claro, mi cielo.** Bailo casino desde que tenía diez años.',
   datos: 'Según Clash Champs (septiembre 2026), en TH16 domina Super Archer Blimp con 4 super arqueras y globos. Fuente: https://clashchamps.com',
   busca: true,
+  // La tabla config, para entrenamiento.js: el digesto del meta y las webs.
+  config: [
+    { clave: 'meta_digest', valor: { actualizado: new Date().toISOString(), texto: 'ÚLTIMOS VIDEOS: [2026-09-10] Habibi: Super Bowler Spam · ejército: https://link.clashofclans.com/en?action=CopyArmy&army=h7p4e52_60' } },
+    { clave: 'meta_webs', valor: ['blueprintcoc.com', 'youtube.com'] },
+    { clave: 'bots_memoria', valor: 'Los premios los reparte Cris el día 1.' },
+  ],
 };
 
 let servidor;
@@ -32,7 +38,13 @@ const admin = {
     return { data: contador.llamadas, error: null };
   },
   from: () => ({
-    select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { llamadas: contador.llamadas, fallos: contador.fallos } }) }) }),
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({ data: { llamadas: contador.llamadas, fallos: contador.fallos } }),
+        limit: async () => ({ data: [] }),
+      }),
+      in: async () => ({ data: estado.config }),
+    }),
   }),
 };
 
@@ -138,7 +150,29 @@ test('pensar con buscar: dos pasos, el buscador sin personaje y el personaje con
   assert.match(contesta.messages[0].content, /de 2026/, 'lleva el mes de hoy');
   assert.doesNotMatch(contesta.messages[0].content, /Máximo 2 frases/);
   assert.doesNotMatch(contesta.messages[0].content, /NO se pudo buscar/);
-  assert.match(contesta.messages[1].content, /^Cris dice: ¿cuál es el mejor ejército ahora\?\n\nLo que se encontró hoy en la web:\nSegún Clash Champs/);
+  // "mejor ejercito" es de META: primero el digesto de los creadores, luego la web.
+  assert.match(contesta.messages[1].content, /^Cris dice: ¿cuál es el mejor ejército ahora\?\n\nLo que dicen los creadores[\s\S]*\n\nLo que se encontró hoy en la web:\nSegún Clash Champs/);
+});
+
+test('pensar con buscar de META: el digesto entra, la web se limita a las webs de confianza, y la memoria de los lideres va en las instrucciones', async () => {
+  estado.peticiones = [];
+  const r = await pensar(admin, 'heraldo', '¿qué ejército está pegando en TH18?', 'Carlos', { buscar: true });
+  assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
+  const [busca, contesta] = estado.peticiones;
+  assert.deepEqual(busca.search_settings, { include_domains: ['blueprintcoc.com', 'youtube.com'] });
+  assert.match(contesta.messages[1].content, /Lo que dicen los creadores de confianza y Blueprint/);
+  assert.match(contesta.messages[1].content, /Super Bowler Spam · ejército: https:\/\/link\.clashofclans\.com/);
+  assert.match(contesta.messages[1].content, /Lo que se encontró hoy en la web/);
+  assert.match(contesta.messages[0].content, /Cosas que los líderes del clan te han enseñado[\s\S]*Los premios los reparte Cris/);
+  assert.doesNotMatch(contesta.messages[0].content, /NO se pudo buscar/);
+});
+
+test('pensar sin META: la pregunta del juego que no es de ejercitos no lleva digesto ni limita la web', async () => {
+  estado.peticiones = [];
+  await pensar(admin, 'heraldo', '¿cuándo sale la actualización?', null, { buscar: true });
+  const [busca, contesta] = estado.peticiones;
+  assert.equal(busca.search_settings, undefined);
+  assert.doesNotMatch(contesta.messages[1].content, /creadores de confianza/);
 });
 
 test('pensar con buscar: si el buscador contesto sin buscar, se avisa de que no hay web', async () => {

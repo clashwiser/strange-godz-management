@@ -14,7 +14,7 @@
 import { elegirLeccion, aplicarLeccion } from './lecciones.js';
 
 const CACHE_MS = 60_000;
-const CLAVES = ['bots_memoria', 'ia_activa', 'valquiria_grupo', 'bienvenida', 'avisos_youtube'];
+const CLAVES = ['bots_memoria', 'ia_activa', 'valquiria_grupo', 'bienvenida', 'avisos_youtube', 'meta_digest', 'meta_webs'];
 let cache = { hasta: 0, lecciones: [], config: {} };
 
 async function cargar(admin) {
@@ -61,6 +61,27 @@ export async function leccionPara(admin, bot, texto, nombre = null) {
 export async function memoriaDeLideres(admin) {
   const { config } = await cargar(admin);
   return String(config.bots_memoria ?? '').trim().slice(0, 2000);
+}
+
+/**
+ * El digesto del meta (web/lib/meta-fuentes.js): { texto, actualizado }, o
+ * null si nunca se hizo. Si tiene mas de tres dias se da por viejo y no
+ * se usa: mejor la web que un "esta semana" que ya no lo es.
+ */
+export async function digestoMeta(admin) {
+  const { config } = await cargar(admin);
+  const d = config.meta_digest;
+  if (!d?.texto || !d.actualizado) return null;
+  const edad = Date.now() - new Date(d.actualizado).getTime();
+  if (edad > 3 * 24 * 3_600_000) return null;
+  return { texto: String(d.texto), actualizado: d.actualizado };
+}
+
+/** Los dominios a los que se limita la busqueda web del meta. */
+export async function websMeta(admin) {
+  const { config } = await cargar(admin);
+  const v = config.meta_webs;
+  return Array.isArray(v) ? v.map(String).filter(Boolean) : [];
 }
 
 /** Un interruptor de la tabla config. Si no existe, lo que se pase por defecto. */

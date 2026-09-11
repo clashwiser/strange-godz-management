@@ -1,0 +1,28 @@
+name: Digesto del meta
+
+# Cada seis horas rehace el digesto: los ultimos videos de los canales de
+# confianza (API de YouTube) y los articulos de Blueprint, que es lo que la
+# IA lee cuando preguntan por ejercitos. Ver web/lib/meta-fuentes.js y
+# src/jobs/meta.js. Gasta 16 unidades de cuota de YouTube por corrida.
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  digesto:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run meta
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
