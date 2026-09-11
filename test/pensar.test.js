@@ -27,6 +27,7 @@ let servidor;
 let pensar;
 let usoDeHoy;
 let limpiar;
+let olvidarCache;
 
 // El admin de Supabase, de mentira: cuenta como ia_contar (sql/023): una
 // llamada, o un fallo, nunca las dos cosas.
@@ -90,6 +91,7 @@ before(async () => {
   process.env.IA_MODELO = 'llama-3.3-70b-versatile'; // el forzado, que ya no existe
   delete process.env.GEMINI_API_KEY;
   ({ pensar, usoDeHoy, limpiar } = await import('../web/lib/pensar.js'));
+  ({ olvidarCache } = await import('../web/lib/entrenamiento.js'));
 });
 
 after(() => servidor.close());
@@ -130,7 +132,7 @@ test('pensar: con nombre, la pregunta lleva quien la hace', async () => {
 
 test('pensar con buscar: dos pasos, el buscador sin personaje y el personaje con lo encontrado', async () => {
   estado.peticiones = [];
-  const r = await pensar(admin, 'valquiria', '¿cuál es el mejor ejército ahora?', 'Cris', { buscar: true, th: 15 });
+  const r = await pensar(admin, 'valquiria', '¿qué hace el equipamiento del rey?', 'Cris', { buscar: true, th: 15 });
   assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
   assert.equal(estado.peticiones.length, 2, 'buscar y luego contestar');
 
@@ -139,7 +141,7 @@ test('pensar con buscar: dos pasos, el buscador sin personaje y el personaje con
   assert.equal(busca.messages.length, 1, 'sin personaje: solo la peticion de datos');
   assert.equal(busca.messages[0].role, 'user');
   assert.match(busca.messages[0].content, /Busca en la web AHORA/);
-  assert.match(busca.messages[0].content, /Pregunta: ¿cuál es el mejor ejército ahora\?$/);
+  assert.match(busca.messages[0].content, /Pregunta: ¿qué hace el equipamiento del rey\?$/);
   assert.equal(busca.reasoning_effort, undefined, 'compound no es gpt-oss');
   assert.equal(busca.temperature, 0.2, 'datos, no creatividad');
 
@@ -150,21 +152,39 @@ test('pensar con buscar: dos pasos, el buscador sin personaje y el personaje con
   assert.match(contesta.messages[0].content, /de 2026/, 'lleva el mes de hoy');
   assert.doesNotMatch(contesta.messages[0].content, /Máximo 2 frases/);
   assert.doesNotMatch(contesta.messages[0].content, /NO se pudo buscar/);
-  // "mejor ejercito" es de META: primero el digesto de los creadores, luego la web.
-  assert.match(contesta.messages[1].content, /^Cris dice: ¿cuál es el mejor ejército ahora\?\n\nLo que dicen los creadores[\s\S]*\n\nLo que se encontró hoy en la web:\nSegún Clash Champs/);
+  assert.match(contesta.messages[1].content, /^Cris dice: ¿qué hace el equipamiento del rey\?\n\nLo que se encontró hoy en la web:\nSegún Clash Champs/);
 });
 
-test('pensar con buscar de META: el digesto entra, la web se limita a las webs de confianza, y la memoria de los lideres va en las instrucciones', async () => {
+test('pensar con buscar de META: con digesto no hay web; el digesto y la memoria de los lideres entran', async () => {
   estado.peticiones = [];
   const r = await pensar(admin, 'heraldo', '¿qué ejército está pegando en TH18?', 'Carlos', { buscar: true });
   assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
-  const [busca, contesta] = estado.peticiones;
-  assert.deepEqual(busca.search_settings, { include_domains: ['blueprintcoc.com', 'youtube.com'] });
+  assert.equal(estado.peticiones.length, 1, 'con digesto, el buscador ni se llama');
+  const [contesta] = estado.peticiones;
+  assert.equal(contesta.model, 'openai/gpt-oss-120b');
   assert.match(contesta.messages[1].content, /Lo que dicen los creadores de confianza y Blueprint/);
   assert.match(contesta.messages[1].content, /Super Bowler Spam · ejército: https:\/\/link\.clashofclans\.com/);
-  assert.match(contesta.messages[1].content, /Lo que se encontró hoy en la web/);
+  assert.doesNotMatch(contesta.messages[1].content, /Lo que se encontró hoy en la web/);
   assert.match(contesta.messages[0].content, /Cosas que los líderes del clan te han enseñado[\s\S]*Los premios los reparte Cris/);
+  assert.match(contesta.messages[0].content, /NUNCA inventes cantidades/);
   assert.doesNotMatch(contesta.messages[0].content, /NO se pudo buscar/);
+});
+
+test('pensar con buscar de META sin digesto: busca en la web, pero solo en las webs de confianza', async () => {
+  const sinDigesto = estado.config.filter((c) => c.clave !== 'meta_digest');
+  const conDigesto = estado.config;
+  estado.config = sinDigesto;
+  olvidarCache();
+  estado.peticiones = [];
+  const r = await pensar(admin, 'valquiria', '¿qué ejército uso en Leyenda?', null, { buscar: true });
+  assert.equal(r, 'Claro, mi cielo. Bailo casino desde que tenía diez años.');
+  const [busca, contesta] = estado.peticiones;
+  assert.equal(busca.model, 'groq/compound-mini');
+  assert.deepEqual(busca.search_settings, { include_domains: ['blueprintcoc.com', 'youtube.com'] });
+  assert.match(contesta.messages[1].content, /Lo que se encontró hoy en la web/);
+  assert.doesNotMatch(contesta.messages[1].content, /creadores de confianza/);
+  estado.config = conDigesto;
+  olvidarCache();
 });
 
 test('pensar sin META: la pregunta del juego que no es de ejercitos no lleva digesto ni limita la web', async () => {

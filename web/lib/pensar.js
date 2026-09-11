@@ -391,8 +391,12 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
   const digesto = meta ? await digestoMeta(admin) : null;
   const webs = meta ? await websMeta(admin) : [];
 
+  // Con digesto, la web sobra para el meta: es mas lenta, y lo que trae
+  // son articulos viejos (la primera vez leyo uno de febrero y lo dio como
+  // de noviembre). La web queda para el resto del juego: actualizaciones,
+  // eventos, equipamiento.
   let hechos = null;
-  if (buscar && buscaDisponible) {
+  if (buscar && buscaDisponible && !(meta && digesto)) {
     const r = await llamarCompat(MODELO_BUSCA, [{ role: 'user', content: PEDIR_DATOS(texto, mesDeHoy()) }], {
       max_tokens: 900,
       timeout: 18000,
@@ -413,7 +417,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
   if (digesto) {
     partes.push(
       `Lo que dicen los creadores de confianza y Blueprint (digesto del ${digesto.actualizado.slice(0, 10)}; ` +
-        `los videos más recientes mandan sobre los artículos y sobre la web; si hay enlace de ejército, dalo tal cual):\n${digesto.texto}`
+        `los videos más recientes mandan sobre los artículos; las únicas fechas válidas son las que van entre corchetes; si hay enlace de ejército, dalo tal cual):\n${digesto.texto}`
     );
   }
   if (hechos) partes.push(`Lo que se encontró hoy en la web:\n${hechos}`);
