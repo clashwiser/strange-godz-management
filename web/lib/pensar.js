@@ -335,7 +335,16 @@ async function contarFallo(admin) {
 async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null } = {}) {
   const mensajes = [
     { role: 'system', content: instrucciones(quien, { buscar, th }) },
-    { role: 'user', content: `${nombre ? `${nombre} dice: ` : ''}${texto}` },
+    // Con busqueda, la peticion de buscar va tambien en el mensaje del
+    // usuario: compound decide solo si busca o no, y con la orden
+    // unicamente en las instrucciones del sistema contesto de memoria un
+    // ejercito que no existe.
+    {
+      role: 'user',
+      content: `${nombre ? `${nombre} dice: ` : ''}${texto}${
+        buscar ? '\n\n(Busca en la web antes de contestar: quiero lo más reciente, de este año.)' : ''
+      }`,
+    },
   ];
 
   // Con busqueda: primero el modelo que busca. Si no existe en este
@@ -389,7 +398,19 @@ async function llamarCompat(modelo, messages, { max_tokens, timeout }) {
       return { status: r.status };
     }
     const j = await r.json();
-    const texto = limpiar(j?.choices?.[0]?.message?.content ?? '');
+    const mensaje = j?.choices?.[0]?.message ?? {};
+    // Si busco, que conste que busco y que: sin esto no se distingue una
+    // respuesta buscada de una inventada.
+    const herramientas = Array.isArray(mensaje.executed_tools) ? mensaje.executed_tools : [];
+    if (herramientas.length) {
+      const que = herramientas
+        .map((h) => `${h.type ?? '?'} ${String(h.arguments ?? h.input ?? '').slice(0, 80)}`)
+        .join(' | ');
+      console.log(`[ia] ${modelo} uso: ${que}`);
+    } else if (/compound/.test(modelo)) {
+      console.log(`[ia] ${modelo} NO busco`);
+    }
+    const texto = limpiar(mensaje.content ?? '');
     // Vacio: se quedo sin tokens razonando, o devolvio solo formato.
     if (!texto) console.error(`[ia] ${modelo} devolvio vacio`);
     return { texto };

@@ -120,7 +120,7 @@ test('pensar con buscar: va al modelo con web, con el TH y sin parametros de raz
   assert.match(p.messages[0].content, /Ayuntamiento 15/);
   assert.match(p.messages[0].content, /de 2026/, 'lleva el mes de hoy');
   assert.doesNotMatch(p.messages[0].content, /Máximo 2 frases/);
-  assert.equal(p.messages[1].content, 'Cris dice: ¿cuál es el mejor ejército ahora?');
+  assert.match(p.messages[1].content, /^Cris dice: ¿cuál es el mejor ejército ahora\?\n\n\(Busca en la web/);
 });
 
 test('pensar sin buscar: sigue con dos frases y sin TH', async () => {
