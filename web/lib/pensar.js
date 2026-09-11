@@ -185,6 +185,7 @@ Reglas, sin excepción:
 
 const MODO = {
   charla: `- Máximo 2 frases cortas.`,
+  panel: `- Contesta como asistente: claro y completo, en las frases que hagan falta (normalmente 2 a 5). Si es un saludo, saluda por el nombre y ofrece ayuda.`,
   // Con lo que se encontro en la web (va en el mensaje del usuario).
   buscar: `- Esta pregunta es sobre el juego y la respuesta cambia con cada actualización. Hoy es {mes}. Junto a la pregunta va lo que se encontró hoy en la web: contesta CON ESO, no con lo que recuerdes, y no añadas datos que no estén ahí.
 - Contesta en 3 a 6 frases, concreto: nombres de tropas y cantidades, hechizos, máquina de asedio, nivel de ayuntamiento, PERO solo las que estén en lo encontrado. Si de una estrategia solo tienes el nombre, quién la usa y el enlace, di eso y da el enlace para copiarla: NUNCA inventes cantidades ni tropas. Si lo encontrado dice de qué fecha es, dilo. Siempre en tu voz.
@@ -213,7 +214,9 @@ const mesDeHoy = () =>
  * lo encontrado en la web (buscar), o sin web pudiendo haberla (sinWeb).
  */
 function instrucciones(quien, { buscar = false, sinWeb = false, th = null, memoria = '', panel = false } = {}) {
-  const plantilla = buscar ? (sinWeb ? MODO.sinWeb : MODO.buscar) : MODO.charla;
+  // En el panel, sin buscar, no rige el "maximo 2 frases" del grupo: es un
+  // asistente y explica lo que haga falta (lo dice EN_EL_PANEL).
+  const plantilla = buscar ? (sinWeb ? MODO.sinWeb : MODO.buscar) : panel ? MODO.panel : MODO.charla;
   const modo = plantilla.replace('{mes}', mesDeHoy()).replace(
     '{th}',
     th
@@ -230,7 +233,13 @@ function instrucciones(quien, { buscar = false, sinWeb = false, th = null, memor
 }
 
 // El asistente del panel: el mismo Heraldo, pero sabiendo donde esta.
-const EN_EL_PANEL = `Ahora mismo NO estás en Telegram: estás dentro del panel de gestión web de la alianza, hablando con un líder (Cris, Carlos o Deibis). Las pestañas del panel son: Resumen, Lista CWL (la alineación), CWL Resultados, Jugadores, Salud, Solicitudes (los que quieren entrar), Mensajes (la bandeja de salida), Bases, Bonos (los premios del mes) y Bots (tu configuración y la de Valquiria, y donde te enseñan cosas). Si te preguntan cómo hacer algo en el panel, di en qué pestaña está. Los datos del clan (quién falta, estrellas, alineación, premios) el propio panel los contesta antes de llegar a ti; si aun así te los piden, manda a la pestaña que toca.`;
+const EN_EL_PANEL = `Ahora mismo NO estás en Telegram: eres el ASISTENTE del panel de gestión web de la alianza y hablas con un líder (Cris, Carlos o Deibis; su nombre va delante de lo que dice: úsalo). Aquí eres un asistente inteligente y útil, no el bromista del grupo: saluda por el nombre, contesta directo, explica lo que te pregunten y ofrece ayuda. Sigues siendo Heraldo, con tu voz cubana, pero sin jerga de más y sin cortar la respuesta: usa las frases que hagan falta (normalmente 2 a 5).
+
+El panel tiene estas pestañas: Resumen (los clanes de la alianza y su estado), Lista CWL (la alineación: quién juega en qué clan la liga de este mes), CWL Resultados (la tabla del grupo, estrellas y ataques por jugador), Jugadores (todos, con su TH, trofeos y donaciones), Salud (semáforo por jugador: quién no dona, quién falla ataques), Solicitudes (los que quieren entrar, entrevistados por Valquiria; el líder acepta o rechaza), Mensajes (la bandeja de salida: avisos generados que se mandan al grupo de Telegram o se copian a mano), Bases (el pack de bases por TH que tú repartes), Bonos (los premios del mes y quién los ganó; se paga a través de Cris) y Bots (tu configuración y la de Valquiria: salud del webhook, interruptores de qué avisar, lecciones para entrenarlos, lo que deben saber, y de dónde sale el meta).
+
+Cosas del panel que pueden preguntarte: WEBHOOK es la dirección a la que Telegram entrega cada mensaje del grupo o del privado para que el bot conteste; si en Bots dice "webhook conectado" el bot recibe mensajes, y "reinstalar webhook" lo vuelve a registrar. PUBLICAR COMANDOS sube la lista de comandos con barra (/faltan, /estrellas...) al menú del bot en Telegram. BANDEJA DE SALIDA son mensajes que el sistema generó y están por mandar o ya mandados. LECCIONES: "cuando digan X, responde Y", lo que los líderes enseñan a los bots. LO QUE DEBEN SABER: texto libre con reglas de la casa que entra en tus instrucciones. DIGESTO DEL META: lo último de los YouTubers de confianza y de Blueprint, que lees cuando preguntan por ejércitos. IA DE RESPALDO: tú mismo cuando las frases no bastan, con tope diario. HUELLA O PIN: entrar al panel sin escribir la contraseña. CWL es la liga de guerras de clanes de cada mes; la ALINEACIÓN es el reparto de jugadores entre los clanes para esa liga; un TROTACLANES es el que va saltando de clan en clan. Si te preguntan por algo del panel que no está aquí, di lo que sepas con cuidado y sugiere la pestaña más probable.
+
+Los datos del clan (quién falta, estrellas, alineación, premios) el propio panel los contesta antes de llegar a ti; si aun así te los piden, manda a la pestaña que toca.`;
 
 // El modelo con busqueda web. En Groq es groq/compound-mini: una busqueda
 // por pregunta, el triple de rapido que compound, y en el plan gratis
@@ -317,7 +326,7 @@ export async function pensar(admin, quien, pregunta, nombre = null, { buscar = f
               parts: [{ text: `${nombre ? `${nombre} dice: ` : ''}${texto}` }],
             },
           ],
-          generation_config: { temperature: 0.9, max_output_tokens: buscar ? 500 : 120 },
+          generation_config: { temperature: 0.9, max_output_tokens: buscar || panel ? 500 : 120 },
           safety_settings: [
             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -432,7 +441,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
   for (let intento = 0; intento < 2; intento++) {
     const modelo = await elegirModeloCompat();
     if (!modelo) break;
-    const r = await llamarCompat(modelo, mensajes, { max_tokens: buscar ? 700 : 400, timeout: 8000 });
+    const r = await llamarCompat(modelo, mensajes, { max_tokens: buscar || panel ? 700 : 400, timeout: 8000 });
     if (r.texto) return anotar(`${modelo}${hechos ? ` con ${MODELO_BUSCA}` : ''}${digesto ? ' con digesto' : ''}`, r.texto);
     if (r.status === 404) {
       descartados.add(modelo);

@@ -603,6 +603,8 @@ export const EN = {
   'responde de la base, sin inventar': 'answers from the database, no guessing',
   'los datos, de la base; lo demás, con IA': 'data from the database; the rest, with AI',
   'Déjame ver…': 'Let me see…',
+  '¿En qué te ayudo hoy?': 'What can I help you with today?',
+  '¿Cómo te puedo ayudar?': 'How can I help you?',
   'Pregúntame. Por ejemplo:': 'Ask me. For example:',
   '¿quién no ha atacado?': 'who has not attacked?',
   'Enviar': 'Send',

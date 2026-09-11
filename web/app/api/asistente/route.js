@@ -51,13 +51,14 @@ export async function POST(request) {
   const nombre = lider.nombre || usuario.user.email?.split('@')[0] || null;
   const buscar = esPreguntaDelJuego(texto);
 
-  // Las frases primero, salvo que sea una pregunta del juego: ahi la
-  // frase de "el mejor ejercito es el que practicas" no es respuesta.
-  let respuesta = buscar ? null : charlar(plano(texto));
-  let via = respuesta ? 'frases' : null;
-  if (!respuesta) {
-    respuesta = await pensar(admin, 'heraldo', texto, nombre, { buscar, panel: true });
-    via = respuesta ? (buscar ? 'ia con web' : 'ia') : null;
+  // En el panel manda la IA: es un asistente para un lider, no la charla
+  // del grupo. Las frases de Telegram quedan de respaldo para cuando la IA
+  // no puede (sin llave, tope del dia, fallo).
+  let respuesta = await pensar(admin, 'heraldo', texto, nombre, { buscar, panel: true });
+  let via = respuesta ? (buscar ? 'ia con web' : 'ia') : null;
+  if (!respuesta && !buscar) {
+    respuesta = charlar(plano(texto));
+    via = respuesta ? 'frases' : null;
   }
   return Response.json({ ok: true, respuesta: respuesta ? aTexto(respuesta) : null, via });
 }

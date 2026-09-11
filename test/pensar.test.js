@@ -207,6 +207,17 @@ test('pensar con buscar: si el buscador contesto sin buscar, se avisa de que no 
   estado.busca = true;
 });
 
+test('pensar en el panel: instrucciones de asistente, con glosario y sin el tope de dos frases', async () => {
+  estado.peticiones = [];
+  await pensar(admin, 'heraldo', 'qué es el webhook?', 'Carlos', { panel: true });
+  const p = estado.peticiones[0];
+  assert.equal(p.max_tokens, 700, 'puede explicar');
+  assert.match(p.messages[0].content, /eres el ASISTENTE del panel/);
+  assert.match(p.messages[0].content, /WEBHOOK es la dirección/);
+  assert.doesNotMatch(p.messages[0].content, /Máximo 2 frases/);
+  assert.equal(p.messages[1].content, 'Carlos dice: qué es el webhook?');
+});
+
 test('pensar sin buscar: sigue con dos frases y sin TH', async () => {
   estado.peticiones = [];
   await pensar(admin, 'heraldo', 'hola', null);

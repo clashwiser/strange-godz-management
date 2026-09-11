@@ -23,12 +23,54 @@ const SIN = '__sin__';
 const plano = (s) =>
   String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+/** "Buenos días", "Buenas tardes" o "Buenas noches" segun la hora local. */
+function saludoDelDia(h = new Date().getHours()) {
+  if (h >= 6 && h < 12) return 'Buenos días';
+  if (h >= 12 && h < 20) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+const SALUDO = /^(hola|holaa+|buenas|buenos dias|buenas tardes|buenas noches|buen dia|hey|ey|oye|que bola|que tal|saludos|hi|hello)\b/;
+
 export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
   const t = useT();
   const [abierto, setAbierto] = useState(false);
   const [texto, setTexto] = useState('');
   const [hilo, setHilo] = useState([]);
   const finRef = useRef(null);
+
+  // Quien esta al otro lado: su nombre en dashboard_users (Cris, Carlos,
+  // Deibis). Cada uno puede leer su propia fila (sql/002_rls.sql). Si no
+  // hay fila, lo que va antes de la arroba del correo.
+  const [usuario, setUsuario] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { data: sesion } = await supabase.auth.getSession();
+        const u = sesion?.session?.user;
+        if (!u) return;
+        const { data: fila } = await supabase.from('dashboard_users').select('nombre').eq('user_id', u.id).maybeSingle();
+        if (vivo) setUsuario(fila?.nombre || u.email?.split('@')[0] || null);
+      } catch {
+        /* sin nombre, saluda sin el */
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  // Al abrir, saluda el: con el nombre y la hora del dia. Una vez por
+  // conversacion.
+  function abrir() {
+    setAbierto(true);
+    setHilo((h) =>
+      h.length
+        ? h
+        : [{ yo: false, texto: `📯 ${saludoDelDia()}${usuario ? `, ${usuario}` : ''}. ${t('¿En qué te ayudo hoy?')}` }]
+    );
+  }
 
   const nombre = useMemo(
     () => Object.fromEntries((d.players ?? []).map((p) => [p.player_tag, p.nombre_actual])),
@@ -140,8 +182,15 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
    * es un dato, y entonces se pregunta al servidor.
    */
   function responder(entrada) {
-    const q = plano(entrada);
+    const q = plano(entrada).trim();
     if (!q) return null;
+
+    // Un saludo se contesta aqui, con nombre, al instante. Va ANTES de la
+    // ficha por nombre suelto: hay un jugador del clan que se llama "hola",
+    // y "hola" devolvia su ficha con el tag.
+    if (SALUDO.test(q) && q.length <= 24) {
+      return `${saludoDelDia()}${usuario ? `, ${usuario}` : ''}. ${t('¿Cómo te puedo ayudar?')}`;
+    }
 
     // Los patrones son deliberadamente laxos porque la gente no escribe
     // comandos, escribe frases: "quien no ha atacado" no casaba con "no
@@ -156,7 +205,10 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
     if (m) return fichaDe(m[1]);
 
     // Un nombre suelto tambien vale: es lo que la gente escribe de verdad.
-    const suelto = (d.players ?? []).some((p) => plano(p.nombre_actual).includes(q));
+    // Pero solo si parece un nombre -corto, sin signos de pregunta- y casa
+    // con el principio de un nombre real: "hola" o "que" no son consultas.
+    const pareceNombre = q.length >= 4 && q.length <= 30 && !/[?¿]/.test(q) && q.split(' ').length <= 3;
+    const suelto = pareceNombre && (d.players ?? []).some((p) => plano(p.nombre_actual).startsWith(q));
     if (suelto) return fichaDe(q);
 
     // Nada de la base: que lo intente el servidor (frases, y luego la IA).
@@ -202,10 +254,11 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
 
   if (!abierto) {
     return (
-      <button className="heraldo-burbuja" onClick={() => setAbierto(true)} title={nombreBot}>
-        {/* La misma imagen que lleva el bot en Telegram, para que sea el
-            mismo personaje en los dos sitios y no dos cosas distintas. */}
-        <img src="/heraldo.png" alt="" width="44" height="44" />
+      <button className="heraldo-burbuja" onClick={abrir} title={nombreBot}>
+        {/* El mismo Heraldo en video que lleva el bot en Telegram, tambien
+            en la burbuja: Cris lo pidio asi. Es un clip de 89 KB que el
+            navegador cachea; el poster es la imagen fija por si no carga. */}
+        <VideoQueArranca src="/heraldo-lee.mp4" poster="/heraldo.png" tamano={44} />
       </button>
     );
   }
@@ -272,5 +325,46 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
         </button>
       </form>
     </div>
+  );
+}
+
+/**
+ * Un video en bucle, mudo, que arranca solo. `autoPlay` a secas no basta:
+ * en la burbuja el video existe desde que carga la pagina, sin que nadie
+ * haya tocado nada, y el navegador lo deja en pausa aunque este mudo. Se
+ * le pide play() al montar y, si lo niega, otra vez al primer toque en la
+ * pagina. Dentro del chat no hacia falta porque el chat se abre con un
+ * clic, que ya cuenta como gesto.
+ */
+function VideoQueArranca({ src, poster, tamano }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = true;
+    const intentar = () => v.play().catch(() => {});
+    intentar();
+    const alTocar = () => {
+      intentar();
+      document.removeEventListener('pointerdown', alTocar);
+    };
+    document.addEventListener('pointerdown', alTocar);
+    return () => document.removeEventListener('pointerdown', alTocar);
+  }, []);
+  return (
+    <video
+      ref={ref}
+      className="heraldo-cara heraldo-video"
+      src={src}
+      poster={poster}
+      width={tamano}
+      height={tamano}
+      autoPlay
+      loop
+      muted
+      playsInline
+      preload="auto"
+      aria-hidden="true"
+    />
   );
 }
