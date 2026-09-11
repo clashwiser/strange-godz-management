@@ -20,7 +20,8 @@ test('modoDeFoto: el castillo gana si el pie habla del castillo', () => {
 });
 
 test('modoDeFoto: la prueba es SOLO el pie entero', () => {
-  for (const pie of ['prueba', 'Prueba', 'prueba fc', 'prueba castillo', '¿qué ves?', 'prueba de lectura']) assert.equal(esPruebaDeLectura(pie), true, pie);
+  for (const pie of ['prueba', 'Prueba', 'prueba fc', 'prueba castillo', '¿qué ves?', 'prueba de lectura', 'Valquiria, prueba fc', '@Heraldo prueba']) assert.equal(esPruebaDeLectura(pie), true, pie);
+  assert.equal(modoDeFoto('Valquiria, prueba fc'), 'prueba_chat');
   assert.equal(modoDeFoto('prueba'), 'prueba_mapa');
   assert.equal(modoDeFoto('prueba fc'), 'prueba_chat');
   assert.equal(modoDeFoto('prueba chat'), 'prueba_chat');

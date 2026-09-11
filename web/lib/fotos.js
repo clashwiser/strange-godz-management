@@ -23,9 +23,14 @@ const plano = (s) =>
     .toLowerCase()
     .trim();
 
-/** El pie entero es "prueba", "prueba fc", "prueba castillo"...: modo de prueba. */
+/** El pie entero es "prueba", "prueba fc", "Valquiria, prueba castillo"...: modo de prueba. */
 export function esPruebaDeLectura(pie) {
-  return /^(prueba|lectura|que ves)( de lectura)?( (fc|chat|castillo|mapa|guerra))?$/.test(plano(pie).replace(/[¿?.!]/g, '').trim());
+  const q = plano(pie)
+    .replace(/[¿?.!,:]/g, ' ')
+    .replace(/^\s*@?(heraldo|valqui\w*)\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return /^(prueba|lectura|que ves)( de lectura)?( (fc|chat|castillo|mapa|guerra))?$/.test(q);
 }
 
 /** A que bot le hablan en el pie: 'valquiria', 'heraldo' o null. Los dos: Heraldo. */
