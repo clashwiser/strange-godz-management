@@ -24,7 +24,7 @@
 //   RECLUTA_SECRET_TOKEN   uno inventado, el mismo que lleva el webhook
 
 import { admin } from '../../../lib/supabase-admin';
-import { flujoSolicitud, decirCon, decirConVideo, escribiendo, esc } from '../../../lib/solicitud';
+import { flujoSolicitud, decirCon, decirConVideo, escribiendo, esc, esAdminDelGrupo } from '../../../lib/solicitud';
 import {
   entenderValquiria,
   cuantosEsperan,
@@ -36,6 +36,8 @@ import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 import { leccionPara, ajusteWeb, reglasDelClan } from '../../../lib/entrenamiento';
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, recordarMensaje } from '../../../lib/castillos';
+import { fotoDe } from '../../../lib/castillo-foto';
+import { atenderFoto, botNombrado } from '../../../lib/fotos';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -130,6 +132,31 @@ export async function POST(request) {
     for (const s of elegidos ?? []) {
       const nombre = s.perfil?.nombre ?? gente.find((u) => u.id === s.tg_user_id)?.first_name ?? 'el nuevo';
       await decirCon(TOKEN, chatId, presentaElegido(esc(nombre), s.perfil?.th ?? '?'));
+    }
+    return Response.json({ ok: true });
+  }
+
+  // Una foto con ella nombrada en el pie, o contestando a un mensaje suyo:
+  // el castillo, los desafios amistosos o una prueba (fotos.js). Si
+  // nombran a Heraldo, o a ninguno, contesta el. Nunca los dos.
+  if (fotoDe(msg)) {
+    const pie = (msg.caption || '').trim();
+    const contestaAElla = msg.reply_to_message?.from?.id === MI_ID;
+    const conElla = botNombrado(pie) === 'valquiria' || (contestaAElla && botNombrado(pie) !== 'heraldo');
+    if (!conElla) return Response.json({ ok: true });
+    if (!(await ajusteWeb(admin, 'valquiria_grupo', true))) return Response.json({ ok: true });
+    const quien = { id: msg.from?.id ?? chatId, nombre: esc(msg.from?.first_name || msg.from?.username || 'mi cielo') };
+    const r = await atenderFoto(admin, {
+      token: TOKEN,
+      msg,
+      quien,
+      esAdmin: () => esAdminDelGrupo(quien.id),
+      aUnBot: contestaAElla ? msg.reply_to_message.message_id : null,
+    });
+    if (r) {
+      await escribiendo(TOKEN, chatId);
+      const idMensaje = await decirCon(TOKEN, chatId, r.texto);
+      if (r.despues) await r.despues(typeof idMensaje === 'number' ? idMensaje : null);
     }
     return Response.json({ ok: true });
   }

@@ -33,13 +33,17 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 const diaCuba = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
 const temporadaDe = (d = new Date()) => diaCuba(d).slice(0, 7);
 
-/** El pie de una foto que es el reto de FC: "fc", "desafíos amistosos", "reto". */
+/**
+ * El pie de una foto que es el reto de FC, como lo dice la gente: "fc",
+ * "mis fcs", "desafíos amistosos", "estuve entrenando", "practicando",
+ * "reto", "friendly challenges".
+ */
 export function esFotoDeFC(pie) {
   const q = String(pie ?? '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
-  return /\b(fc|fcs|amistosos?|amistosas?|desafios?|reto)\b/.test(q);
+  return /\b(fc|fcs|amistos[oa]s?|desafios?|retos?|entren(ar|ando|e|o|amos|aste)|practic(ar|ando|a|o|ue|amos|aste)|friendly|challenges?)\b/.test(q);
 }
 
 export const INSTRUCCIONES_FC = `Esta imagen debería ser una captura de pantalla de Clash of Clans con el chat del clan abierto (normalmente a la izquierda, con la aldea a la derecha).

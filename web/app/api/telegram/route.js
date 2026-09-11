@@ -13,11 +13,12 @@ import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 import { flujoSolicitud, decirCon, escribiendo, esAdminDelGrupo } from '../../../lib/solicitud';
 import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
-import { leccionPara, reglasDelClan } from '../../../lib/entrenamiento';
+import { leccionPara, reglasDelClan, ajusteWeb } from '../../../lib/entrenamiento';
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
-import { fotoDe, filaParaFoto, verificarCastilloConFoto, leerMapaDePrueba } from '../../../lib/castillo-foto';
-import { esFotoDeFC, verificarFCConFoto, recordarMensajeReto, decidirReto, leerChatDePrueba } from '../../../lib/retos';
+import { fotoDe } from '../../../lib/castillo-foto';
+import { decidirReto } from '../../../lib/retos';
+import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { plano as planoNombre } from '../../../lib/nombres';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,8 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 // Su propio id de usuario: la parte del token antes de los dos puntos.
 // Para saber si un mensaje es respuesta a EL y no a Valquiria.
 const MI_ID = Number((TOKEN || '').split(':')[0]) || 0;
+// Y el de Valquiria, para saber si una foto contesta a un mensaje SUYO.
+const VALQUIRIA_ID = Number((process.env.RECLUTA_BOT_TOKEN || '').split(':')[0]) || 0;
 const SECRETO = process.env.TELEGRAM_SECRET_TOKEN;
 // Lista blanca de chats. Sin esto, cualquiera que encuentre al bot consulta
 // los datos del clan.
@@ -149,51 +152,30 @@ export async function POST(request) {
     return Response.json({ ok: true });
   }
 
-  // Una foto. Tres casos, por el pie:
-  //   - el aviso del castillo ("ya doné mi castillo"), o una foto
-  //     contestando al "Anotado" de un bot: la captura del mapa de guerra,
-  //     que se lee y se cruza con la API (castillo-foto.js);
-  //   - el reto de los desafios amistosos ("fc", "amistosos", "reto"): la
-  //     captura del chat del clan con cinco desafios (retos.js);
-  //   - "prueba", de un administrador: Heraldo dice que ve en la captura,
-  //     sin anotar nada. Para afinar la lectura con pantallas reales.
-  // Las fotos las mira solo Heraldo: Valquiria no lee fotos, y asi no
-  // contestan los dos.
+  // Una foto. Lo que es -el castillo, los desafios amistosos, una prueba
+  // de un administrador- lo decide fotos.js por lo que diga el pie, como
+  // lo diga. Contesta el bot al que le hablan: si nombran a Valquiria (y
+  // ella esta encendida en el grupo), Heraldo se calla y contesta ella;
+  // si nombran a Heraldo o a ninguno, el. Nunca los dos.
   const foto = fotoDe(msg);
   if (foto) {
     const pie = (msg.caption || '').trim();
     const quienFoto = { id: msg.from?.id ?? chatId, nombre: esc(msg.from?.first_name || msg.from?.username || 'socio') };
-    const aUnBot = msg.reply_to_message?.from?.is_bot ? msg.reply_to_message.message_id : null;
+    const deBot = msg.reply_to_message?.from?.is_bot ? msg.reply_to_message : null;
+    const paraElla = botNombrado(pie) === 'valquiria' || (deBot && deBot.from.id === VALQUIRIA_ID && botNombrado(pie) !== 'heraldo');
+    if (paraElla && VALQUIRIA_ID && (await ajusteWeb(admin, 'valquiria_grupo', true))) return Response.json({ ok: true });
 
-    if (/\bprueba\b/i.test(pie) && (await esAdminDelGrupo(quienFoto.id))) {
+    const r = await atenderFoto(admin, {
+      token: TOKEN,
+      msg,
+      quien: quienFoto,
+      esAdmin: () => esAdminDelGrupo(quienFoto.id),
+      aUnBot: deBot?.message_id ?? null,
+    });
+    if (r) {
       await escribiendo(TOKEN, chatId);
-      const r = esFotoDeFC(pie) ? await leerChatDePrueba(admin, { token: TOKEN, msg }) : await leerMapaDePrueba(admin, { token: TOKEN, msg });
-      await responder(chatId, r);
-      return Response.json({ ok: true });
-    }
-
-    if (esFotoDeFC(pie) && !avisaCastillo(pie)) {
-      await escribiendo(TOKEN, chatId);
-      const r = await verificarFCConFoto(admin, { token: TOKEN, msg, tgId: quienFoto.id, quien: quienFoto.nombre });
       const idMensaje = await responder(chatId, r.texto);
-      // Un lider lo quita contestando ❌ a ESTE mensaje.
-      if (r.verificado) await recordarMensajeReto(admin, r.id, idMensaje);
-      return Response.json({ ok: true });
-    }
-
-    const reclama = avisaCastillo(pie) || (/heraldo|valqui/i.test(pie) && /castillo/i.test(pie));
-    let fila = null;
-    if (reclama) {
-      fila = (await anotarCastillo(admin, { tgId: quienFoto.id, nombre: quienFoto.nombre, texto: pie })).fila ?? null;
-    } else if (aUnBot) {
-      fila = await filaParaFoto(admin, { tgId: quienFoto.id, mensajeBotId: aUnBot });
-    }
-    if (fila) {
-      await escribiendo(TOKEN, chatId);
-      const r = await verificarCastilloConFoto(admin, { token: TOKEN, msg, fila, quien: quienFoto.nombre });
-      const idMensaje = await responder(chatId, r.texto);
-      // Sin verificar, un lider puede confirmar contestando ✅ a ESTE mensaje.
-      if (!r.verificado) await recordarMensaje(admin, fila.id, idMensaje);
+      if (r.despues) await r.despues(idMensaje);
     }
     return Response.json({ ok: true });
   }
@@ -432,7 +414,11 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/soy &lt;tu nombre del juego&gt; — para que te reconozca
 ` +
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini\n` +
-        `/reporte — último mensaje generado, para pegar en WhatsApp`
+        `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
+        `/puntos — la tabla de puntos del mes\n\n` +
+        `<b>Con foto</b> (en el pie de la captura):\n` +
+        `"ya doné mi castillo" + captura del mapa de guerra → +5 si el de abajo está lleno\n` +
+        `"fc" o "estuve entrenando" + captura del chat con 5 desafíos amistosos de 2⭐ o más → +5, una vez al día`
       );
 
     // Charla suelta: la frase ya viene elegida, aca solo se dice.
