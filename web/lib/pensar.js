@@ -424,7 +424,9 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
   // entra el digesto de los creadores de confianza y de Blueprint
   // (meta-fuentes.js), que es lo mas fresco que hay, y la busqueda se
   // limita a los dominios que los lideres pusieron en la pestaña Bots.
-  const meta = buscar && esPreguntaDeMeta(texto);
+  // Sin digesto si la pregunta es de normas: 'que pasa si no ataco en liga'
+  // lleva 'liga' pero no pide ejercitos.
+  const meta = buscar && !reglas && esPreguntaDeMeta(texto);
   const digesto = meta ? await digestoMeta(admin) : null;
   const webs = meta ? await websMeta(admin) : [];
 
