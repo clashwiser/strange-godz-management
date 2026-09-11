@@ -103,15 +103,33 @@ export async function pensar(admin, quien, pregunta, nombre = null) {
       }
     );
     if (!r.ok) {
-      await admin.rpc('ia_contar', { p_dia: diaCuba(), p_fallo: true }).catch(() => {});
+      // Que el motivo quede en el log de Vercel: 400 es peticion mal
+      // formada, 403 llave con restricciones, 404 modelo que no existe,
+      // 429 tope de Google. Sin esto, el fallo es mudo.
+      const detalle = (await r.text().catch(() => '')).slice(0, 300);
+      console.error(`[ia] ${MODELO} respondio ${r.status}: ${detalle}`);
+      await contarFallo(admin);
       return null;
     }
     const j = await r.json();
     const salida = j?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
     return limpiar(salida) || null;
-  } catch {
-    await admin.rpc('ia_contar', { p_dia: diaCuba(), p_fallo: true }).catch(() => {});
+  } catch (e) {
+    console.error(`[ia] fallo la llamada: ${e?.message ?? e}`);
+    await contarFallo(admin);
     return null;
+  }
+}
+
+// El cliente de Supabase devuelve un "thenable", no una Promise de
+// verdad: tiene then pero no catch, y llamarle .catch revienta con
+// TypeError. Se descubrio en produccion, tapando el error real de Gemini.
+// Aqui se espera y se ignora el resultado, que es lo que se queria.
+async function contarFallo(admin) {
+  try {
+    await admin.rpc('ia_contar', { p_dia: diaCuba(), p_fallo: true });
+  } catch {
+    /* el contador es informativo; no puede tumbar la respuesta */
   }
 }
 
