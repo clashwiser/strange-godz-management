@@ -13,6 +13,7 @@ import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 import { flujoSolicitud, decirCon, escribiendo } from '../../../lib/solicitud';
 import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
+import { leccionPara } from '../../../lib/entrenamiento';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -172,6 +173,14 @@ export async function POST(request) {
     const respondeAlBot = msg.reply_to_message?.from?.id === MI_ID;
     const nombrado = /heraldo/i.test(texto);
     if (!respondeAlBot && !nombrado) return Response.json({ ok: true });
+
+    // Lo que los lideres le enseñaron desde la pestaña Bots va antes que
+    // todo: es su forma de corregirlo sin tocar codigo.
+    const enseñado = await leccionPara(admin, 'heraldo', texto, quien.nombre);
+    if (enseñado) {
+      await responder(chatId, esc(enseñado));
+      return Response.json({ ok: true });
+    }
 
     const leido = entender(texto);
     if (!leido) return Response.json({ ok: true });

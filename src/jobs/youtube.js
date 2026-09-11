@@ -15,6 +15,7 @@
 
 import { db, chk, correrJob } from '../lib/db.js';
 import { encolar } from '../lib/outbox.js';
+import { ajuste, apagado } from '../lib/config.js';
 import { miniaturasYoutube } from '../lib/telegram.js';
 
 const LLAVE = process.env.YOUTUBE_API_KEY;
@@ -65,6 +66,7 @@ async function ultimosDe(canal) {
 }
 
 await correrJob('youtube', async () => {
+  if (!(await ajuste('avisos_youtube', true))) return apagado('avisos_youtube');
   if (!LLAVE) {
     console.log('  falta YOUTUBE_API_KEY; no hago nada');
     return { filas: 0, detalle: { sin_llave: true } };

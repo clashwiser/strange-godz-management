@@ -8,7 +8,7 @@
 // WhatsApp no borra el aviso: queda en el website para copiar y pegar.
 
 import { getClan, getLeagueGroup, getLeagueWar, parseCocDate, mapLimit, opcional } from '../lib/coc.js';
-import { clanes, horasHasta } from '../lib/config.js';
+import { clanes, horasHasta, ajuste, valorDe, apagado } from '../lib/config.js';
 import { encolar, negrita, mono } from '../lib/outbox.js';
 import { correrJob } from '../lib/db.js';
 import { mencionesDe } from '../lib/menciones.js';
@@ -18,11 +18,10 @@ import { mencionesDe } from '../lib/menciones.js';
 // Ascendente a proposito: hay que devolver el umbral MAS CHICO que todavia
 // contiene a `horas`. Ordenado al reves, todo lo menor a 6h devolvia 6 y las
 // alertas de 3h y 1h no se mandaban nunca porque la clave no cambiaba.
-const UMBRALES = (process.env.ALERTA_UMBRALES || '6,3,1')
-  .split(',')
-  .map(Number)
-  .filter((n) => n > 0)
-  .sort((a, b) => a - b);
+//
+// Los umbrales los edita el panel (config.alerta_umbrales); la variable
+// de entorno queda de respaldo.
+let UMBRALES = [6, 3, 1];
 
 /** Devuelve el umbral cruzado, o null si todavia falta mucho. */
 function umbralCruzado(horas) {
@@ -30,6 +29,13 @@ function umbralCruzado(horas) {
 }
 
 await correrJob('alerta_cwl', async () => {
+  if (!(await ajuste('alerta_cwl', true))) return apagado('alerta_cwl');
+  const crudos = (await valorDe('alerta_umbrales', null)) ?? (process.env.ALERTA_UMBRALES || '6,3,1').split(',');
+  UMBRALES = (Array.isArray(crudos) ? crudos : String(crudos).split(','))
+    .map(Number)
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b);
+  if (!UMBRALES.length) UMBRALES = [6, 3, 1];
   const bloques = [];
   const claves = [];
   let pendientesTotal = 0;

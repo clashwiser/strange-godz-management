@@ -1125,6 +1125,10 @@ button.enlace-clave:hover { color: var(--texto); transform: none; }
   background: rgba(0,0,0,.14); border-left: 4px solid var(--bronce);
   color: var(--texto);
 }
+.heraldo-msg.pensando {
+  opacity: 0.6;
+  font-style: italic;
+}
 .heraldo-msg.yo {
   align-self: flex-end; max-width: 85%;
   background: linear-gradient(180deg, rgba(255,255,255,.3), rgba(0,0,0,.08)), var(--panel-2);

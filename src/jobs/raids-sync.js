@@ -10,11 +10,12 @@
 
 import { getCapitalRaids, parseCocDate, opcional } from '../lib/coc.js';
 import { db, chk, asegurarJugadores, correrJob } from '../lib/db.js';
-import { clanes } from '../lib/config.js';
+import { clanes, ajuste, apagado } from '../lib/config.js';
 
 const LIMITE = Number(process.env.RAIDS_LIMITE || 10);
 
 await correrJob('raids_sync', async () => {
+  if (!(await ajuste('alerta_raids', true))) return apagado('alerta_raids');
   let filas = 0;
   const detalle = {};
 

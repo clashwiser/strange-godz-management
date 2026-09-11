@@ -24,7 +24,7 @@
 
 import { db, chk, correrJob } from '../lib/db.js';
 import { encolar } from '../lib/outbox.js';
-import { clanes } from '../lib/config.js';
+import { clanes, ajuste, apagado } from '../lib/config.js';
 import { analizar } from '../lib/cwl-analisis.js';
 import { faseDe, mensajeDelDia, poseDelDia, parrafoRonda } from '../lib/cwl-mensajes.js';
 
@@ -36,6 +36,7 @@ const CUPO_POR_DEFECTO = { promueven: 2, descienden: 2 };
 const SECO = process.argv.includes('--seco') || process.env.HERALDO_SECO === '1';
 
 await correrJob('cwl_heraldo', async () => {
+  if (!(await ajuste('parte_cwl', true))) return apagado('parte_cwl');
   const temporada = new Date().toISOString().slice(0, 7);
 
   const seasons = chk(

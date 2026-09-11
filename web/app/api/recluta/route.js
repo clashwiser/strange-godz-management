@@ -33,6 +33,7 @@ import {
 } from '../../../lib/charla-valquiria';
 import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
+import { leccionPara, ajusteWeb } from '../../../lib/entrenamiento';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -100,6 +101,8 @@ export async function POST(request) {
   if (msg.new_chat_members?.length) {
     const gente = msg.new_chat_members.filter((u) => u && !u.is_bot);
     if (!gente.length) return Response.json({ ok: true });
+    // Interruptor de la pestaña Bots.
+    if (!(await ajusteWeb(admin, 'bienvenida', true))) return Response.json({ ok: true });
 
     const nombra = (u) =>
       `<a href="tg://user?id=${u.id}">${esc(u.first_name || u.username || 'el nuevo')}</a>`;
@@ -139,6 +142,17 @@ export async function POST(request) {
   const respondeAElla = msg.reply_to_message?.from?.id === MI_ID;
   const nombrada = /valqui/i.test(texto);
   if (!respondeAElla && !nombrada) return Response.json({ ok: true });
+
+  // Interruptor de la pestaña Bots: apagada, en el grupo no habla.
+  if (!(await ajusteWeb(admin, 'valquiria_grupo', true))) return Response.json({ ok: true });
+
+  // Lo que los lideres le enseñaron desde la pestaña Bots va antes que
+  // todo: es su forma de corregirla sin tocar codigo.
+  const enseñado = await leccionPara(admin, 'valquiria', texto, msg.from?.first_name);
+  if (enseñado) {
+    await decirCon(TOKEN, chatId, esc(enseñado));
+    return Response.json({ ok: true });
+  }
 
   const leido = entenderValquiria(texto);
   if (!leido) return Response.json({ ok: true });

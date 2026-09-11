@@ -23,6 +23,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
+import Entrenar from './entrenar';
 
 const fmt = (d) => (d ? new Date(d).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
@@ -317,16 +318,51 @@ export default function Bots({ d, demo = false, recargar }) {
           alCambiar={(v) => set('alerta_guerra', v)}
         />
         <Interruptor
-          titulo={t('Resumen de Raid Weekend')}
-          nota={t('Los ~24 ataques mensuales que hoy no mide nadie.')}
+          titulo={t('Parte diario de la CWL')}
+          nota={t('Heraldo cuenta cada día cómo va el grupo: tabla, ronda y probabilidades.')}
+          valor={cfg.parte_cwl ?? true}
+          alCambiar={(v) => set('parte_cwl', v)}
+        />
+        <Interruptor
+          titulo={t('Videos nuevos de YouTube')}
+          nota={t('Los canales que seguimos, con la miniatura del video.')}
+          valor={cfg.avisos_youtube ?? true}
+          alCambiar={(v) => set('avisos_youtube', v)}
+        />
+        <Interruptor
+          titulo={t('Guardar los Raid Weekend')}
+          nota={t('Los ~24 ataques mensuales de raids, guardados cada fin de semana.')}
           valor={cfg.alerta_raids}
           alCambiar={(v) => set('alerta_raids', v)}
         />
         <Interruptor
-          titulo={t('Reporte mensual de premios')}
-          nota={t('La tabla de ganadores, el día 1.')}
+          titulo={t('Cierre mensual de premios')}
+          nota={t('El día 1 se calcula quién ganó cada premio.')}
           valor={cfg.reporte_mensual}
           alCambiar={(v) => set('reporte_mensual', v)}
+        />
+      </div>
+
+      {/* ---------- Como se comportan ---------- */}
+      <h2 className="sec">{t('Cómo se comportan')}</h2>
+      <div className="grid">
+        <Interruptor
+          titulo={t('Valquiria habla en el grupo')}
+          nota={t('Contesta cuando la nombran o le responden. Apagada, solo atiende en privado a los que quieren entrar.')}
+          valor={cfg.valquiria_grupo ?? true}
+          alCambiar={(v) => set('valquiria_grupo', v)}
+        />
+        <Interruptor
+          titulo={t('Bienvenida a los nuevos')}
+          nota={t('Valquiria saluda en video a quien entra al grupo.')}
+          valor={cfg.bienvenida ?? true}
+          alCambiar={(v) => set('bienvenida', v)}
+        />
+        <Interruptor
+          titulo={t('IA de respaldo')}
+          nota={t('Contesta lo que las frases no saben, y busca en la web las preguntas del juego. Apagada, solo frases.')}
+          valor={cfg.ia_activa ?? true}
+          alCambiar={(v) => set('ia_activa', v)}
         />
       </div>
 
@@ -394,6 +430,9 @@ export default function Bots({ d, demo = false, recargar }) {
           </label>
         </div>
       </div>
+
+      {/* ---------- Entrenar ---------- */}
+      <Entrenar d={d} memoriaInicial={String(inicial.bots_memoria ?? '')} recargar={recargar} aviso={aviso} />
 
       {/* ---------- Que entienden ---------- */}
       <h2 className="sec">{t('Qué entiende Heraldo')}</h2>

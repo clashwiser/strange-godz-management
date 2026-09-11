@@ -18,6 +18,7 @@
 // que un video anunciado por aqui no se repite alla.
 
 import { admin } from '../../../lib/supabase-admin';
+import { ajusteWeb } from '../../../lib/entrenamiento';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,9 @@ export async function POST(request) {
   if (!TOKEN || !CHAT_ID) return new Response('sin configurar', { status: 503 });
 
   const xml = await request.text().catch(() => '');
+  // Interruptor de la pestaña Bots: apagado, ni se anota ni se anuncia.
+  if (!(await ajusteWeb(admin, 'avisos_youtube', true))) return new Response('', { status: 204 });
+
   const videoId = etiqueta(xml, 'yt:videoId');
   const canalId = etiqueta(xml, 'yt:channelId');
   const titulo = etiqueta(xml, 'title');

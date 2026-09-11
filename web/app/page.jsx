@@ -51,7 +51,7 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres] =
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc] =
         await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
@@ -82,6 +82,8 @@ export default function Panel() {
           .select('player_tag, clan_tag, desde, hasta, rol')
           .order('desde', { ascending: false })
           .limit(120),
+        // Lo que los lideres les enseñaron a los bots (pestaña Bots).
+        supabase.from('lecciones').select('*').order('creado_en', { ascending: false }).limit(200),
       ]);
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
@@ -148,6 +150,7 @@ export default function Panel() {
         grupo,
         ligas: ligas.data ?? [],
         memberships: membres.data ?? [],
+        lecciones: lecc.data ?? [],
         solicitudes: soli.data ?? [],
         snaps,
         players: players ?? [],

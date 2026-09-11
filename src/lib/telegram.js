@@ -5,6 +5,8 @@
 // Crear un grupo con los 3 lideres, meter al bot, y sacar el chat_id con:
 //   https://api.telegram.org/bot<TOKEN>/getUpdates
 
+import { ajuste } from './config.js';
+
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
@@ -80,6 +82,12 @@ const TOPE_PIE = 1024;
 export async function avisar(texto, { silencioso = false, pose = null, menciones = [], fotos = [] } = {}) {
   if (!telegramConfigurado) {
     console.log('[telegram] no configurado, mensaje no enviado:\n' + texto);
+    return false;
+  }
+  // El interruptor "Telegram" de la pestaña Bots. Apagado, el mensaje se
+  // queda en el outbox para copiarlo a mano, como antes de Telegram.
+  if (!(await ajuste('telegram_activo', true))) {
+    console.log('[telegram] apagado desde el panel, mensaje no enviado');
     return false;
   }
   let html = aHtmlTelegram(texto);

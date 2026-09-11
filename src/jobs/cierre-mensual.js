@@ -28,7 +28,7 @@
 //    lideres, no suyas.
 
 import { db, chk, correrJob } from '../lib/db.js';
-import { temporadaActual } from '../lib/config.js';
+import { temporadaActual, ajuste, apagado } from '../lib/config.js';
 
 const args = process.argv.slice(2);
 const MES = args.find((a) => /^\d{4}-\d{2}$/.test(a)) || temporadaActual();
@@ -69,6 +69,7 @@ const raizNombre = (t) =>
     .replace(/(jr|ii|20|2)$/, '');
 
 await correrJob('cierre_mensual', async () => {
+  if (!(await ajuste('reporte_mensual', true))) return apagado('reporte_mensual');
   // ---- Lo que hay guardado del mes ----
   const seasons = chk(
     await db.from('cwl_seasons').select('id, clan_tag, liga').eq('temporada', MES),

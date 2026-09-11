@@ -34,6 +34,7 @@ import { pedirPerfil } from './coc-perfil';
 import { entenderValquiria, cuantosEsperan } from './charla-valquiria';
 import { pensar, thDe } from './pensar';
 import { esPreguntaDelJuego } from './conocimiento';
+import { leccionPara } from './entrenamiento';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
@@ -333,6 +334,9 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       // Los de casa no solicitan, pero con Valquiria pueden hablar: tiene
       // cerebro para eso. Con Heraldo en privado no, que lo suyo es el grupo.
       if (via !== 'recluta') return v.deCasa;
+      // Primero lo que le enseñaron los lideres desde la pestaña Bots.
+      const enseñado = await leccionPara(admin, 'valquiria', texto, msg.from?.first_name);
+      if (enseñado) return esc(enseñado);
       const leido = entenderValquiria(texto);
       if (leido?.tipo === 'esperando') {
         const { count } = await admin

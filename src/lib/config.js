@@ -79,3 +79,44 @@ export function hoyUTC(d = new Date()) {
 export function horasHasta(fecha, ahora = new Date()) {
   return (fecha.getTime() - ahora.getTime()) / 3_600_000;
 }
+
+// ---------- Los interruptores de la pestaña Bots ----------
+//
+// Viven en la tabla `config` (sql/008_config.sql y 024_entrenar.sql) y los
+// edita el panel. Hasta septiembre de 2026 los jobs NO los leian: la
+// pestaña enseñaba "Ataques de CWL sin usar: apagado" y el job avisaba
+// igual. Ahora cada job pregunta aqui al arrancar.
+//
+// Si la tabla no contesta, manda el valor por defecto: un fallo de red no
+// puede apagar un aviso, ni encenderlo.
+
+let cacheAjustes = null;
+
+async function ajustes() {
+  if (cacheAjustes) return cacheAjustes;
+  const { data, error } = await db.from('config').select('clave, valor');
+  if (error) {
+    console.warn(`[config] no se pudo leer config (${error.message}); valores por defecto`);
+    return {};
+  }
+  cacheAjustes = Object.fromEntries((data ?? []).map((r) => [r.clave, r.valor]));
+  return cacheAjustes;
+}
+
+/** Un interruptor (booleano) de la tabla config. */
+export async function ajuste(clave, porDefecto = true) {
+  const v = (await ajustes())[clave];
+  return v === undefined || v === null ? porDefecto : Boolean(v);
+}
+
+/** Un valor cualquiera de la tabla config (numero, lista, texto). */
+export async function valorDe(clave, porDefecto = null) {
+  const v = (await ajustes())[clave];
+  return v === undefined || v === null ? porDefecto : v;
+}
+
+/** Lo que dice un job cuando lo apagaron desde el panel. */
+export function apagado(clave) {
+  console.log(`  apagado desde el panel (${clave})`);
+  return { filas: 0, detalle: { apagado: clave } };
+}

@@ -22,7 +22,7 @@
 //     y ese clan se salta sin tumbar el job. Le pasa a Cuba ahora mismo.
 
 import { getClan, getCurrentWar, parseCocDate, opcional } from '../lib/coc.js';
-import { clanes, horasHasta } from '../lib/config.js';
+import { clanes, horasHasta, ajuste, apagado } from '../lib/config.js';
 import { encolar, negrita, mono } from '../lib/outbox.js';
 import { correrJob } from '../lib/db.js';
 import { mencionesDe } from '../lib/menciones.js';
@@ -39,6 +39,7 @@ const UMBRALES = (process.env.ALERTA_UMBRALES || '6,3,1')
 const umbralCruzado = (horas) => UMBRALES.find((u) => horas <= u) ?? null;
 
 await correrJob('alerta_guerra', async () => {
+  if (!(await ajuste('alerta_guerra', true))) return apagado('alerta_guerra');
   const bloques = [];
   const claves = [];
   let pendientesTotal = 0;

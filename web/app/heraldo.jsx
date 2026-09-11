@@ -3,20 +3,18 @@
 // Heraldo dentro del panel: una ventanita para preguntarle sin salir a
 // Telegram.
 //
-// NO usa ningun modelo de lenguaje, y eso es una decision, no una carencia.
-// Conectarlo a la API de Claude costaria entre 20 y 60 dolares al mes con
-// tres personas a 20 mensajes diarios — mas que Vercel Pro, que se descarto
-// justamente por eso. La restriccion del proyecto es $0 reales.
+// Los DATOS los contesta de la base, aqui mismo, sin red: quien no ha
+// atacado, cuantas estrellas lleva cada uno, como va el reparto. Es lo que
+// mas preguntan Carlos y Deibis, y asi no se inventa nada.
 //
-// A cambio responde de la BASE, que es donde estan las respuestas de verdad:
-// quien no ha atacado, cuantas estrellas lleva cada uno, como va el reparto.
-// No conversa, pero tampoco se inventa nada — y el 90% de lo que Carlos y
-// Deibis preguntan son datos, no opiniones.
-//
-// Si algun dia hay presupuesto, el sitio donde enchufar un modelo es
-// `responder()`: recibe el texto y devuelve la respuesta.
+// Lo demas va a /api/asistente: el cerebro de frases de Heraldo y, detras,
+// la misma IA gratis que usa en Telegram (web/lib/pensar.js), sabiendo que
+// esta en el panel. Las preguntas del juego -que ejercito, que trae la
+// actualizacion- van con busqueda web. Durante meses no hubo modelo aqui
+// porque la restriccion es $0 reales; Groq lo dio gratis con limite.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 
 const SIN = '__sin__';
@@ -137,9 +135,9 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
   ];
 
   /**
-   * Aqui es donde se enchufaria un modelo el dia que haya presupuesto.
-   * Hoy es un enrutador de palabras clave sobre datos que ya estan cargados,
-   * asi que responde al instante y sin red.
+   * Lo que se contesta de la base, al instante y sin red: un enrutador de
+   * palabras clave sobre datos que ya estan cargados. Devuelve null si no
+   * es un dato, y entonces se pregunta al servidor.
    */
   function responder(entrada) {
     const q = plano(entrada);
@@ -149,7 +147,8 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
     // comandos, escribe frases: "quien no ha atacado" no casaba con "no
     // ataco" por el "ha" de en medio. Se corta en la raiz del verbo.
     if (/(falta|sin atacar|no\s+(ha\s+|han\s+)?atac|quien debe|pendiente)/.test(q)) return quienFalta();
-    if (/(estrella|tabla|ranking|quien va gan|mejor)/.test(q)) return tablaEstrellas();
+    // "mejor" a secas no: "cual es el mejor ejercito" no pide la tabla.
+    if (/(estrella|tabla|ranking|quien va gan|quien (es|va) (el )?mejor|los mejores)/.test(q)) return tablaEstrellas();
     if (/(premio|reparto|dinero|plata|bono|cuanto se pag)/.test(q)) return reparto();
     if (/(alineacion|lista cwl|quien juega|escuadra|quien va en)/.test(q)) return alineacionActual();
 
@@ -160,19 +159,45 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
     const suelto = (d.players ?? []).some((p) => plano(p.nombre_actual).includes(q));
     if (suelto) return fichaDe(q);
 
-    return (
-      t('No entendí. Puedo responder a:') +
-      '\n' +
-      AYUDA.map(([c, q2]) => `• ${c} — ${q2}`).join('\n')
-    );
+    // Nada de la base: que lo intente el servidor (frases, y luego la IA).
+    return null;
   }
 
-  function enviar(e) {
+  const sinRespuesta = () =>
+    t('No entendí. Puedo responder a:') + '\n' + AYUDA.map(([c, q2]) => `• ${c} — ${q2}`).join('\n');
+
+  /** Lo que la base no sabe: frases de Heraldo y, detras, la IA. */
+  async function preguntarAlServidor(pregunta) {
+    try {
+      const { data: sesion } = await supabase.auth.getSession();
+      const r = await fetch('/api/asistente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion?.session?.access_token}` },
+        body: JSON.stringify({ pregunta }),
+      });
+      const j = await r.json().catch(() => ({}));
+      return j?.respuesta || sinRespuesta();
+    } catch {
+      return sinRespuesta();
+    }
+  }
+
+  async function enviar(e) {
     e.preventDefault();
     const pregunta = texto.trim();
     if (!pregunta) return;
-    setHilo((h) => [...h, { yo: true, texto: pregunta }, { yo: false, texto: responder(pregunta) }]);
     setTexto('');
+    const local = responder(pregunta);
+    if (local) {
+      setHilo((h) => [...h, { yo: true, texto: pregunta }, { yo: false, texto: local }]);
+      return;
+    }
+    // Mientras piensa, un mensaje de espera que despues se cambia por la
+    // respuesta: con busqueda web son varios segundos.
+    const id = Date.now();
+    setHilo((h) => [...h, { yo: true, texto: pregunta }, { yo: false, id, texto: t('Déjame ver…'), pensando: true }]);
+    const respuesta = await preguntarAlServidor(pregunta);
+    setHilo((h) => h.map((m) => (m.id === id ? { yo: false, texto: respuesta } : m)));
   }
 
   if (!abierto) {
@@ -211,7 +236,7 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
           aria-hidden="true"
         />
         <strong>{nombreBot}</strong>
-        <span className="sub">{t('responde de la base, sin inventar')}</span>
+        <span className="sub">{t('los datos, de la base; lo demás, con IA')}</span>
         <span style={{ flex: 1 }} />
         <button className="fantasma" onClick={() => setAbierto(false)}>
           ✕
@@ -227,7 +252,7 @@ export default function Heraldo({ d, nombreBot = 'Heraldo' }) {
           </div>
         )}
         {hilo.map((m, i) => (
-          <div key={i} className={m.yo ? 'heraldo-msg yo' : 'heraldo-msg'}>
+          <div key={m.id ?? i} className={`heraldo-msg${m.yo ? ' yo' : ''}${m.pensando ? ' pensando' : ''}`}>
             {m.texto}
           </div>
         ))}

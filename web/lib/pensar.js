@@ -32,6 +32,8 @@
 //   IA_MODELO_BUSCA  opcional; el que busca en la web (motor 2), por
 //                    defecto groq/compound-mini
 
+import { ajusteWeb, memoriaDeLideres } from './entrenamiento.js';
+
 const LLAVE = process.env.GEMINI_API_KEY;
 const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
 
@@ -209,7 +211,7 @@ const mesDeHoy = () =>
  * Las instrucciones completas de un personaje para un modo: charla, con
  * lo encontrado en la web (buscar), o sin web pudiendo haberla (sinWeb).
  */
-function instrucciones(quien, { buscar = false, sinWeb = false, th = null } = {}) {
+function instrucciones(quien, { buscar = false, sinWeb = false, th = null, memoria = '', panel = false } = {}) {
   const plantilla = buscar ? (sinWeb ? MODO.sinWeb : MODO.buscar) : MODO.charla;
   const modo = plantilla.replace('{mes}', mesDeHoy()).replace(
     '{th}',
@@ -217,8 +219,17 @@ function instrucciones(quien, { buscar = false, sinWeb = false, th = null } = {}
       ? `El que pregunta juega en Ayuntamiento ${th}: si la respuesta depende del nivel, dala para ese.`
       : 'Si la respuesta depende del nivel de ayuntamiento y no lo dijo, da la de los ayuntamientos altos (15 a 17) y dilo.'
   );
-  return `${PERSONAJES[quien]}${REGLAS_COMUNES}${modo}\n`;
+  // Lo que los lideres escribieron en la pestaña Bots: entra tal cual,
+  // como cosas que el personaje sabe. Si se contradice con las reglas de
+  // arriba, mandan las reglas (van antes y dicen "sin excepcion").
+  const sabido = memoria ? `\nCosas que los líderes del clan te han enseñado y debes tener en cuenta:\n${memoria}\n` : '';
+  // Dentro del panel web habla con un lider, no con el grupo.
+  const donde = panel ? `\n${EN_EL_PANEL}\n` : '';
+  return `${PERSONAJES[quien]}${REGLAS_COMUNES}${modo}\n${sabido}${donde}`;
 }
+
+// El asistente del panel: el mismo Heraldo, pero sabiendo donde esta.
+const EN_EL_PANEL = `Ahora mismo NO estás en Telegram: estás dentro del panel de gestión web de la alianza, hablando con un líder (Cris, Carlos o Deibis). Las pestañas del panel son: Resumen, Lista CWL (la alineación), CWL Resultados, Jugadores, Salud, Solicitudes (los que quieren entrar), Mensajes (la bandeja de salida), Bases, Bonos (los premios del mes) y Bots (tu configuración y la de Valquiria, y donde te enseñan cosas). Si te preguntan cómo hacer algo en el panel, di en qué pestaña está. Los datos del clan (quién falta, estrellas, alineación, premios) el propio panel los contesta antes de llegar a ti; si aun así te los piden, manda a la pestaña que toca.`;
 
 // El modelo con busqueda web. En Groq es groq/compound-mini: una busqueda
 // por pregunta, el triple de rapido que compound, y en el plan gratis
@@ -268,17 +279,21 @@ const diaCuba = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Americ
  * @param {string} pregunta    lo que escribieron, tal cual
  * @param {string} [nombre]    quien pregunta, para que pueda nombrarlo
  */
-export async function pensar(admin, quien, pregunta, nombre = null, { buscar = false, th = null } = {}) {
+export async function pensar(admin, quien, pregunta, nombre = null, { buscar = false, th = null, panel = false } = {}) {
   if (!MOTOR || !PERSONAJES[quien]) return null;
   const texto = String(pregunta ?? '').trim().slice(0, 500);
   if (!texto) return null;
+
+  // El interruptor del panel: apagada, los bots vuelven a sus frases.
+  if (!(await ajusteWeb(admin, 'ia_activa', true))) return null;
 
   // El tope propio, antes de gastar la llamada. ia_contar sube el contador
   // y devuelve el nuevo en una sola operacion.
   const { data: n, error } = await admin.rpc('ia_contar', { p_dia: diaCuba() });
   if (error || Number(n) > TOPE_DIA) return null;
 
-  if (MOTOR === 'openai') return pensarCompat(admin, quien, texto, nombre, { buscar, th });
+  const memoria = await memoriaDeLideres(admin);
+  if (MOTOR === 'openai') return pensarCompat(admin, quien, texto, nombre, { buscar, th, memoria, panel });
 
   // Gemini no tiene busqueda web aqui: contesta con lo que sabe, y las
   // instrucciones de "buscar" al menos le piden que sea concreto.
@@ -294,7 +309,7 @@ export async function pensar(admin, quien, pregunta, nombre = null, { buscar = f
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': LLAVE },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: instrucciones(quien, { buscar, th }) }] },
+          system_instruction: { parts: [{ text: instrucciones(quien, { buscar, th, memoria, panel }) }] },
           contents: [
             {
               role: 'user',
@@ -352,7 +367,7 @@ async function contarFallo(admin) {
  * con system + user, y el texto en choices[0].message.content. Es el
  * formato que hablan Mistral, Groq, OpenRouter y la mayoria.
  */
-async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null } = {}) {
+async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = null, memoria = '', panel = false } = {}) {
   const pregunta = `${nombre ? `${nombre} dice: ` : ''}${texto}`;
 
   // Con busqueda, dos pasos. Primero el buscador SIN personaje: solo "busca
@@ -383,7 +398,7 @@ async function pensarCompat(admin, quien, texto, nombre, { buscar = false, th = 
   }
 
   const mensajes = [
-    { role: 'system', content: instrucciones(quien, { buscar, sinWeb: buscar && !hechos, th }) },
+    { role: 'system', content: instrucciones(quien, { buscar, sinWeb: buscar && !hechos, th, memoria, panel }) },
     {
       role: 'user',
       content: hechos ? `${pregunta}\n\nLo que se encontró hoy en la web:\n${hechos}` : pregunta,
