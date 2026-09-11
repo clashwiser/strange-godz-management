@@ -31,7 +31,20 @@
 const LLAVE = process.env.GEMINI_API_KEY;
 const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
 
-export const iaConfigurada = Boolean(LLAVE);
+// Segundo motor: cualquier proveedor que hable el formato de OpenAI
+// (Mistral, Groq, OpenRouter, Cloudflare...). Existe porque Google
+// rechazo el proyecto: "Your project has been denied access", que es lo
+// que contesta cuando la cuenta esta en un pais donde Gemini no se
+// ofrece, y Cuba esta en esa lista. Con IA_LLAVE puesta, manda este motor.
+//
+//   IA_LLAVE     la llave del proveedor
+//   IA_URL       la base, p. ej. https://api.mistral.ai/v1
+//   IA_MODELO    el modelo, p. ej. mistral-small-latest
+const LLAVE_COMPAT = process.env.IA_LLAVE;
+const URL_COMPAT = (process.env.IA_URL || '').replace(/\/$/, '');
+const MOTOR = LLAVE_COMPAT && URL_COMPAT ? 'openai' : LLAVE ? 'gemini' : null;
+
+export const iaConfigurada = Boolean(MOTOR);
 
 // Que modelo usar. Google retira modelos sin avisar: gemini-2.5-flash-lite
 // salia como gratis en la pagina de precios y la API devolvia 404. Asi
@@ -114,7 +127,7 @@ const diaCuba = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Americ
  * @param {string} [nombre]    quien pregunta, para que pueda nombrarlo
  */
 export async function pensar(admin, quien, pregunta, nombre = null) {
-  if (!LLAVE || !PERSONAJES[quien]) return null;
+  if (!MOTOR || !PERSONAJES[quien]) return null;
   const texto = String(pregunta ?? '').trim().slice(0, 500);
   if (!texto) return null;
 
@@ -122,6 +135,8 @@ export async function pensar(admin, quien, pregunta, nombre = null) {
   // y devuelve el nuevo en una sola operacion.
   const { data: n, error } = await admin.rpc('ia_contar', { p_dia: diaCuba() });
   if (error || Number(n) > TOPE_DIA) return null;
+
+  if (MOTOR === 'openai') return pensarCompat(admin, quien, texto, nombre);
 
   const MODELO = await elegirModelo();
   if (!MODELO) return null;
@@ -189,6 +204,44 @@ async function contarFallo(admin) {
 }
 
 /**
+ * El mismo trabajo por el formato de OpenAI: POST {IA_URL}/chat/completions
+ * con system + user, y el texto en choices[0].message.content. Es el
+ * formato que hablan Mistral, Groq, OpenRouter y la mayoria.
+ */
+async function pensarCompat(admin, quien, texto, nombre) {
+  const modelo = process.env.IA_MODELO || 'mistral-small-latest';
+  try {
+    const r = await fetch(`${URL_COMPAT}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LLAVE_COMPAT}` },
+      body: JSON.stringify({
+        model: modelo,
+        messages: [
+          { role: 'system', content: PERSONAJES[quien] },
+          { role: 'user', content: `${nombre ? `${nombre} dice: ` : ''}${texto}` },
+        ],
+        temperature: 0.9,
+        max_tokens: 120,
+      }),
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!r.ok) {
+      const detalle = (await r.text().catch(() => '')).slice(0, 300);
+      console.error(`[ia] ${modelo} en ${URL_COMPAT} respondio ${r.status}: ${detalle}`);
+      await contarFallo(admin);
+      return null;
+    }
+    const j = await r.json();
+    const salida = j?.choices?.[0]?.message?.content ?? '';
+    return limpiar(salida) || null;
+  } catch (e) {
+    console.error(`[ia] fallo la llamada: ${e?.message ?? e}`);
+    await contarFallo(admin);
+    return null;
+  }
+}
+
+/**
  * Deja la respuesta lista para Telegram en modo HTML: sin markdown que
  * saldria como asteriscos sueltos, sin etiquetas que Telegram no acepta,
  * y sin pasarse de largo aunque el modelo ignore la regla de dos frases.
@@ -209,7 +262,11 @@ export async function usoDeHoy(admin) {
   const { data } = await admin.from('ia_uso').select('llamadas, fallos').eq('dia', diaCuba()).maybeSingle();
   return {
     configurada: iaConfigurada,
-    modelo: modeloElegido ?? (iaConfigurada ? await elegirModelo() : null),
+    motor: MOTOR,
+    modelo:
+      MOTOR === 'openai'
+        ? process.env.IA_MODELO || 'mistral-small-latest'
+        : (modeloElegido ?? (MOTOR === 'gemini' ? await elegirModelo() : null)),
     hoy: data?.llamadas ?? 0,
     fallos: data?.fallos ?? 0,
     tope: TOPE_DIA,

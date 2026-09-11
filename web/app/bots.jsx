@@ -33,7 +33,7 @@ const SALUD_DEMO = {
     recluta: { clave: 'recluta', configurado: true, usuario: 'Valqui_bot', nombre: 'Valquiria', oyeTodo: true, enGrupo: true, esAdmin: false, webhook: { ok: true, pendientes: 0, ultimoError: null } },
   },
   actividad: { solicitudesPendientes: 3, solicitudesTotal: 7, aceptadas: 2, vinculados: 18, basesHoy: 4, outboxPendientes: 1 },
-  ia: { configurada: true, modelo: 'gemini-2.5-flash-lite', hoy: 37, fallos: 0, tope: 300 },
+  ia: { configurada: true, motor: 'openai', modelo: 'mistral-small-latest', hoy: 37, fallos: 0, tope: 300 },
 };
 
 const FICHAS = {
@@ -235,11 +235,16 @@ export default function Bots({ d, demo = false, recargar }) {
             )}
           </h3>
           <p className="big">{salud?.ia ? `${salud.ia.hoy} / ${salud.ia.tope}` : '…'}</p>
+          {salud?.ia?.configurada && (
+            <p className="sub" style={{ marginTop: 0 }}>
+              {salud.ia.motor === 'openai' ? t('motor compatible OpenAI') : 'Gemini'} · <code>{salud.ia.modelo ?? '?'}</code>
+            </p>
+          )}
           <p className="sub">
             {t('preguntas a la IA hoy. Solo entra cuando el cerebro de frases no sabe; sin llave o al tope, vuelven las frases.')}
             {salud?.ia?.fallos > 0 && <> · <span className="mal">{salud.ia.fallos} {t('fallos')}</span></>}
             {salud?.ia && !salud.ia.configurada && (
-              <> · {t('Falta')} <code>GEMINI_API_KEY</code> {t('en Vercel (gratis en aistudio.google.com/apikey).')}</>
+              <> · {t('Falta la llave en Vercel:')} <code>IA_LLAVE</code> + <code>IA_URL</code> (Mistral, Groq…) {t('o')} <code>GEMINI_API_KEY</code>.</>
             )}
           </p>
         </div>

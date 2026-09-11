@@ -246,6 +246,9 @@ export const EN = {
   'fallos': 'failures',
   'Falta': 'Missing',
   'en Vercel (gratis en aistudio.google.com/apikey).': 'in Vercel (free at aistudio.google.com/apikey).',
+  'motor compatible OpenAI': 'OpenAI-compatible engine',
+  'Falta la llave en Vercel:': 'Missing the key in Vercel:',
+  'o': 'or',
   // ---- Borrar un mensaje ----
   'Para borrar uno: arrástralo a la derecha o usa la papelera.': 'To delete one: drag it to the right or use the bin.',
   '¿Borrar este mensaje?': 'Delete this message?',
