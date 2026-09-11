@@ -18,6 +18,7 @@ import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
 import { fotoDe, filaParaFoto, verificarCastilloConFoto, leerMapaDePrueba } from '../../../lib/castillo-foto';
 import { esFotoDeFC, verificarFCConFoto, recordarMensajeReto, decidirReto, leerChatDePrueba } from '../../../lib/retos';
+import { plano as planoNombre } from '../../../lib/nombres';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -350,6 +351,9 @@ export async function GET() {
   return Response.json({
     ok: true,
     bot: 'x300',
+    // El commit desplegado, para saber desde fuera si Vercel ya publico
+    // lo ultimo (Vercel lo pone en el entorno; en local no esta).
+    version: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || null,
     configurado: {
       telegram: Boolean(TOKEN && SECRETO),
       chats: PERMITIDOS.length,
@@ -843,7 +847,9 @@ const plano = (s) =>
 
 /** "Heraldo yo soy Anabolic Batman" -> ata esa cuenta con ese jugador. */
 async function cmdSoy(arg, quien) {
-  const buscado = plano(arg);
+  // Con los adornos traducidos (nombres.js): "/soy Aventus" encuentra a
+  // ﹏⪻ΛＶΞＮΤＵՏ⪼﹏, que es como se llama de verdad.
+  const buscado = planoNombre(arg);
   if (!buscado) {
     return 'Dime tu nombre del juego, mi hermano: <code>/soy Anabolic Batman</code>';
   }
@@ -853,7 +859,7 @@ async function cmdSoy(arg, quien) {
     .select('player_tag, nombre_actual');
   if (error) throw error;
 
-  const hallados = (jugadores ?? []).filter((p) => plano(p.nombre_actual).includes(buscado));
+  const hallados = (jugadores ?? []).filter((p) => planoNombre(p.nombre_actual).includes(buscado));
 
   if (!hallados.length) {
     return (

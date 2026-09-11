@@ -21,6 +21,7 @@
 import { leerImagen } from './vision.js';
 import { pedirPerfil } from './coc-perfil.js';
 import { PUNTOS_CASTILLO } from './castillos.js';
+import { plano, parecidos } from './nombres.js';
 
 const BASE = process.env.COC_BASE_URL || 'https://cocproxy.royaleapi.dev/v1';
 const COC = process.env.COC_TOKEN;
@@ -157,40 +158,9 @@ Reglas:
 
 // ---------- El juicio ----------
 
-// Letras de adorno que la gente pone en los nombres y que el OCR lee como
-// la latina que imitan: «ΛVΞNTUS» es AVENTUS. Se traducen antes de
-// comparar, en los dos lados (lo que leyo el modelo y lo que dice la API).
-const ADORNOS = { 'λ': 'a', 'δ': 'a', 'ʌ': 'a', 'ξ': 'e', 'σ': 'e', 'є': 'e', 'ø': 'o', 'θ': 'o', 'φ': 'o', 'ω': 'o', 'ð': 'd', 'ß': 'b', 'π': 'n', 'и': 'n', 'я': 'r', 'ш': 'w', 'ψ': 'y', 'ѕ': 's', 'ι': 'i', 'ν': 'v', 'τ': 't', 'κ': 'k', 'ρ': 'p', 'μ': 'u', 'ч': 'y' };
-
-export const plano = (s) =>
-  String(s ?? '')
-    .toLowerCase()
-    .replace(/[^\x00-\x7f]/g, (c) => ADORNOS[c] ?? c)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '');
-
-/** Dos nombres leidos por OCR "se parecen" si, limpios, uno contiene al otro o difieren en poco. */
-export function parecidos(a, b) {
-  const x = plano(a);
-  const y = plano(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  if (x.length >= 3 && y.length >= 3 && (x.includes(y) || y.includes(x))) return true;
-  if (Math.abs(x.length - y.length) > 2) return false;
-  // Distancia de edicion con tope 2: "assasins" vs "assassins".
-  const m = x.length;
-  const n = y.length;
-  let prev = Array.from({ length: n + 1 }, (_, j) => j);
-  for (let i = 1; i <= m; i++) {
-    const cur = [i];
-    for (let j = 1; j <= n; j++) {
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (x[i - 1] === y[j - 1] ? 0 : 1));
-    }
-    prev = cur;
-  }
-  return prev[n] <= (Math.max(m, n) >= 6 ? 2 : 1);
-}
+// Los nombres, con sus adornos («ΛVΞNTUS» es AVENTUS), se comparan con lo
+// de nombres.js, en los dos lados: lo que leyo el modelo y lo que dice la API.
+export { plano, parecidos };
 
 const numero = (v) => {
   const n = Number(v);

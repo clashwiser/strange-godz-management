@@ -71,3 +71,12 @@ test('tablaPuntos: suma castillos y retos y cuenta cada clase', () => {
     { nombre: 'Beto', puntos: 5, veces: 1, castillos: 0, fc: 1 },
   ]);
 });
+
+test('nombres: los adornos de verdad del clan se reducen a ASCII (para /soy y para la captura)', async () => {
+  const { plano, parecidos } = await import('../web/lib/nombres.js');
+  assert.equal(plano('﹏⪻ΛＶΞＮΤＵՏ⪼﹏'), 'aventus');
+  assert.equal(plano('﹏⪨ΛՏՏΛՏՏI͏N͏Տ⪩﹏'), 'assassins');
+  assert.equal(plano('﹏⪻ΛＶΞＮΤＵՏ⪼﹏').includes(plano('Aventus')), true); // "/soy Aventus"
+  assert.equal(parecidos('«ΛVΞNTUS»', '﹏⪻ΛＶΞＮΤＵՏ⪼﹏'), true); // lo leido vs la API
+  assert.equal(contarFC(capturaDeCris(), '﹏⪻ΛＶΞＮΤＵՏ⪼﹏').buenas, 5);
+});
