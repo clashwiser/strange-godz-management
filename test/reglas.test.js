@@ -57,8 +57,8 @@ test('tablaPuntos: suma solo lo verificado, por persona, y ordena', () => {
     { tg_user_id: 3, nombre: 'Caro', verificado: true, puntos: PUNTOS_CASTILLO },
   ];
   assert.deepEqual(tablaPuntos(filas), [
-    { nombre: 'Ana', puntos: 10, veces: 2, castillos: 2, fc: 0 },
-    { nombre: 'Caro', puntos: 5, veces: 1, castillos: 1, fc: 0 },
+    { nombre: 'Ana', puntos: 2 * PUNTOS_CASTILLO, veces: 2, castillos: 2, fc: 0 },
+    { nombre: 'Caro', puntos: PUNTOS_CASTILLO, veces: 1, castillos: 1, fc: 0 },
   ]);
 });
 

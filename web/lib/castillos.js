@@ -16,7 +16,10 @@
 // Con puntos de un premio mensual el incentivo a mentir es pequeño, y el
 // que lo haga se lo encuentra un colider mirando el castillo.
 
-export const PUNTOS_CASTILLO = 5;
+// 10 y no 5 (lo subio Cris el 11 sep 2026): el reto de FC da 5 al dia y el
+// castillo solo se puede donar dos o tres veces por semana; a 5 el premio
+// del mes lo decidia el FC solo, y lo que el clan necesita es el castillo.
+export const PUNTOS_CASTILLO = 10;
 
 const plano = (s) =>
   String(s ?? '')
