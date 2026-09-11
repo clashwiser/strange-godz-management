@@ -3,7 +3,7 @@
 --  INSTALACION COMPLETA EN UN SOLO PASO
 --
 --  Pegar TODO este archivo en el SQL Editor de Supabase y darle Run.
---  Es la union de los 27 archivos de sql/ en el orden correcto; el orden
+--  Es la union de los 28 archivos de sql/ en el orden correcto; el orden
 --  importa porque cada uno se apoya en tablas del anterior.
 --
 --  Se puede correr dos veces sin romper nada: todo va con
@@ -1856,3 +1856,21 @@ create policy "editores borran castillos" on castillos for delete using (puede_e
 
 alter table castillos add column if not exists mensaje_bot_id bigint;
 create index if not exists idx_castillos_mensaje on castillos (mensaje_bot_id);
+
+
+-- ####################################################################
+-- ##  028_castillos_nota.sql
+-- ####################################################################
+
+-- =====================================================================
+-- castillos: la nota de lo que leyo la IA en la captura
+-- Ejecutar DESPUES de 027_castillos_mensaje.sql
+-- =====================================================================
+--
+-- El aviso de castillo puede venir con una captura del mapa de guerra.
+-- Heraldo la lee con la IA (web/lib/castillo-foto.js) y la cruza con la
+-- API; lo que vio queda aqui ("foto: Fulano 55/55", "foto: incompleto
+-- 30/55", "foto: no es el mapa de guerra") para que en Bonos se entienda
+-- por que un aviso se confirmo solo o por que sigue pendiente.
+
+alter table castillos add column if not exists nota text;

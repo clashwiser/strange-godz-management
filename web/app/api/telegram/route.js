@@ -16,6 +16,7 @@ import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 import { leccionPara, reglasDelClan } from '../../../lib/entrenamiento';
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
+import { fotoDe, filaParaFoto, verificarCastilloConFoto } from '../../../lib/castillo-foto';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -141,6 +142,34 @@ export async function POST(request) {
   // saludos seguidos es ruido, y ninguno es peor.
   if (msg.new_chat_members?.length) {
     if (!process.env.RECLUTA_BOT_TOKEN) await darBienvenida(chatId, msg.new_chat_members);
+    return Response.json({ ok: true });
+  }
+
+  // Una foto: la captura del mapa de guerra con el castillo donado. Cuenta
+  // si el pie es el aviso ("ya doné mi castillo"), si nombra a un bot y
+  // habla del castillo, o si contesta al "Anotado" de un bot. La lee la IA
+  // y la cruza con la API (ver castillo-foto.js); si cuadra, los puntos se
+  // dan solos. Las fotos las mira solo Heraldo: Valquiria no lee fotos, y
+  // asi no contestan los dos.
+  const foto = fotoDe(msg);
+  if (foto) {
+    const pie = (msg.caption || '').trim();
+    const quienFoto = { id: msg.from?.id ?? chatId, nombre: esc(msg.from?.first_name || msg.from?.username || 'socio') };
+    const aUnBot = msg.reply_to_message?.from?.is_bot ? msg.reply_to_message.message_id : null;
+    const reclama = avisaCastillo(pie) || (/heraldo|valqui/i.test(pie) && /castillo/i.test(pie));
+    let fila = null;
+    if (reclama) {
+      fila = (await anotarCastillo(admin, { tgId: quienFoto.id, nombre: quienFoto.nombre, texto: pie })).fila ?? null;
+    } else if (aUnBot) {
+      fila = await filaParaFoto(admin, { tgId: quienFoto.id, mensajeBotId: aUnBot });
+    }
+    if (fila) {
+      await escribiendo(TOKEN, chatId);
+      const r = await verificarCastilloConFoto(admin, { token: TOKEN, msg, fila, quien: quienFoto.nombre });
+      const idMensaje = await responder(chatId, r.texto);
+      // Sin verificar, un lider puede confirmar contestando ✅ a ESTE mensaje.
+      if (!r.verificado) await recordarMensaje(admin, fila.id, idMensaje);
+    }
     return Response.json({ ok: true });
   }
 
@@ -400,7 +429,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     case 'castillo': {
       const r = await anotarCastillo(admin, { tgId: quien.id, nombre: esc(quien.nombre ?? 'socio'), texto: arg });
       const idMensaje = await responder(chatId, r.texto);
-      await recordarMensaje(admin, r.id, idMensaje);
+      if (!r.existente) await recordarMensaje(admin, r.id, idMensaje);
       return null;
     }
 

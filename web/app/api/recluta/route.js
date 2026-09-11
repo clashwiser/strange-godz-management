@@ -161,7 +161,7 @@ export async function POST(request) {
     const r = await anotarCastillo(admin, { tgId: msg.from?.id, nombre: esc(msg.from?.first_name ?? 'mi cielo'), texto });
     const idMensaje = await decirCon(TOKEN, chatId, r.texto);
     // Un lider lo confirma contestando a este mensaje; lo lee Heraldo.
-    await recordarMensaje(admin, r.id, typeof idMensaje === 'number' ? idMensaje : null);
+    if (!r.existente) await recordarMensaje(admin, r.id, typeof idMensaje === 'number' ? idMensaje : null);
     return Response.json({ ok: true });
   }
   if (pideLasReglas(texto)) {

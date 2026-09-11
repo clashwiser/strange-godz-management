@@ -48,11 +48,12 @@ export const temporadaDe = (d = new Date()) => d.toLocaleDateString('en-CA', { t
 const diaCuba = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
 
 /**
- * Anota el aviso de castillo de quien lo dice. Devuelve { texto, id }: el
- * texto para el grupo y el id de la fila, para guardar despues el id del
- * mensaje con que el bot contesto (asi un lider confirma respondiendo a
- * ese mensaje). Una vez al dia por persona: el castillo se llena una vez
- * por guerra.
+ * Anota el aviso de castillo de quien lo dice. Devuelve { texto, id, fila,
+ * existente }: el texto para el grupo, la fila (para cruzarla con una
+ * foto), y el id para guardar despues el del mensaje con que el bot
+ * contesto (asi un lider confirma respondiendo a ese mensaje). Una vez al
+ * dia por persona: el castillo se llena una vez por guerra; si ya habia
+ * aviso de hoy, `existente` viene a true y se devuelve esa fila.
  *
  * @param {object} admin  Supabase con service_role
  * @param {{ tgId:number, nombre:string, texto:string }} quien
@@ -63,14 +64,16 @@ export async function anotarCastillo(admin, { tgId, nombre, texto }) {
 
   const { data: deHoy } = await admin
     .from('castillos')
-    .select('id, verificado, puntos')
+    .select('id, verificado, puntos, player_tag, mensaje_bot_id')
     .eq('tg_user_id', tgId)
     .gte('creado_en', `${hoy}T00:00:00-04:00`)
     .limit(1)
     .maybeSingle();
   if (deHoy) {
     return {
-      id: null,
+      id: deHoy.id,
+      existente: true,
+      fila: { ...deHoy, tg_user_id: tgId, nombre },
       texto: deHoy.verificado
         ? `Ya tengo tu castillo de hoy anotado y confirmado, ${nombre} (+${deHoy.puntos}). Mañana otro. 📜`
         : `Ya tengo tu castillo de hoy anotado, ${nombre}; en cuanto un líder lo confirme suman los puntos. 📜`,
@@ -98,9 +101,11 @@ export async function anotarCastillo(admin, { tgId, nombre, texto }) {
   }
   return {
     id: fila.id,
+    existente: false,
+    fila: { id: fila.id, tg_user_id: tgId, player_tag: vinculo?.player_tag ?? null, nombre, verificado: false, puntos: 0, mensaje_bot_id: null },
     texto:
       `📜 Anotado, ${nombre}: castillo de guerra donado. ` +
-      `Un líder lo confirma contestando ✅ a este mensaje (o desde el panel) y suman +${PUNTOS_CASTILLO} puntos este mes.` +
+      `Manda una captura del mapa de guerra donde se vea el castillo de abajo lleno y lo verifico yo; si no, un líder lo confirma contestando ✅ a este mensaje (o desde el panel). Suman +${PUNTOS_CASTILLO} puntos este mes.` +
       (vinculo?.player_tag ? '' : ` Preséntate con <code>/soy TuNombre</code> para que sepan qué castillo mirar.`),
   };
 }
