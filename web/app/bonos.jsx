@@ -17,7 +17,7 @@ import { useT } from './idioma';
 import { tablaPuntos, PUNTOS_CASTILLO } from '../lib/castillos';
 import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../lib/retos';
 
-const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas' };
+const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
 
 const mesSiguiente = (mes) => {
   const [a, m] = mes.split('-').map(Number);
@@ -158,6 +158,18 @@ export default function Bonos({ d, demo = false, recargar }) {
   // Por fila, no uno solo: se pueden preparar los tres puestos de una tirada
   // sin que elegir el segundo borre el primero.
   const [ganador, setGanador] = useState({});
+
+  // El que va ganando los puntos del mes (castillos + retos), para
+  // sugerirlo en el premio de los puntos con un clic. Solo si se sabe quien
+  // es en el juego (/soy): sin tag no se le puede felicitar ni pagar.
+  const liderPuntos = useMemo(() => {
+    const filas = [...(d.castillos ?? []), ...(d.retos ?? [])];
+    const top = tablaPuntos(filas)[0];
+    if (!top) return null;
+    const tag = filas.find((f) => f.nombre === top.nombre && f.player_tag)?.player_tag ?? null;
+    return { ...top, tag, candidato: tag ? candidatos.find((c) => c.tag === tag) : null };
+  }, [d.castillos, d.retos, candidatos]);
+  const esDePuntos = (f) => /punto/i.test(`${f.titulo ?? ''} ${f.criterio ?? ''}`);
   const claveFila = (f, i) => f.id ?? `n${i}`;
 
   function textoFelicitacion(f, jugador) {
@@ -166,7 +178,9 @@ export default function Bonos({ d, demo = false, recargar }) {
         ? `$${Number(f.monto_usd)}`
         : f.tipo === 'pase_oro'
           ? 'un Pase de Oro'
-          : 'las Medallas de CWL';
+          : f.tipo === 'pase_evento'
+            ? 'el Pase de evento'
+            : 'las Medallas de CWL';
     const donde = jugador.clan ? ` en el clan *${jugador.clan}*` : '';
     const firma = cfg.bot_firma ? `\n\n${cfg.bot_firma}` : '';
     return (
@@ -385,6 +399,7 @@ export default function Bonos({ d, demo = false, recargar }) {
                   >
                     <option value="efectivo">{t('Efectivo')}</option>
                     <option value="pase_oro">{t('Pase de Oro')}</option>
+                    <option value="pase_evento">{t('Pase de evento')}</option>
                     <option value="medallas">{t('Medallas')}</option>
                   </select>
                 </td>
@@ -414,6 +429,22 @@ export default function Bonos({ d, demo = false, recargar }) {
                       </option>
                     ))}
                   </select>
+                  {esDePuntos(f) && liderPuntos && (
+                    <div className="sub" style={{ marginTop: 4 }}>
+                      🏅 {t('Va ganando')}: <b>{liderPuntos.candidato?.nombre ?? liderPuntos.nombre}</b> ({liderPuntos.puntos} pts)
+                      {liderPuntos.candidato ? (
+                        <button
+                          className="fantasma"
+                          style={{ marginLeft: 6 }}
+                          onClick={() => setGanador((g) => ({ ...g, [claveFila(f, i)]: liderPuntos.tag }))}
+                        >
+                          {t('Usar')}
+                        </button>
+                      ) : (
+                        <> · {t('sin /soy')}</>
+                      )}
+                    </div>
+                  )}
                   {/* Gris hasta que hay a quien felicitar, verde en cuanto lo
                       hay: el mismo gesto que el boton de mandarle la base a
                       un jugador, para no tener que aprenderse dos. */}

@@ -29,6 +29,10 @@
 
 import { db, chk, correrJob } from '../lib/db.js';
 import { temporadaActual, ajuste, apagado } from '../lib/config.js';
+import { tablaPuntos } from '../../web/lib/castillos.js';
+
+// Como se imprime cada tipo de premio en el reparto.
+const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
 
 const args = process.argv.slice(2);
 const MES = args.find((a) => /^\d{4}-\d{2}$/.test(a)) || temporadaActual();
@@ -252,7 +256,38 @@ await correrJob('cierre_mensual', async () => {
   } else {
     console.log('--- Reparto ---');
     const pagos = [];
+
+    // Los puntos del mes: castillos donados y retos, sumados por persona.
+    // El premio "de puntos" se resuelve con esto; un empate en cabeza lo
+    // deciden los lideres, como con las estrellas.
+    const [{ data: castillos }, { data: retos }] = await Promise.all([
+      db.from('castillos').select('tg_user_id, nombre, player_tag, verificado, puntos').eq('temporada', MES),
+      db.from('retos').select('tg_user_id, nombre, player_tag, verificado, puntos, tipo').eq('temporada', MES),
+    ]);
+    const filasPuntos = [...(castillos ?? []), ...(retos ?? [])];
+    const puntos = tablaPuntos(filasPuntos);
+
     for (const pr of plan) {
+      if (/punto/i.test(`${pr.titulo} ${pr.criterio ?? ''}`)) {
+        const top = puntos[0];
+        if (!top) {
+          console.log(`  ${pr.titulo.padEnd(32)} ${String(TIPOS[pr.tipo] ?? pr.tipo).padStart(6)}   sin puntos este mes`);
+          continue;
+        }
+        const empatados = puntos.filter((p) => p.puntos === top.puntos && p.castillos === top.castillos);
+        if (empatados.length > 1) {
+          console.log(`  ${pr.titulo.padEnd(32)} ${String(TIPOS[pr.tipo] ?? pr.tipo).padStart(6)}   EMPATE entre ${empatados.length} — decidan ustedes`);
+          for (const e of empatados) console.log(`        ${e.nombre}  ${e.puntos} pts  (${e.castillos} castillos, ${e.fc} FC)`);
+          continue;
+        }
+        const tag = filasPuntos.find((f) => f.nombre === top.nombre && f.player_tag)?.player_tag;
+        console.log(`  ${pr.titulo.padEnd(32)} ${String(TIPOS[pr.tipo] ?? pr.tipo).padStart(6)}   ${top.nombre}  (${top.puntos} pts: ${top.castillos} castillos, ${top.fc} FC)${tag ? '' : '  SIN /soy: a mano'}`);
+        if (tag) {
+          pagos.push({ mes: MES, player_tag: tag, premio: pr.titulo, monto_usd: pr.monto_usd, tipo: pr.tipo, nota: `${top.puntos} puntos: ${top.castillos} castillos, ${top.fc} FC` });
+        }
+        continue;
+      }
+
       // Solo se resuelven solos los premios de puesto en un clan concreto.
       // Los de guerra normal y el de Leyenda necesitan datos que todavia no
       // se recogen; se listan como pendientes en vez de inventarlos.
@@ -294,7 +329,7 @@ await correrJob('cierre_mensual', async () => {
         player_tag: g.player_tag,
         premio: pr.titulo,
         monto_usd: pr.monto_usd,
-        tipo: pr.tipo === 'pase_oro' ? 'pase_oro' : 'efectivo',
+        tipo: pr.tipo,
         nota: `${g.cwl_estrellas} estrellas en ${g.cwl_ataques_usados}/${g.cwl_ataques_totales} ataques`,
       });
     }

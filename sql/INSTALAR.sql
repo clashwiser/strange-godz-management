@@ -3,7 +3,7 @@
 --  INSTALACION COMPLETA EN UN SOLO PASO
 --
 --  Pegar TODO este archivo en el SQL Editor de Supabase y darle Run.
---  Es la union de los 29 archivos de sql/ en el orden correcto; el orden
+--  Es la union de los 30 archivos de sql/ en el orden correcto; el orden
 --  importa porque cada uno se apoya en tablas del anterior.
 --
 --  Se puede correr dos veces sin romper nada: todo va con
@@ -1925,3 +1925,26 @@ create policy "editores deciden retos" on retos for update using (puede_editar()
 drop policy if exists "editores borran retos" on retos;
 create policy "editores borran retos" on retos for delete using (puede_editar());
 -- Inserta el webhook con la service_role.
+
+
+-- ####################################################################
+-- ##  030_pase_evento.sql
+-- ####################################################################
+
+-- =====================================================================
+-- premios: el Pase de evento como tipo de premio
+-- Ejecutar DESPUES de 029_retos.sql
+-- =====================================================================
+--
+-- El premio de los puntos del mes (castillos donados y desafios amistosos)
+-- va a ser el Pase de evento del juego. Entra como tipo en el plan de
+-- premios y en los pagos. Y de paso, payouts admite 'medallas', que el plan
+-- ya permitia y el cierre mensual tenia que disfrazar de 'efectivo'.
+
+alter table premios_plan drop constraint if exists premios_plan_tipo_check;
+alter table premios_plan add constraint premios_plan_tipo_check
+  check (tipo in ('efectivo', 'pase_oro', 'medallas', 'pase_evento'));
+
+alter table payouts drop constraint if exists payouts_tipo_check;
+alter table payouts add constraint payouts_tipo_check
+  check (tipo in ('efectivo', 'pase_oro', 'medallas', 'pase_evento'));

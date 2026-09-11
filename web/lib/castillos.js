@@ -159,5 +159,7 @@ export function tablaPuntos(filas) {
     p.nombre = f.nombre || p.nombre;
     por.set(k, p);
   }
-  return [...por.values()].sort((a, b) => b.puntos - a.puntos || b.veces - a.veces);
+  // Desempate publicado: a igual puntos, gana el que mas castillos dono
+  // (es lo que el clan necesita), y luego el que mas veces sumo.
+  return [...por.values()].sort((a, b) => b.puntos - a.puntos || b.castillos - a.castillos || b.veces - a.veces);
 }
