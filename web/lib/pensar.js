@@ -25,14 +25,64 @@
 //
 // Variables en Vercel:
 //   GEMINI_API_KEY   la llave, de aistudio.google.com/apikey
-//   IA_MODELO        opcional, por defecto gemini-2.5-flash-lite
+//   IA_MODELO        opcional; si no, se elige solo entre los que haya
 //   IA_TOPE_DIA      opcional, por defecto 300 llamadas al dia
 
 const LLAVE = process.env.GEMINI_API_KEY;
-const MODELO = process.env.IA_MODELO || 'gemini-2.5-flash-lite';
 const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
 
 export const iaConfigurada = Boolean(LLAVE);
+
+// Que modelo usar. Google retira modelos sin avisar: gemini-2.5-flash-lite
+// salia como gratis en la pagina de precios y la API devolvia 404. Asi
+// que el nombre no va escrito a fuego: se le pregunta a la API que modelos
+// hay y se coge el primero de esta lista que exista. Primero los "lite",
+// que son los mas rapidos y los que menos cuota gastan. Si un dia el
+// elegido devuelve 404, se vuelve a preguntar.
+//
+// IA_MODELO en Vercel lo fuerza, por si hace falta.
+const PREFERIDOS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-2.5-flash',
+];
+let modeloElegido = process.env.IA_MODELO || null;
+
+/** Los modelos que la llave puede usar para generar texto. */
+export async function modelosDisponibles() {
+  if (!LLAVE) return [];
+  try {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
+      headers: { 'x-goog-api-key': LLAVE },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j.models ?? [])
+      .filter((m) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
+      .map((m) => String(m.name).replace(/^models\//, ''));
+  } catch {
+    return [];
+  }
+}
+
+async function elegirModelo() {
+  if (modeloElegido) return modeloElegido;
+  const hay = new Set(await modelosDisponibles());
+  modeloElegido =
+    PREFERIDOS.find((m) => hay.has(m)) ??
+    [...hay].find((m) => /flash.*lite/.test(m)) ??
+    [...hay].find((m) => /flash/.test(m)) ??
+    null;
+  if (modeloElegido) console.log(`[ia] modelo elegido: ${modeloElegido}`);
+  else console.error('[ia] la llave no tiene ningun modelo flash disponible');
+  return modeloElegido;
+}
 
 const REGLAS_COMUNES = `
 Reglas, sin excepción:
@@ -73,6 +123,9 @@ export async function pensar(admin, quien, pregunta, nombre = null) {
   const { data: n, error } = await admin.rpc('ia_contar', { p_dia: diaCuba() });
   if (error || Number(n) > TOPE_DIA) return null;
 
+  const MODELO = await elegirModelo();
+  if (!MODELO) return null;
+
   try {
     // La llave va en cabecera y no en la URL: las URL acaban en logs.
     // Claves en snake_case, como en la referencia de models.generateContent.
@@ -108,6 +161,8 @@ export async function pensar(admin, quien, pregunta, nombre = null) {
       // 429 tope de Google. Sin esto, el fallo es mudo.
       const detalle = (await r.text().catch(() => '')).slice(0, 300);
       console.error(`[ia] ${MODELO} respondio ${r.status}: ${detalle}`);
+      // 404 = ese modelo ya no existe. La proxima vez se vuelve a elegir.
+      if (r.status === 404 && !process.env.IA_MODELO) modeloElegido = null;
       await contarFallo(admin);
       return null;
     }
@@ -152,5 +207,11 @@ function limpiar(s) {
 /** Cuantas van hoy, para la pestaña Bots. */
 export async function usoDeHoy(admin) {
   const { data } = await admin.from('ia_uso').select('llamadas, fallos').eq('dia', diaCuba()).maybeSingle();
-  return { configurada: iaConfigurada, modelo: MODELO, hoy: data?.llamadas ?? 0, fallos: data?.fallos ?? 0, tope: TOPE_DIA };
+  return {
+    configurada: iaConfigurada,
+    modelo: modeloElegido ?? (iaConfigurada ? await elegirModelo() : null),
+    hoy: data?.llamadas ?? 0,
+    fallos: data?.fallos ?? 0,
+    tope: TOPE_DIA,
+  };
 }
