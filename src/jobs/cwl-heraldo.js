@@ -89,13 +89,17 @@ await correrJob('cwl_heraldo', async () => {
     // El MVP y los que se durmieron en la ronda que acaba de cerrar. Es lo
     // que hace que el parte se lea todos los dias: un puesto en una tabla
     // no genera conversacion, que digan tu nombre si.
-    const ultima = await resumenUltimaRonda(s.id, a.rondaActual);
+    const ultima = await resumenUltimaRonda(s.id, a.rondaActual, fase === 'final');
+    // Al cierre, los ataques sin usar de TODA la liga, con nombres: en
+    // este clan no se normalizan, se nombran.
+    const sinUsar = fase === 'final' ? await sinUsarDeLaLiga(s.id) : null;
     let cuerpo = mensajeDelDia({
       clan,
       liga: s.liga,
       analisis: a,
       promueven: cupo.promueven,
       descienden: cupo.descienden,
+      sinUsar,
     });
     if (!cuerpo) continue;
     if (ultima) cuerpo += `
@@ -155,12 +159,43 @@ ${cuerpo}
 process.exit(0);
 
 /**
+ * Cuantos ataques quedaron sin usar en toda la liga y de quien: alineado
+ * en una ronda cerrada y sin ataque registrado. Un nombre puede repetirse
+ * si fallo dos rondas; se cuenta cada ataque.
+ */
+async function sinUsarDeLaLiga(seasonId) {
+  const wars = chk(
+    await db.from('cwl_wars').select('id').eq('season_id', seasonId).eq('estado', 'warEnded'),
+    'rondas cerradas'
+  );
+  if (!wars.length) return { total: 0, nombres: [] };
+  const ids = wars.map((w) => w.id);
+  const [roster, ataques, players] = [
+    chk(await db.from('cwl_roster').select('war_id, player_tag').in('war_id', ids), 'roster de la liga'),
+    chk(await db.from('cwl_attacks').select('war_id, player_tag').in('war_id', ids), 'ataques de la liga'),
+    chk(await db.from('players').select('player_tag, nombre_actual'), 'jugadores'),
+  ];
+  const nombre = Object.fromEntries(players.map((p) => [p.player_tag, p.nombre_actual]));
+  const atacaron = new Set(ataques.map((a) => `${a.war_id}|${a.player_tag}`));
+  const faltas = roster.filter((r) => !atacaron.has(`${r.war_id}|${r.player_tag}`));
+  const porNombre = new Map();
+  for (const f of faltas) {
+    const n = nombre[f.player_tag] ?? f.player_tag;
+    porNombre.set(n, (porNombre.get(n) ?? 0) + 1);
+  }
+  return {
+    total: faltas.length,
+    nombres: [...porNombre.entries()].map(([n, veces]) => (veces > 1 ? `${n} ×${veces}` : n)),
+  };
+}
+
+/**
  * MVP y ausentes de la ronda ANTERIOR a la que se juega hoy.
  *
  * La de hoy no vale: esta a medias y el MVP cambiaria cada dos horas. La
  * que acaba de cerrar es la que ya tiene ganador.
  */
-async function resumenUltimaRonda(seasonId, rondaEnCurso) {
+async function resumenUltimaRonda(seasonId, rondaEnCurso, esElCierre = false) {
   const ronda = (rondaEnCurso ?? 8) - 1;
   if (ronda < 1) return null;
 
@@ -211,5 +246,6 @@ async function resumenUltimaRonda(seasonId, rondaEnCurso) {
         }
       : null,
     faltaron,
+    ultima: esElCierre,
   });
 }

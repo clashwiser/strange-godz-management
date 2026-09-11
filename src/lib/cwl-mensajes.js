@@ -9,9 +9,12 @@
 //   - Un mensaje por clan y por dia, al empezar cada dia de guerra.
 //   - Si el clan va camino de bajar: alerta fuerte, emojis rojos y
 //     "ponganse las pilas". Que se note.
-//   - Al final, si subimos se felicita. Si no subimos, animo. Si bajamos NO
-//     se reprime a nadie, pero se dice claro que hay que entrenar mas:
-//     "nosotros no bajamos clanes, los subimos, minimo los mantenemos".
+//   - Al final, si subimos se felicita. Si no subimos, se dice que la meta
+//     era subir. Si bajamos NO se reprime a nadie, pero se dice claro que
+//     hay que entrenar mas: "nosotros no bajamos clanes, los subimos,
+//     minimo los mantenemos".
+//   - Es un clan estricto y competitivo: dejar un ataque sin usar es una
+//     falta grave y rara. Se nombra, no se suaviza ni se normaliza.
 //
 // Espanol de Cuba: "elige", "usa", "acuerdense" — nunca "elegí" ni "usá".
 
@@ -142,18 +145,44 @@ export function mensajeDiaDeGuerra({ clan, liga, analisis }) {
 }
 
 /**
+ * Lo que se dice de los ataques sin usar de toda la liga, al cierre.
+ *
+ * x300 es un clan estricto y competitivo: dejar un ataque sin usar es una
+ * falta grave y rara, no algo que se "reduce el mes que viene". La
+ * primera version del cierre decia "menos ataques sin usar y mas 3
+ * estrellas", como si fuera normal, y Cris lo paro en seco. Con nombres
+ * cuando los hay; y cuando no hay ninguno, tambien se dice, porque es el
+ * estandar de la casa.
+ */
+function lineaSinUsar(sinUsar, clan) {
+  if (!sinUsar) return null;
+  const n = sinUsar.total ?? 0;
+  if (n === 0) return 'Cero ataques sin usar en toda la liga. Así se juega aquí.';
+  const lista = sinUsar.nombres ?? [];
+  const nombres = lista.slice(0, 6).join(', ');
+  const mas = lista.length > 6 ? ` y ${lista.length - 6} más` : '';
+  return (
+    `Este mes ${n === 1 ? 'quedó 1 ataque sin usar' : `quedaron ${n} ataques sin usar`}` +
+    `${nombres ? ` (${nombres}${mas})` : ''}. En ${clan} eso no pasa, y no va a volver a pasar.`
+  );
+}
+
+/**
  * Mensaje del cierre de la liga.
  *
- * Los tres casos los dicto Cris tal cual: si subimos, felicitar; si nos
- * quedamos, animar; si bajamos, no reprimir a nadie pero decirlo fuerte.
+ * Los tres casos los dicto Cris: si subimos, felicitar; si nos quedamos,
+ * dejar claro que la meta era subir; si bajamos, no reprimir a nadie pero
+ * decirlo fuerte. Y en los tres, los ataques sin usar de la liga entera
+ * se nombran: aqui no se normalizan.
  */
-export function mensajeFinal({ clan, liga, analisis }) {
+export function mensajeFinal({ clan, liga, analisis, sinUsar = null }) {
   const a = analisis;
   const total = a.tabla.length;
   const perdidas = a.rondasJugadas - a.yo.ganadas;
   const cierre =
     `Terminamos ${puestoDe(a.yo.puesto, total)} con ${estrellas(a.yo.estrellas)}, ` +
     `${a.yo.ganadas} ${a.yo.ganadas === 1 ? 'ganada' : 'ganadas'} y ${perdidas} ${perdidas === 1 ? 'perdida' : 'perdidas'}.`;
+  const disciplina = lineaSinUsar(sinUsar, clan);
 
   if (a.enAscenso) {
     return [
@@ -163,6 +192,7 @@ export function mensajeFinal({ clan, liga, analisis }) {
       '',
       '¡Tremendo trabajo, gente! Esto lo hicieron ustedes, ataque por ataque.',
       'Nos vemos en la liga de arriba. 🔥',
+      ...(disciplina ? ['', disciplina] : []),
     ].join('\n');
   }
 
@@ -178,17 +208,21 @@ export function mensajeFinal({ clan, liga, analisis }) {
       '',
       'El mes que viene hay que entrenar mas: practiquen el ataque en amistosas',
       'antes del dia de guerra y pidan la base con tiempo. Volvemos a subir. 💪',
+      ...(disciplina ? ['', disciplina] : []),
     ].join('\n');
   }
 
+  // Nos quedamos. Sin consuelo: en un clan competitivo mantener la liga no
+  // es el objetivo, subir si.
   return [
-    `⚔️ *Se acabo la CWL — ${clan}*`,
+    `⚔️ *Se acabó la CWL — ${clan}*`,
     '',
     cierre,
     `Nos quedamos en ${liga ?? 'la misma liga'}.`,
     '',
-    'No subimos, pero tampoco bajamos, y eso tambien se defiende.',
-    'El mes que viene vamos por el ascenso: menos ataques sin usar y mas 3 estrellas. 💪',
+    'Mantener la liga no era la meta: la meta era subir. Y el mes que viene se sube.',
+    'Aquí cada ataque se usa, y se usa para tres estrellas. Lo demás no se discute. 💪',
+    ...(disciplina ? ['', disciplina] : []),
   ].join('\n');
 }
 
@@ -198,11 +232,11 @@ export function mensajeFinal({ clan, liga, analisis }) {
  * `fase` se puede forzar para previsualizar desde el panel; si no viene, se
  * deduce del estado de la liga.
  */
-export function mensajeDelDia({ clan, liga, analisis, promueven = 2, descienden = 2, fase }) {
+export function mensajeDelDia({ clan, liga, analisis, promueven = 2, descienden = 2, fase, sinUsar = null }) {
   const f = fase ?? faseDe(analisis);
   if (f === 'preparacion') return mensajePreparacion({ clan, liga, promueven, descienden });
   if (!analisis) return null;
-  if (f === 'final') return mensajeFinal({ clan, liga, analisis });
+  if (f === 'final') return mensajeFinal({ clan, liga, analisis, sinUsar });
   return mensajeDiaDeGuerra({ clan, liga, analisis });
 }
 
@@ -247,7 +281,7 @@ export function poseDelDia({ analisis, fase }) {
  * castigados: la idea es que el proximo dia no quiera salir ahi, no
  * humillar a nadie. Y si no fallo nadie se dice, que tambien es noticia.
  */
-export function parrafoRonda({ ronda, mvp, faltaron }) {
+export function parrafoRonda({ ronda, mvp, faltaron, ultima = false }) {
   if (!mvp && !faltaron?.length) return null;
   const l = [];
   l.push(`— Ronda ${ronda} —`);
@@ -260,12 +294,14 @@ export function parrafoRonda({ ronda, mvp, faltaron }) {
   if (faltaron?.length) {
     const nombres = faltaron.slice(0, 6).map((f) => f.nombre).join(', ');
     const mas = faltaron.length > 6 ? ` y ${faltaron.length - 6} más` : '';
+    // Sin chiste: en este clan dejar el ataque sin usar es una falta grave
+    // y rara. Con el nombre delante y el estandar detras, nada mas.
     l.push(
-      `😴 Se durmieron ${faltaron.length}: ${nombres}${mas}.` +
-        ' Mañana no quiero ver a nadie aquí.'
+      `❌ ${faltaron.length === 1 ? 'Dejó el ataque sin usar' : `Dejaron el ataque sin usar (${faltaron.length})`}: ${nombres}${mas}.` +
+        (ultima ? ' Aquí eso no pasa.' : ' Aquí eso no pasa. Mañana, todos.')
     );
   } else {
-    l.push('🟢 Atacaron todos. Así se gana una liga.');
+    l.push('🟢 Atacaron todos. Así se juega aquí.');
   }
   return l.join('\n');
 }
