@@ -73,17 +73,19 @@ export async function bajarFoto(token, { fileId, mime, bytes }) {
 
 // ---------- La guerra, por la API ----------
 
-async function coc(ruta) {
-  if (!COC) return null;
+async function coc(ruta, { crudo = false } = {}) {
+  if (!COC) return crudo ? { status: 0, data: null } : null;
   try {
     const r = await fetch(`${BASE}${ruta}`, {
       headers: { Authorization: `Bearer ${COC}`, Accept: 'application/json' },
       signal: AbortSignal.timeout(8000),
     });
-    if (!r.ok) return null;
-    return await r.json();
+    const data = r.ok ? await r.json() : null;
+    // crudo: tambien el status, para distinguir "no esta en guerra" de
+    // "no me dejan verlo" (403: registro de guerra privado).
+    return crudo ? { status: r.status, data } : data;
   } catch {
-    return null;
+    return crudo ? { status: 0, data: null } : null;
   }
 }
 
@@ -98,10 +100,32 @@ const tagUrl = (t) => encodeURIComponent(String(t ?? '').trim().toUpperCase().re
 export async function guerraDe(clanTag) {
   const normal = await coc(`/clans/${tagUrl(clanTag)}/currentwar`);
   if (normal && ['preparation', 'inWar'].includes(normal.state)) return normal;
+  return (await rondasAbiertas(clanTag))[0] ?? null;
+}
 
+/**
+ * TODAS las guerras abiertas del clan, la normal y las rondas de liga, con
+ * nuestro clan siempre en `clan`. En CWL coexisten un dia la ronda en
+ * batalla y la siguiente en preparacion: guerraDe() se queda con la de
+ * preparacion (es donde se dona el castillo); para "¿quien falta por
+ * atacar?" hace falta la que esta en batalla, o sea, las dos.
+ */
+export async function guerrasAbiertas(clanTag) {
+  const { status, data: normal } = await coc(`/clans/${tagUrl(clanTag)}/currentwar`, { crudo: true });
+  const lista = normal && ['preparation', 'inWar'].includes(normal.state) ? [normal] : [];
+  const abiertas = lista.concat(await rondasAbiertas(clanTag));
+  // 403: el clan tiene el registro de guerra privado y la API no enseña su
+  // guerra normal (las rondas de liga si se ven). Se avisa, no se calla.
+  return { abiertas, privado: status === 403 };
+}
+
+/** Las rondas de liga en preparacion o batalla, la ultima primero: 0, 1 o 2. */
+async function rondasAbiertas(clanTag) {
   const grupo = await coc(`/clans/${tagUrl(clanTag)}/currentwar/leaguegroup`);
-  if (!grupo?.rounds?.length) return null;
+  if (!grupo?.rounds?.length) return [];
   const rondas = grupo.rounds.filter((r) => (r.warTags ?? []).some((t) => t && t !== '#0'));
+  const mio = tagUrl(clanTag);
+  const abiertas = [];
   // De la ultima ronda con guerras hacia atras, como mucho dos: la que
   // esta en batalla y la que esta en preparacion coexisten un dia.
   for (const ronda of rondas.slice(-2).reverse()) {
@@ -109,12 +133,17 @@ export async function guerraDe(clanTag) {
       if (!tag || tag === '#0') continue;
       const g = await coc(`/clanwarleagues/wars/${tagUrl(tag)}`);
       if (!g || !['preparation', 'inWar'].includes(g.state)) continue;
-      const mio = tagUrl(clanTag);
-      if (tagUrl(g.clan?.tag) === mio) return g;
-      if (tagUrl(g.opponent?.tag) === mio) return { ...g, clan: g.opponent, opponent: g.clan };
+      if (tagUrl(g.clan?.tag) === mio) {
+        abiertas.push(g);
+        break;
+      }
+      if (tagUrl(g.opponent?.tag) === mio) {
+        abiertas.push({ ...g, clan: g.opponent, opponent: g.clan });
+        break;
+      }
     }
   }
-  return null;
+  return abiertas;
 }
 
 /**

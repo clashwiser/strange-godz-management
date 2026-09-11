@@ -28,6 +28,7 @@ import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import { Info } from './info';
 import { esPreguntaDelJuego } from '../lib/conocimiento';
+import { PREGUNTA_FALTAN, textoDeGuerras } from './guerras-texto';
 import Entrenar from './entrenar';
 
 const TITULO_ANIMO = { sano: 'EN FORMA', atento: 'ATENTO', sobrecargado: 'SOBRECARGADO', pensando: 'PENSANDO' };
@@ -99,6 +100,19 @@ function Cables() {
   );
 }
 
+/** true en pantallas de telefono (<= 640px): la terminal acorta las etiquetas. */
+function useEstrecho() {
+  const [estrecho, setEstrecho] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const mirar = () => setEstrecho(mq.matches);
+    mirar();
+    mq.addEventListener('change', mirar);
+    return () => mq.removeEventListener('change', mirar);
+  }, []);
+  return estrecho;
+}
+
 export default function Cerebro({ d, recargar, demo = false }) {
   const t = useT();
   const [v, setV] = useState(demo ? DEMO : null);
@@ -108,6 +122,9 @@ export default function Cerebro({ d, recargar, demo = false }) {
   const [terminal, setTerminal] = useState([]); // la charla, debajo de los vitales
   const [pensando, setPensando] = useState(false);
   const [guia, setGuia] = useState(false);
+  const estrecho = useEstrecho();
+  // Ancho de la columna de etiquetas de la terminal ("> VERCEL ......").
+  const col = estrecho ? 13 : 24;
   const finRef = useRef(null);
 
   const inicial = useMemo(() => Object.fromEntries((d.config ?? []).map((c) => [c.clave, c.valor])), [d.config]);
@@ -165,15 +182,15 @@ export default function Cerebro({ d, recargar, demo = false }) {
     for (const p of v.piezas ?? []) {
       const nombre = t(p.titulo).toUpperCase().replace(' (GITHUB ACTIONS)', '').replace(' (GROQ)', ' GROQ');
       const estado = p.ok ? 'OK ' : p.peso ? t('MAL') : t('OJO');
-      l.push(`> ${(nombre + ' ').padEnd(24, '.')} ${estado}  ${t(p.detalle)}${p.sub ? ` · ${t(p.sub)}` : ''}`);
+      l.push(`> ${(nombre + ' ').padEnd(col, '.')} ${estado}  ${t(p.detalle)}${p.sub ? ` · ${t(p.sub)}` : ''}`);
     }
     const m = v.memoria;
-    if (m) l.push(`> ${(t('MEMORIA') + ' ').padEnd(24, '.')} ${m.jugadores} ${t('jugadores')} · ${m.vinculados} /soy · ${m.lecciones.total} ${t('lecciones')}${m.lecciones.propuestas ? ` (+${m.lecciones.propuestas} ${t('propuestas')})` : ''} · ${t('glosario')} ${m.glosario} · ${t('normas')} ${m.reglas.fecha ?? '—'}`);
-    if (v.puntos) l.push(`> ${(`${t('PUNTOS')} ${v.puntos.mes} `).padEnd(24, '.')} ${v.puntos.castillos} ${t('castillos')} · ${v.puntos.retos} FC${v.puntos.castillosPendientes ? ` · ${v.puntos.castillosPendientes} ${t('por confirmar')}` : ''}`);
-    if (v.latido?.hora) l.push(`> ${(t('ÚLTIMO LATIDO') + ' ').padEnd(24, '.')} ${new Date(v.latido.hora).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })} · ${v.latido.nota ?? '?'}/100`);
-    if (v.bitacora?.length) l.push(`> ${(t('BITÁCORA') + ' ').padEnd(24, '.')} ${v.bitacora.length} ${t('respuestas recientes')} · ${t('última')} ${new Date(v.bitacora[0].creado_en).toLocaleTimeString('es', { timeStyle: 'short' })}`);
+    if (m) l.push(`> ${(t('MEMORIA') + ' ').padEnd(col, '.')} ${m.jugadores} ${t('jugadores')} · ${m.vinculados} /soy · ${m.lecciones.total} ${t('lecciones')}${m.lecciones.propuestas ? ` (+${m.lecciones.propuestas} ${t('propuestas')})` : ''} · ${t('glosario')} ${m.glosario} · ${t('normas')} ${m.reglas.fecha ?? '—'}`);
+    if (v.puntos) l.push(`> ${(`${t('PUNTOS')} ${v.puntos.mes} `).padEnd(col, '.')} ${v.puntos.castillos} ${t('castillos')} · ${v.puntos.retos} FC${v.puntos.castillosPendientes ? ` · ${v.puntos.castillosPendientes} ${t('por confirmar')}` : ''}`);
+    if (v.latido?.hora) l.push(`> ${(t('ÚLTIMO LATIDO') + ' ').padEnd(col, '.')} ${new Date(v.latido.hora).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })} · ${v.latido.nota ?? '?'}/100`);
+    if (v.bitacora?.length) l.push(`> ${(t('BITÁCORA') + ' ').padEnd(col, '.')} ${v.bitacora.length} ${t('respuestas recientes')} · ${t('última')} ${new Date(v.bitacora[0].creado_en).toLocaleTimeString('es', { timeStyle: 'short' })}`);
     return l;
-  }, [v, cargando, nota, animo, t]);
+  }, [v, cargando, nota, animo, t, col]);
 
   // ---- Preguntar, o mandar ----
   //
@@ -209,6 +226,12 @@ export default function Cerebro({ d, recargar, demo = false }) {
     if (/^(vuelve a mirar|mira otra vez|mide|refresca|actual[ií]za(te)?|reload|look again|refresh)\b/.test(s)) {
       await mirar();
       return t('medido otra vez ✓');
+    }
+    // "¿quien falta por atacar?": la guerra de AHORA, clan por clan, de la
+    // API de Clash; no la liga pasada ni lo que se invente la IA.
+    if (PREGUNTA_FALTAN.test(s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+      const j = await conSesion('/api/guerras');
+      return j?.ok ? textoDeGuerras(j.guerras, t) : t('No pude mirar las guerras ahora mismo.');
     }
     return null;
   }
@@ -293,7 +316,7 @@ export default function Cerebro({ d, recargar, demo = false }) {
             </div>
             <form onSubmit={preguntar} className="lab-prompt">
               <span>&gt;</span>
-              <input value={pregunta} onChange={(e) => setPregunta(e.target.value)} placeholder={t('pregúntale o dale una orden…')} disabled={pensando} />
+              <input value={pregunta} onChange={(e) => setPregunta(e.target.value)} placeholder={estrecho ? t('pregunta u ordena…') : t('pregúntale o dale una orden…')} disabled={pensando} />
               <button type="submit" disabled={pensando || !pregunta.trim()}>{t('ENTER')}</button>
               <Info clave="preguntar" />
             </form>
@@ -359,7 +382,7 @@ export default function Cerebro({ d, recargar, demo = false }) {
               {t('Los jobs')} <Info clave="jobs" />
             </h2>
             <div className="card" style={{ overflowX: 'auto' }}>
-              <table>
+              <table className="tabla-jobs">
                 <thead>
                   <tr>
                     <th>{t('Job')}</th>

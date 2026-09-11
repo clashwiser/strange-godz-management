@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import { esPreguntaDelJuego } from '../lib/conocimiento';
+import { PREGUNTA_FALTAN, textoDeGuerras } from './guerras-texto';
 
 const SIN = '__sin__';
 
@@ -104,7 +105,33 @@ export default function Heraldo({ d, nombreBot = 'Cerebro' }) {
 
   // ---- Las respuestas, todas sacadas de lo que ya esta cargado ----
 
-  function quienFalta() {
+  /**
+   * "¿Quien falta por atacar?" se contesta con la guerra de AHORA, clan por
+   * clan, preguntando a la API (/api/guerras): en que fase esta cada uno y
+   * quien tiene ataques sin usar. Si nadie esta en guerra, se dice eso; la
+   * lista de la liga pasada no es la respuesta a esa pregunta.
+   */
+  async function quienFaltaAhora() {
+    try {
+      const { data: sesion } = await supabase.auth.getSession();
+      // Sin sesion (la demo abierta sin entrar) no se puede mirar la API:
+      // se contesta con lo que hay cargado, y se dice que es eso.
+      if (!sesion?.session) {
+        return (
+          `${t('Según lo que tengo cargado, ningún clan está en guerra ahora mismo')} (${(d.clans ?? []).map((c) => c.nombre).join(', ')}). ` +
+          t('Cuando empiece el día de batalla, pregúntame y te digo quién falta.')
+        );
+      }
+      const r = await fetch('/api/guerras', { headers: { Authorization: `Bearer ${sesion.session.access_token}` } });
+      const j = await r.json().catch(() => ({}));
+      if (!j?.ok) return t('No pude mirar las guerras ahora mismo.');
+      return textoDeGuerras(j.guerras, t);
+    } catch {
+      return t('No pude mirar las guerras ahora mismo.');
+    }
+  }
+
+  function quienFaltaEnLiga() {
     const cerradas = new Set(d.wars.filter((w) => w.estado === 'warEnded').map((w) => w.id));
     const atacó = new Set(d.ataques.map((a) => `${a.war_id}|${a.player_tag}`));
     const cuenta = new Map();
@@ -212,7 +239,10 @@ export default function Heraldo({ d, nombreBot = 'Cerebro' }) {
     // Los patrones son deliberadamente laxos porque la gente no escribe
     // comandos, escribe frases: "quien no ha atacado" no casaba con "no
     // ataco" por el "ha" de en medio. Se corta en la raiz del verbo.
-    if (/(falta|sin atacar|no\s+(ha\s+|han\s+)?atac|quien debe|pendiente)/.test(q)) return quienFalta();
+    // Lo ya pasado ("ataques sin usar", "quien fallo en las rondas cerradas")
+    // sale de la base; todo lo demas es la guerra de AHORA, mirada en vivo.
+    if (/(sin usar|rondas? cerrad|fall[oó]|fallaron|perdi[oó]|perdieron)/.test(q) && /(ataque|atac|falta|sin usar)/.test(q)) return quienFaltaEnLiga();
+    if (PREGUNTA_FALTAN.test(q)) return quienFaltaAhora();
     // "mejor" a secas no: "cual es el mejor ejercito" no pide la tabla.
     if (/(estrella|tabla|ranking|quien va gan|quien (es|va) (el )?mejor|los mejores)/.test(q)) return tablaEstrellas();
     if (/(premio|reparto|dinero|plata|bono|cuanto se pag)/.test(q)) return reparto();
@@ -260,6 +290,15 @@ export default function Heraldo({ d, nombreBot = 'Cerebro' }) {
     setTexto('');
     const local = responder(pregunta);
     if (local) {
+      // Lo de la base contesta al instante; lo que mira la API (las guerras
+      // de ahora) es una promesa: se enseña "Déjame ver…" mientras.
+      if (local instanceof Promise) {
+        const id = Date.now();
+        setHilo((h) => [...h, { yo: true, texto: pregunta }, { yo: false, id, texto: t('Déjame ver…'), pensando: true }]);
+        const r = await local;
+        setHilo((h) => h.map((m) => (m.id === id ? { yo: false, texto: r } : m)));
+        return;
+      }
       setHilo((h) => [...h, { yo: true, texto: pregunta }, { yo: false, texto: local }]);
       return;
     }

@@ -723,18 +723,18 @@ td:has(.mini-base) { padding: 8px 10px; }
      telefono: se sabe quien sos porque es tu telefono. */
   header.top .correo { display: none; }
 
-  /* ---- Pestanas: una tira que se desliza ---- */
-  /* Antes se envolvian en 3 filas y empujaban el contenido fuera de la
-     pantalla. Ahora es una sola linea que se arrastra de lado. */
-  nav.tabs {
-    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    padding-bottom: 6px; margin-bottom: 12px;
-    scrollbar-width: none;
+  /* ---- Pestanas: en filas apretadas ---- */
+  /* Hubo una tira de una sola linea que se deslizaba de lado, pero
+     escondia Cerebro a la derecha y su overflow recortaba el neon en un
+     cuadrado. En filas compactas (2-3 en un telefono normal) entran todas
+     a la vista y la luz de Cerebro se ve entera. */
+  nav.tabs { flex-wrap: wrap; gap: 6px; margin: 12px 0 12px; padding: 4px 2px; }
+  nav.tabs button {
+    flex: 0 1 auto; min-height: 40px;
+    padding: 7px 10px; font-size: 12.5px; letter-spacing: .3px;
+    border-radius: 9px; border-bottom-width: 4px;
   }
-  nav.tabs::-webkit-scrollbar { display: none; }
-  nav.tabs button { flex: 0 0 auto; scroll-snap-align: start; min-height: 42px; }
+  nav.tabs button:active { border-bottom-width: 2px; }
 
   .wrap { padding: 12px 10px 44px; }
   h2.sec { font-size: 18px; }
@@ -788,7 +788,7 @@ td:has(.mini-base) { padding: 8px 10px; }
 /* Pantallas muy angostas (iPhone SE y similares) */
 @media (max-width: 380px) {
   header.top h1 { font-size: 15px; }
-  nav.tabs button { padding: 9px 13px; font-size: 13px; }
+  nav.tabs button { padding: 7px 8px; font-size: 12px; }
 }
 
 /* ---------- Interruptor de idioma ES / EN ---------- */
@@ -1230,12 +1230,15 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
 }
 .lab-nota {
   position: absolute; right: 2.5%; top: 6%; text-align: right; pointer-events: none;
-  font-family: 'VT323', 'Courier New', monospace; color: #9ff7ff; text-shadow: 0 0 10px rgba(80, 220, 255, .8);
+  font-family: 'VT323', 'Courier New', monospace; color: #9ff7ff;
+  /* El halo oscuro va debajo del brillo: sobre los conectores claros de
+     los cables (telefono) el texto seguia leyendose. */
+  text-shadow: 0 0 10px rgba(80, 220, 255, .8), 0 0 3px #000, 0 0 6px #000, 0 1px 2px #000;
 }
 .lab-nota-num { display: block; font-size: clamp(34px, 6vw, 84px); line-height: .9; }
 .lab-nota-txt { display: block; font-size: clamp(13px, 1.6vw, 22px); letter-spacing: 2px; }
-.lab.atento .lab-nota { color: #ffd27a; text-shadow: 0 0 10px rgba(255, 190, 60, .8); }
-.lab.sobrecargado .lab-nota { color: #ff8a8a; text-shadow: 0 0 10px rgba(255, 80, 80, .9); }
+.lab.atento .lab-nota { color: #ffd27a; text-shadow: 0 0 10px rgba(255, 190, 60, .8), 0 0 3px #000, 0 0 6px #000, 0 1px 2px #000; }
+.lab.sobrecargado .lab-nota { color: #ff8a8a; text-shadow: 0 0 10px rgba(255, 80, 80, .9), 0 0 3px #000, 0 0 6px #000, 0 1px 2px #000; }
 
 /* La pantalla negra, plana, hacia abajo. */
 .lab-pantalla {
@@ -1268,12 +1271,13 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
   font: inherit; text-shadow: inherit; padding: 4px 0; border-bottom: 1px dashed rgba(125, 255, 154, .35);
 }
 .lab-prompt input::placeholder { color: rgba(125, 255, 154, .45); }
-.lab-prompt button, .lab-sugerencias button {
+.lab-prompt button:not(.info-boton), .lab-sugerencias button {
   font: inherit; font-size: .8em; background: transparent; color: #7dff9a; border: 1px solid rgba(125, 255, 154, .5);
   border-radius: 4px; padding: 2px 10px; cursor: pointer; text-shadow: inherit;
 }
 .lab-prompt button:disabled, .lab-sugerencias button:disabled { opacity: .4; cursor: default; }
-.lab-prompt button:hover:not(:disabled), .lab-sugerencias button:hover:not(:disabled) { background: rgba(125, 255, 154, .12); }
+.lab-prompt button:hover:not(:disabled):not(.info-boton), .lab-sugerencias button:hover:not(:disabled) { background: rgba(125, 255, 154, .12); }
+.lab-prompt .info-boton { flex: 0 0 auto; }
 .lab-sugerencias { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: clamp(14px, 1.3vw, 18px); }
 @media (max-width: 640px) { .lab-pantalla { padding: 12px 3% 10px; } .lab-terminal { font-size: 14px; } }
 
@@ -1354,7 +1358,14 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
 .lab-info-escena { position: absolute; left: 2%; top: 5%; }
 .lab-guia { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 14px; font-size: clamp(14px, 1.3vw, 18px); }
 .lab-guia-fila { display: flex; align-items: center; gap: 6px; }
-@media (max-width: 640px) { .lab-mundo { margin: 10px -4px 0; padding: 14px 40px 22px; } .lab-cables { width: 34px; } }
+@media (max-width: 640px) {
+  .lab-mundo { margin: 10px -4px 0; padding: 14px 40px 22px; }
+  .lab-cables { width: 34px; }
+  .tabla-jobs th:nth-child(4), .tabla-jobs td:nth-child(4) { display: none; }
+  .tabla-jobs th, .tabla-jobs td { padding: 8px 6px; font-size: 13px; }
+  .tabla-jobs code { font-size: 12px; padding: 1px 4px; }
+  .lab-mundo .sec { flex-wrap: wrap; }
+}
 
 /* La "i" de informacion */
 .info-caja { position: relative; display: inline-block; vertical-align: middle; }
@@ -1365,7 +1376,9 @@ tr[data-salud="aviso"] td:first-child { border-left: 4px solid var(--oro); }
 }
 .info-boton:hover { background: rgba(80, 220, 255, .3); }
 .info-globo {
-  position: absolute; z-index: 30; left: 0; top: 26px; width: min(340px, 78vw);
+  /* Va en <body> por un portal, fijo a la ventana: por encima de todo y
+     sin que lo recorte ningun panel. info.jsx le pone left/top. */
+  position: fixed; z-index: 1000; width: min(340px, calc(100vw - 16px));
   background: #0b1626; color: #e6f2ff; border: 1px solid rgba(80, 220, 255, .55); border-radius: 10px;
   padding: 10px 30px 10px 12px; font: 400 14px/1.4 system-ui, sans-serif; text-shadow: none; text-transform: none; letter-spacing: 0;
   box-shadow: 0 10px 30px rgba(0,0,0,.6), 0 0 16px rgba(80, 220, 255, .25); white-space: normal; -webkit-text-stroke: 0;

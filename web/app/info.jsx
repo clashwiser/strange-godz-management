@@ -6,7 +6,8 @@
 // o con la x. Las explicaciones viven en EXPLICA, con su traduccion en
 // idioma.jsx como todo lo demas.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useT } from './idioma';
 
 export const EXPLICA = {
@@ -44,38 +45,84 @@ export const EXPLICA = {
 export function Info({ clave, texto, titulo }) {
   const t = useT();
   const [abierto, setAbierto] = useState(false);
-  const ref = useRef(null);
+  // Donde va el globo, en coordenadas de la ventana. Se calcula al abrir y
+  // cada vez que algo se mueve (scroll, giro del telefono).
+  const [sitio, setSitio] = useState(null);
+  const botonRef = useRef(null);
+  const globoRef = useRef(null);
 
   useEffect(() => {
     if (!abierto) return;
     const fuera = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setAbierto(false);
+      const dentro = botonRef.current?.contains(e.target) || globoRef.current?.contains(e.target);
+      if (!dentro) setAbierto(false);
     };
     const tecla = (e) => e.key === 'Escape' && setAbierto(false);
     document.addEventListener('mousedown', fuera);
+    document.addEventListener('touchstart', fuera, { passive: true });
     document.addEventListener('keydown', tecla);
     return () => {
       document.removeEventListener('mousedown', fuera);
+      document.removeEventListener('touchstart', fuera);
       document.removeEventListener('keydown', tecla);
+    };
+  }, [abierto]);
+
+  // El globo se pinta en <body> (portal) con position: fixed: asi no lo
+  // recorta ningun panel con overflow hidden ni lo tapan los cables del
+  // laboratorio, que estan por encima del contenido. Se coloca debajo del
+  // boton; si no cabe abajo, encima; y nunca se sale por los lados.
+  useLayoutEffect(() => {
+    if (!abierto) return;
+    const colocar = () => {
+      const b = botonRef.current?.getBoundingClientRect();
+      const g = globoRef.current;
+      if (!b || !g) return;
+      const margen = 8;
+      const ancho = g.offsetWidth;
+      const alto = g.offsetHeight;
+      let left = b.left;
+      if (left + ancho > window.innerWidth - margen) left = window.innerWidth - margen - ancho;
+      if (left < margen) left = margen;
+      let top = b.bottom + 6;
+      let arriba = false;
+      if (top + alto > window.innerHeight - margen && b.top - 6 - alto >= margen) {
+        top = b.top - 6 - alto;
+        arriba = true;
+      }
+      setSitio({ left, top, arriba });
+    };
+    colocar();
+    window.addEventListener('scroll', colocar, true);
+    window.addEventListener('resize', colocar);
+    return () => {
+      window.removeEventListener('scroll', colocar, true);
+      window.removeEventListener('resize', colocar);
     };
   }, [abierto]);
 
   const cuerpo = texto ?? EXPLICA[clave] ?? '';
   if (!cuerpo) return null;
+  const globo = abierto && (
+    <span
+      className={`info-globo${sitio?.arriba ? ' arriba' : ''}`}
+      role="dialog"
+      ref={globoRef}
+      style={sitio ? { left: sitio.left, top: sitio.top, visibility: 'visible' } : { left: 0, top: 0, visibility: 'hidden' }}
+    >
+      {titulo && <b>{titulo}</b>}
+      <span>{t(cuerpo)}</span>
+      <button type="button" className="info-cerrar" aria-label={t('Cerrar')} onClick={() => setAbierto(false)}>
+        ×
+      </button>
+    </span>
+  );
   return (
-    <span className="info-caja" ref={ref}>
-      <button type="button" className="info-boton" aria-label={t('Qué es esto')} aria-expanded={abierto} onClick={() => setAbierto((a) => !a)}>
+    <span className="info-caja">
+      <button type="button" className="info-boton" ref={botonRef} aria-label={t('Qué es esto')} aria-expanded={abierto} onClick={() => setAbierto((a) => !a)}>
         i
       </button>
-      {abierto && (
-        <span className="info-globo" role="dialog">
-          {titulo && <b>{titulo}</b>}
-          <span>{t(cuerpo)}</span>
-          <button type="button" className="info-cerrar" aria-label={t('Cerrar')} onClick={() => setAbierto(false)}>
-            ×
-          </button>
-        </span>
-      )}
+      {globo && typeof document !== 'undefined' && createPortal(globo, document.body)}
     </span>
   );
 }

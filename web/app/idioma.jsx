@@ -834,6 +834,23 @@ export const EN = {
   'Cuando alguien en el grupo contesta a un mensaje de un bot con "no, eso está mal…", el cerebro lo anota como lección propuesta. Aquí se completa qué frase la dispara y qué debe responder, y se aprueba. Nada se aprende sin un líder.': 'When someone in the group replies to a bot\'s message with "no, that\'s wrong…", the brain logs it as a proposed lesson. Here you fill in the trigger phrase and the answer, and approve it. Nothing is learned without a leader.',
   'Escribe algo como lo diría alguien del grupo y mira qué contestaría cada bot con las lecciones que hay.': 'Type something the way someone in the group would say it and see what each bot would answer with the current lessons.',
   'Rehacer el digesto ahora, sin esperar a las 6 horas: vuelve a leer los canales y los feeds y guarda el resumen que usa la IA.': 'Rebuild the digest now, without waiting 6 hours: it re-reads the channels and feeds and stores the summary the AI uses.',
+  // ---- El cerebro mira la guerra de ahora (sep 2026) ----
+  'Según lo que tengo cargado, ningún clan está en guerra ahora mismo': 'From what I have loaded, no clan is at war right now',
+  'Cuando empiece el día de batalla, pregúntame y te digo quién falta.': 'When battle day starts, ask me and I\'ll tell you who still has to attack.',
+  'No pude mirar las guerras ahora mismo.': 'I couldn\'t check the wars right now.',
+  'Ahora mismo ningún clan está en guerra': 'No clan is at war right now',
+  'liga': 'CWL',
+  'guerra': 'war',
+  'día de preparación': 'preparation day',
+  'la batalla empieza en {x}': 'battle starts in {x}',
+  'Todavía nadie tiene que atacar.': 'Nobody has to attack yet.',
+  'quedan {x}': '{x} left',
+  'todos atacaron': 'everyone attacked',
+  'Faltan por atacar': 'Still to attack',
+  'Siguiente ronda': 'Next round',
+  'No puedo ver la guerra normal de': "I can't see the regular war of",
+  'registro de guerra privado. Si lo ponen público, la miro.': 'private war log. If they make it public, I will check it.',
+  'pregunta u ordena…': 'ask or command…',
 };
 
 const Ctx = createContext({ idioma: 'es', setIdioma: () => {}, t: (s) => s });

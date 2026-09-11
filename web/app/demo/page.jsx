@@ -267,7 +267,7 @@ export default function Demo() {
         <nav className="tabs">
           {TABS.map(([k, l]) => (
             <button key={k} className={k === 'cerebro' ? 'tab-cerebro' : undefined} data-on={tab === k ? '1' : '0'} onClick={() => setTab(k)}>
-              {t(l)}
+              {k === 'cerebro' ? '🧠 ' : ''}{t(l)}
             </button>
           ))}
         </nav>
