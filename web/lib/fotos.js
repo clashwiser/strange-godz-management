@@ -15,6 +15,7 @@
 import { avisaCastillo, anotarCastillo, recordarMensaje } from './castillos.js';
 import { fotoDe, filaParaFoto, verificarCastilloConFoto, leerMapaDePrueba } from './castillo-foto.js';
 import { esFotoDeFC, verificarFCConFoto, recordarMensajeReto, leerChatDePrueba } from './retos.js';
+import { anotarEnBitacora } from './pensar.js';
 
 const plano = (s) =>
   String(s ?? '')
@@ -106,7 +107,12 @@ export async function atenderFoto(admin, { token, msg, quien, esAdmin, aUnBot = 
   // se mira cuando un pie no hace lo que la gente esperaba.
   console.log(`[foto] pie=${JSON.stringify(pie.slice(0, 80))} modo=${modo ?? 'ninguno'}${aUnBot ? ' (contesta a un bot)' : ''}`);
   if (!modo) return null;
+  const r = await atender(admin, { token, msg, quien, esAdmin, aUnBot, pie, modo });
+  if (r?.texto) await anotarEnBitacora(admin, { bot: 'heraldo', modo: `foto:${modo}`, nombre: quien?.nombre, texto: r.texto.replace(/<[^>]+>/g, '') });
+  return r;
+}
 
+async function atender(admin, { token, msg, quien, esAdmin, aUnBot, pie, modo }) {
   switch (modo) {
     case 'prueba_chat':
     case 'prueba_mapa': {

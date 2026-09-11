@@ -30,8 +30,20 @@ const BOTS = [
 
 export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
   const t = useT();
-  const lecciones = d.lecciones ?? [];
+  const todas = d.lecciones ?? [];
+  const lecciones = todas.filter((l) => !l.propuesta);
+  const propuestas = todas.filter((l) => l.propuesta);
   const [nueva, setNueva] = useState({ bot: 'ambos', cuando: '', respuesta: '' });
+  const [edicion, setEdicion] = useState({}); // id -> { cuando, respuesta }
+
+  async function aprobar(l) {
+    const e = edicion[l.id] ?? {};
+    const cuando = String(e.cuando ?? '').trim();
+    const respuesta = String(e.respuesta ?? (l.respuesta === '(por decidir)' ? '' : l.respuesta)).trim();
+    if (cuando.length < 2 || !respuesta) return aviso(t('Escribe qué frase la dispara y qué debe responder.'), true);
+    await cambiar(l.id, { cuando, respuesta, activa: true, propuesta: false });
+    aviso(t('Lección aprobada: ya la usa.'));
+  }
   const [prueba, setPrueba] = useState('');
   const [memoria, setMemoria] = useState(memoriaInicial);
   const [ocupado, setOcupado] = useState(false);
@@ -206,6 +218,46 @@ export default function Entrenar({ d, memoriaInicial = '', recargar, aviso }) {
           </div>
         </div>
       </div>
+
+      {/* ---- Lo que el cerebro propone ---- */}
+      {propuestas.length > 0 && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <h3>
+            🧠 {t('Propuestas del cerebro')} <span className="pill aviso">{propuestas.length}</span>
+          </h3>
+          <p className="sub" style={{ marginTop: 0 }}>
+            {t('Alguien corrigió a un bot en el grupo contestando a un mensaje suyo. Completa qué frase la dispara y qué debe responder, y apruébala; o descártala.')}
+          </p>
+          {propuestas.map((l) => (
+            <div key={l.id} style={{ borderTop: '1px solid rgba(0,0,0,.1)', padding: '10px 0' }}>
+              <p className="sub" style={{ margin: 0 }}>
+                <b>{nombreBot(l.bot)}</b> {t('dijo')}: “{String(l.contexto ?? '').slice(0, 300)}”
+                {l.propuesta_por && <> · {t('lo corrigió')} <b>{l.propuesta_por}</b></>}
+              </p>
+              <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr', marginTop: 8 }}>
+                <input
+                  className="campo"
+                  style={{ marginTop: 0 }}
+                  placeholder={t('Cuando digan… (la frase que la dispara)')}
+                  value={edicion[l.id]?.cuando ?? ''}
+                  onChange={(e) => setEdicion((x) => ({ ...x, [l.id]: { ...(x[l.id] ?? {}), cuando: e.target.value } }))}
+                />
+                <textarea
+                  className="campo"
+                  style={{ marginTop: 0, minHeight: 60 }}
+                  placeholder={t('Responde…')}
+                  value={edicion[l.id]?.respuesta ?? (l.respuesta === '(por decidir)' ? '' : l.respuesta)}
+                  onChange={(e) => setEdicion((x) => ({ ...x, [l.id]: { ...(x[l.id] ?? {}), respuesta: e.target.value } }))}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="accion" onClick={() => aprobar(l)}>✓ {t('Aprobar')}</button>
+                <button className="fantasma" onClick={() => borrar(l.id)}>✕ {t('Descartar')}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ---- De donde sale el meta ---- */}
       <FuentesDelMeta d={d} recargar={recargar} aviso={aviso} />

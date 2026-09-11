@@ -1,0 +1,59 @@
+name: Cerebro
+
+# El latido: cada hora mide la salud del sistema (Vercel, Supabase, la
+# API de Clash, los bots, los jobs, los datos) y, si cae de 70, Heraldo
+# avisa a los lideres en privado. Y el parte semanal: los lunes a las 9
+# de la mañana de Cuba (13:00 UTC), que paso en la semana. Ver
+# src/jobs/cerebro-latido.js y src/jobs/cerebro-parte.js.
+
+on:
+  schedule:
+    - cron: '23 * * * *'
+    - cron: '0 13 * * 1'
+  workflow_dispatch:
+    inputs:
+      que:
+        description: 'latido o parte'
+        default: 'latido'
+
+jobs:
+  cerebro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Latido
+        if: github.event.schedule == '23 * * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.que == 'latido')
+        run: npm run cerebro:latido
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COC_TOKEN: ${{ secrets.COC_TOKEN }}
+          COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_SECRET_TOKEN: ${{ secrets.TELEGRAM_SECRET_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RECLUTA_BOT_TOKEN: ${{ secrets.RECLUTA_BOT_TOKEN }}
+          RECLUTA_SECRET_TOKEN: ${{ secrets.RECLUTA_SECRET_TOKEN }}
+          IA_LLAVE: ${{ secrets.IA_LLAVE }}
+          IA_URL: ${{ secrets.IA_URL }}
+      - name: Parte semanal
+        if: github.event.schedule == '0 13 * * 1' || (github.event_name == 'workflow_dispatch' && github.event.inputs.que == 'parte')
+        run: npm run cerebro:parte
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COC_TOKEN: ${{ secrets.COC_TOKEN }}
+          COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_SECRET_TOKEN: ${{ secrets.TELEGRAM_SECRET_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RECLUTA_BOT_TOKEN: ${{ secrets.RECLUTA_BOT_TOKEN }}
+          RECLUTA_SECRET_TOKEN: ${{ secrets.RECLUTA_SECRET_TOKEN }}
+          IA_LLAVE: ${{ secrets.IA_LLAVE }}
+          IA_URL: ${{ secrets.IA_URL }}

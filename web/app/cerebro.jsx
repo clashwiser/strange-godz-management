@@ -2,82 +2,70 @@
 
 // El Cerebro: la pestaña donde el sistema se mira a si mismo.
 //
-// Tres cosas, en este orden, porque es el orden en que un lider las
-// necesita:
+// La escena: el barbaro de Clash con la cabeza abierta y un cerebro
+// digital dentro, enchufado con cables al OS. Es un experimento: ese
+// cerebro es el que mueve el sistema. Debajo de la cabeza, una pantalla
+// negra, plana, que baja todo lo que haga falta: ahi se escriben, con
+// letra de terminal, los signos vitales y la charla con el cerebro.
 //
-//   1. Como esta. Cada pieza que puede fallar -Vercel, Supabase, la API
-//      de Clash, la IA, los dos bots, los jobs, los datos- con su semaforo,
-//      y una nota de 0 a 100 que resume todo. El cerebro pone cara: en
-//      forma o sobrecargado.
-//   2. Que sabe. Cuanta memoria tiene: lecciones, glosario, normas, meta,
-//      jugadores, vinculos. Lo que hay detras de cada respuesta.
-//   3. Entrenarlo. Las lecciones, lo que deben saber, las fuentes del meta.
-//      Antes vivia en Bots; aqui es donde se aprende.
+// La imagen de arriba la genero Nano Banana (web/public/cerebro-lab.jpg,
+// 16:9, recortada donde empieza la pantalla); la pantalla la pone el CSS,
+// asi tiene la altura que pidan los datos y no la que tuviera una imagen.
+// Si algun dia hay video en bucle de la cabeza (Kling, mismo primer y
+// ultimo fotograma), va en web/public/cerebro-lab.mp4 y se usa solo.
 //
-// Y un sitio para preguntarle. La pregunta va a la misma IA del panel con
-// el estado leido ahora mismo delante: "¿como estas?" se contesta con
-// cifras, no con una frase hecha (web/app/api/cerebro/route.js).
+// La medida vive en web/lib/cerebro.js (/api/cerebro): piezas con peso y
+// nota. La pestaña no calcula nada, solo lo pinta. Debajo de la escena van
+// las cifras de lo que sabe, la bitacora, los jobs y Entrenar.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import Entrenar from './entrenar';
 
 const hace = (h) => (h == null ? '—' : h < 1 ? 'hace menos de 1 h' : h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} d`);
-
-/** Con que cara esta el cerebro segun la nota. */
-function animo(pct) {
-  if (pct == null) return { clave: 'pensando', titulo: 'Pensando…', imagen: '/cerebro-sano.jpg' };
-  if (pct >= 85) return { clave: 'sano', titulo: 'En forma', imagen: '/cerebro-sano.jpg' };
-  if (pct >= 60) return { clave: 'atento', titulo: 'Atento', imagen: '/cerebro-sano.jpg' };
-  return { clave: 'sobrecargado', titulo: 'Sobrecargado', imagen: '/cerebro-sobrecargado.jpg' };
-}
+const TITULO_ANIMO = { sano: 'EN FORMA', atento: 'ATENTO', sobrecargado: 'SOBRECARGADO', pensando: 'PENSANDO' };
 
 // Para la demo publica: un estado creible sin llamar a nada.
-const DEMO_V = {
-  ok: true, version: 'demo', region: 'iad1', hoy: new Date().toLocaleDateString('en-CA'),
-  supabase: { ok: true, ms: 84 },
-  clash: { ok: true, ms: 412, clan: 'x300', miembros: 32 },
-  ia: { ok: true, configurada: true, texto: 'openai/gpt-oss-120b', vision: 'qwen/qwen3.8-27b', modelos: 14 },
-  jobs: [
-    { job: 'wars-sync', started_at: null, ok: true, filas: 30, hace: 2 },
-    { job: 'cwl-sync', started_at: null, ok: true, filas: 45, hace: 5 },
-    { job: 'raids-sync', started_at: null, ok: true, filas: 60, hace: 20 },
-    { job: 'meta', started_at: null, ok: true, filas: 1, hace: 3 },
-    { job: 'youtube', started_at: null, ok: true, filas: 2, hace: 1 },
+const DEMO = {
+  ok: true, version: 'demo', region: 'iad1', hoy: new Date().toLocaleDateString('en-CA'), nota: 100, animo: 'sano', fallan: [],
+  piezas: [
+    { clave: 'vercel', titulo: 'Vercel', ok: true, detalle: 'desplegado demo', sub: 'región iad1', peso: 10 },
+    { clave: 'supabase', titulo: 'Supabase', ok: true, detalle: '84 ms', sub: 'la base de datos', peso: 15 },
+    { clave: 'clash', titulo: 'API de Clash', ok: true, detalle: '412 ms', sub: 'x300 · 32 miembros', peso: 15 },
+    { clave: 'ia', titulo: 'IA (Groq)', ok: true, detalle: 'openai/gpt-oss-120b', sub: 'visión: qwen/qwen3.8-27b', peso: 10 },
+    { clave: 'heraldo', titulo: 'Heraldo', ok: true, detalle: 'webhook conectado', sub: '@Strange_godz_heraldo_bot · en el grupo · 0 pendientes', peso: 10 },
+    { clave: 'valquiria', titulo: 'Valquiria', ok: true, detalle: 'webhook conectado', sub: '@Valqui_bot · en el grupo · 0 pendientes', peso: 5 },
+    { clave: 'jobs', titulo: 'Jobs (GitHub Actions)', ok: true, detalle: '5 jobs, todos bien', sub: '', peso: 15 },
+    { clave: 'snapshot', titulo: 'Datos de los jugadores', ok: true, detalle: 'último snapshot hoy', sub: 'hace 6 h', peso: 10 },
+    { clave: 'meta', titulo: 'Digesto del meta', ok: true, detalle: '24 videos · 6 artículos', sub: 'hace 3 h', peso: 5 },
+    { clave: 'outbox', titulo: 'Bandeja de salida', ok: true, detalle: '3 pendientes', sub: '', peso: 5 },
+    { clave: 'cuota', titulo: 'Cuota de IA hoy', ok: true, detalle: '37 / 300 llamadas', sub: '1 fallos', peso: 0 },
   ],
-  snapshot: { fecha: new Date().toLocaleDateString('en-CA'), hace: 6 },
-  meta: { actualizado: null, hace: 3, videos: 24, articulos: 6, caracteres: 7100 },
-  memoria: {
-    lecciones: { total: 7, heraldo: 6, valquiria: 4 }, glosario: 246, reglas: { fecha: '2026-09-11', palabras: 1324 },
-    memoriaLideres: 640, canales: 8, vinculados: 21, jugadores: 96, clanes: 5, bases: 38,
-    solicitudes: { pendientes: 2, aceptadas: 9 },
-  },
+  jobs: [
+    { job: 'wars-sync', ok: true, filas: 30, hace: 2 }, { job: 'cwl-sync', ok: true, filas: 45, hace: 5 }, { job: 'raids-sync', ok: true, filas: 60, hace: 20 },
+    { job: 'meta', ok: true, filas: 1, hace: 3 }, { job: 'youtube', ok: true, filas: 2, hace: 1 },
+  ],
+  memoria: { lecciones: { total: 7, heraldo: 6, valquiria: 4, propuestas: 1 }, glosario: 246, reglas: { fecha: '2026-09-11', palabras: 1324 }, memoriaLideres: 640, canales: 8, vinculados: 21, jugadores: 96, clanes: 5, bases: 38, solicitudes: { pendientes: 2, aceptadas: 9 } },
   puntos: { mes: '2026-09', castillos: 11, castillosPendientes: 1, retos: 6 },
-  outbox: 3,
-  salud: { partes: [
-    { clave: 'jobs', bien: true, detalle: '5 jobs, todos bien' }, { clave: 'snapshot', bien: true }, { clave: 'meta', bien: true }, { clave: 'outbox', bien: true },
-  ] },
-};
-const DEMO_B = {
-  ok: true,
-  bots: {
-    heraldo: { usuario: 'Strange_godz_heraldo_bot', enGrupo: true, webhook: { ok: true, pendientes: 0, ultimoError: null } },
-    recluta: { usuario: 'Valqui_bot', enGrupo: true, webhook: { ok: true, pendientes: 0, ultimoError: null } },
-  },
-  ia: { hoy: 37, fallos: 1, tope: 300 },
-  actividad: { solicitudesPendientes: 2, basesHoy: 4, outboxPendientes: 3 },
+  meta: { hace: 3, videos: 24, articulos: 6, caracteres: 7100 },
+  bitacora: [
+    { id: 1, creado_en: new Date().toISOString(), bot: 'heraldo', modo: 'buscar', nombre: 'Reyniel', texto: 'El ejército de moda para TH18 este mes es el Super Bowler Spam de Habibi…' },
+    { id: 2, creado_en: new Date().toISOString(), bot: 'heraldo', modo: 'foto:fc', nombre: 'YHLQMDLG', texto: 'Reto cumplido: 7 desafíos amistosos con 2⭐ o más. +5 puntos este mes.' },
+  ],
+  latido: { nota: 100, hora: new Date().toISOString() },
+  resumen: '',
 };
 
 export default function Cerebro({ d, recargar, demo = false }) {
   const t = useT();
-  const [v, setV] = useState(demo ? DEMO_V : null); // /api/cerebro
-  const [b, setB] = useState(demo ? DEMO_B : null); // /api/bots
+  const [v, setV] = useState(demo ? DEMO : null);
   const [cargando, setCargando] = useState(!demo);
   const [msg, setMsg] = useState('');
   const [pregunta, setPregunta] = useState('');
-  const [charla, setCharla] = useState([]); // [{ quien, texto }]
+  const [terminal, setTerminal] = useState([]); // la charla, debajo de los vitales
   const [pensando, setPensando] = useState(false);
+  const finRef = useRef(null);
 
   const inicial = useMemo(() => Object.fromEntries((d.config ?? []).map((c) => [c.clave, c.valor])), [d.config]);
 
@@ -100,10 +88,9 @@ export default function Cerebro({ d, recargar, demo = false }) {
     if (demo) return aviso(t('En la demo el cerebro no mira nada; así se ve.'));
     setCargando(true);
     try {
-      const [vit, bots] = await Promise.all([conSesion('/api/cerebro'), conSesion('/api/bots')]);
+      const vit = await conSesion('/api/cerebro');
       if (!vit.ok) throw new Error(vit.error ?? 'el cerebro no contestó');
       setV(vit);
-      setB(bots.ok ? bots : null);
     } catch (e) {
       aviso(e.message, true);
     } finally {
@@ -116,53 +103,105 @@ export default function Cerebro({ d, recargar, demo = false }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- La nota: lo de /api/cerebro mas los bots de /api/bots ----
-  const piezas = useMemo(() => {
-    if (!v) return [];
-    const lista = [];
-    const pon = (clave, titulo, ok, detalle, sub = '', peso = 0) => lista.push({ clave, titulo, ok, detalle, sub, peso });
-    const p = Object.fromEntries((v.salud?.partes ?? []).map((x) => [x.clave, x]));
+  useEffect(() => {
+    if (terminal.length) finRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [terminal]);
 
-    pon('vercel', 'Vercel', true, v.version ? `${t('desplegado')} ${v.version}` : t('en local'), v.region ? `${t('región')} ${v.region}` : '', 10);
-    pon('supabase', 'Supabase', v.supabase?.ok, v.supabase?.ok ? `${v.supabase.ms} ms` : v.supabase?.error, t('la base de datos'), 15);
-    pon('clash', 'API de Clash', v.clash?.ok, v.clash?.ok ? `${v.clash.ms} ms` : v.clash?.error, v.clash?.clan ? `${v.clash.clan} · ${v.clash.miembros} ${t('miembros')}` : t('por el proxy de RoyaleAPI'), 15);
-    pon('ia', 'IA (Groq)', v.ia?.ok && v.ia?.configurada, v.ia?.ok ? (v.ia.configurada ? v.ia.texto : t('sin llave')) : v.ia?.error, v.ia?.vision ? `${t('visión')}: ${v.ia.vision}` : t('sin modelo de visión'), 10);
+  const nota = v?.nota ?? null;
+  const animo = v?.animo ?? 'pensando';
 
-    const h = b?.bots?.heraldo;
-    const va = b?.bots?.recluta;
-    const okBot = (x) => Boolean(x && !x.error && x.webhook?.ok && !x.webhook?.ultimoError);
-    const detBot = (x) => (!x ? t('sin datos') : x.error ? x.error : x.webhook?.ok ? (x.webhook.ultimoError ? `${t('último error')}: ${x.webhook.ultimoError}` : t('webhook conectado')) : t('webhook mal apuntado'));
-    pon('heraldo', 'Heraldo', okBot(h), detBot(h), h?.usuario ? `@${h.usuario} · ${h.enGrupo ? t('en el grupo') : t('fuera del grupo')} · ${h.webhook?.pendientes ?? 0} ${t('pendientes')}` : '', 10);
-    pon('valquiria', 'Valquiria', okBot(va), detBot(va), va?.usuario ? `@${va.usuario} · ${va.enGrupo ? t('en el grupo') : t('fuera del grupo')} · ${va.webhook?.pendientes ?? 0} ${t('pendientes')}` : '', 5);
-
-    pon('jobs', t('Jobs (GitHub Actions)'), p.jobs?.bien, p.jobs?.detalle, t('los robots de fondo: sincronizar, avisar, cerrar el mes'), 15);
-    pon('snapshot', t('Datos de los jugadores'), p.snapshot?.bien, v.snapshot?.fecha ? `${t('último snapshot')} ${v.snapshot.fecha}` : t('sin snapshots'), hace(v.snapshot?.hace), 10);
-    pon('meta', t('Digesto del meta'), p.meta?.bien, v.meta ? `${v.meta.videos ?? '?'} ${t('videos')} · ${v.meta.articulos ?? '?'} ${t('artículos')}` : t('sin digesto'), v.meta ? hace(v.meta.hace) : '', 5);
-    pon('outbox', t('Bandeja de salida'), p.outbox?.bien, `${v.outbox ?? '?'} ${t('pendientes')}`, t('avisos por mandar'), 5);
-    if (b?.ia) {
-      const tope = b.ia.tope ?? 300;
-      pon('cuota', t('Cuota de IA hoy'), (b.ia.hoy ?? 0) < tope * 0.9, `${b.ia.hoy ?? 0} / ${tope} ${t('llamadas')}`, `${b.ia.fallos ?? 0} ${t('fallos')}`, 0);
+  // ---- Las lineas de la pantalla ----
+  const lineas = useMemo(() => {
+    if (!v) return cargando ? ['> CEREBRO x300 · arrancando…', '> midiendo Vercel, Supabase, Clash, IA, bots, jobs…'] : ['> sin datos. ¿hay sesión?'];
+    const barra = nota == null ? '' : '█'.repeat(Math.round(nota / 10)) + '░'.repeat(10 - Math.round(nota / 10));
+    const l = [];
+    l.push(`> CEREBRO x300 · ${v.hoy} · ${v.version ? `v ${v.version}` : 'local'}${v.region ? ` · ${v.region}` : ''}`);
+    l.push(`> SALUD ${nota ?? '?'}/100 ${barra} ${TITULO_ANIMO[animo] ?? ''}`);
+    if (v.fallan?.length) l.push(`> FALLA: ${v.fallan.join(', ').toUpperCase()}`);
+    for (const p of v.piezas ?? []) {
+      const nombre = p.titulo.toUpperCase().replace(' (GITHUB ACTIONS)', '').replace(' (GROQ)', ' GROQ');
+      const estado = p.ok ? 'OK ' : p.peso ? 'MAL' : 'OJO';
+      l.push(`> ${(nombre + ' ').padEnd(24, '.')} ${estado}  ${p.detalle}${p.sub ? ` · ${p.sub}` : ''}`);
     }
-    return lista;
-  }, [v, b, t]);
+    const m = v.memoria;
+    if (m) l.push(`> ${'MEMORIA '.padEnd(24, '.')} ${m.jugadores} jugadores · ${m.vinculados} /soy · ${m.lecciones.total} lecciones${m.lecciones.propuestas ? ` (+${m.lecciones.propuestas} propuestas)` : ''} · glosario ${m.glosario} · normas ${m.reglas.fecha ?? '—'}`);
+    if (v.puntos) l.push(`> ${`PUNTOS ${v.puntos.mes} `.padEnd(24, '.')} ${v.puntos.castillos} castillos · ${v.puntos.retos} FC${v.puntos.castillosPendientes ? ` · ${v.puntos.castillosPendientes} por confirmar` : ''}`);
+    if (v.latido?.hora) l.push(`> ${'ÚLTIMO LATIDO '.padEnd(24, '.')} ${new Date(v.latido.hora).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })} · ${v.latido.nota ?? '?'}/100`);
+    if (v.bitacora?.length) l.push(`> ${'BITÁCORA '.padEnd(24, '.')} ${v.bitacora.length} respuestas recientes · última ${new Date(v.bitacora[0].creado_en).toLocaleTimeString('es', { timeStyle: 'short' })}`);
+    return l;
+  }, [v, cargando, nota, animo]);
 
-  const nota = useMemo(() => {
-    const conPeso = piezas.filter((x) => x.peso > 0);
-    const total = conPeso.reduce((s, x) => s + x.peso, 0);
-    const suma = conPeso.reduce((s, x) => s + (x.ok ? x.peso : 0), 0);
-    return total ? Math.round((100 * suma) / total) : null;
-  }, [piezas]);
-  const cara = animo(cargando && !v ? null : nota);
-  const fallan = piezas.filter((x) => x.peso > 0 && !x.ok);
+  // ---- Preguntar, o mandar ----
+  //
+  // Antes de la IA, ordenes que se ejecutan de verdad: reinstalar un
+  // webhook, publicar los comandos, renovar el digesto del meta, mandar
+  // una prueba al grupo, volver a mirar. Lo demas va a la IA del panel
+  // con el estado delante.
+  async function ejecutarOrden(q) {
+    const s = q.toLowerCase();
+    if (/webhook/.test(s)) {
+      const bots = /valqui/.test(s) ? ['recluta'] : /heraldo/.test(s) ? ['heraldo'] : ['heraldo', 'recluta'];
+      const salidas = [];
+      for (const bot of bots) {
+        const j = await conSesion('/api/bots', { bot, accion: 'webhook' });
+        salidas.push(`${bot === 'recluta' ? 'Valquiria' : 'Heraldo'}: ${j.ok ? 'webhook reinstalado ✓' : `no pude (${j.error ?? '?'})`}`);
+      }
+      await mirar();
+      return salidas.join(' · ');
+    }
+    if (/comandos/.test(s)) {
+      const j = await conSesion('/api/bots', { bot: 'heraldo', accion: 'comandos' });
+      return j.ok ? `comandos publicados en Telegram (${j.cuantos ?? '?'}) ✓` : `no pude (${j.error ?? '?'})`;
+    }
+    if (/digesto|(actualiza|renueva|refresca|rehaz|regenera).*meta/.test(s)) {
+      const j = await conSesion('/api/meta', {});
+      await mirar();
+      return j.ok ? `digesto del meta renovado ✓ (${j.digesto?.videos ?? '?'} videos, ${j.digesto?.articulos ?? '?'} artículos)` : `no pude (${j.error ?? '?'})`;
+    }
+    if (/mensaje de prueba|manda una prueba|prueba al grupo/.test(s)) {
+      const j = await conSesion('/api/bots', { bot: 'heraldo', accion: 'probar' });
+      return j.ok ? 'mensaje de prueba mandado al grupo ✓' : `no pude (${j.error ?? '?'})`;
+    }
+    if (/^(vuelve a mirar|mira otra vez|mide|refresca|actual[ií]za(te)?|reload)\b/.test(s)) {
+      await mirar();
+      return 'medido otra vez ✓';
+    }
+    return null;
+  }
 
-  // ---- Lo que sabe ----
+  async function preguntar(e) {
+    e?.preventDefault?.();
+    const q = pregunta.trim();
+    if (!q || pensando) return;
+    setPregunta('');
+    setTerminal((c) => [...c, { quien: 'tú', texto: q }]);
+    setPensando(true);
+    try {
+      let texto = null;
+      if (!demo) texto = await ejecutarOrden(q);
+      if (texto == null) {
+        const j = demo
+          ? { respuesta: `Salud ${nota}/100, ${TITULO_ANIMO[animo]}. Vercel, la base, la API de Clash, la IA y los dos bots responden; los 5 jobs corrieron bien. Sé 246 tropas y defensas del glosario, 7 lecciones de los líderes y las normas del 11 de septiembre. (Demo: aquí contestaría la IA con el estado real.)` }
+          : await conSesion('/api/asistente', { pregunta: q, contexto: v?.resumen ?? '' });
+        texto = j?.respuesta || t('Ahora mismo no puedo pensar (sin IA o tope del día). Mira los vitales de arriba.');
+      }
+      setTerminal((c) => [...c, { quien: 'cerebro', texto }]);
+    } catch {
+      setTerminal((c) => [...c, { quien: 'cerebro', texto: t('No pude contestar.') }]);
+    } finally {
+      setPensando(false);
+    }
+  }
+
+  const sugerencias = [t('¿Cómo estás?'), t('¿Qué falla ahora mismo?'), t('¿Qué jobs corrieron hoy?'), t('reinstala el webhook'), t('actualiza el digesto')];
+
   const m = v?.memoria;
   const saberes = m
     ? [
         [t('Jugadores que conoce'), m.jugadores, t('activos en los clanes')],
         [t('Clanes'), m.clanes, t('de la alianza')],
         [t('Vinculados con /soy'), m.vinculados, t('Telegram ↔ juego')],
-        [t('Lecciones'), m.lecciones.total, `${m.lecciones.heraldo} Heraldo · ${m.lecciones.valquiria} Valquiria`],
+        [t('Lecciones'), m.lecciones.total, `${m.lecciones.heraldo} Heraldo · ${m.lecciones.valquiria} Valquiria${m.lecciones.propuestas ? ` · ${m.lecciones.propuestas} ${t('propuestas')}` : ''}`],
         [t('Glosario del juego'), m.glosario, t('tropas, hechizos, héroes, defensas')],
         [t('Normas'), m.reglas.palabras ? m.reglas.palabras.toLocaleString('es') : '—', `${t('palabras')}${m.reglas.fecha ? ` · ${t('actualizadas el')} ${m.reglas.fecha}` : ` · ${t('sin publicar')}`}`],
         [t('Lo que deben saber'), m.memoriaLideres ? m.memoriaLideres.toLocaleString('es') : '—', t('caracteres escritos por los líderes')],
@@ -173,82 +212,79 @@ export default function Cerebro({ d, recargar, demo = false }) {
       ]
     : [];
 
-  // ---- Preguntarle ----
-  function resumenParaLaIA() {
-    if (!v) return '';
-    const lineas = [];
-    lineas.push(`Salud general: ${nota ?? '?'}/100 (${cara.titulo}). Fecha: ${v.hoy}. Versión desplegada: ${v.version ?? 'local'}.`);
-    for (const x of piezas) lineas.push(`- ${x.titulo}: ${x.ok ? 'OK' : 'FALLA'} · ${x.detalle}${x.sub ? ` · ${x.sub}` : ''}`);
-    for (const j of v.jobs ?? []) lineas.push(`- job ${j.job}: ${j.ok === false ? `ERROR ${j.error ?? ''}` : j.ok ? 'ok' : 'en curso'} ${hace(j.hace)}${j.filas != null ? ` · ${j.filas} filas` : ''}`);
-    for (const [k, val, sub] of saberes) lineas.push(`- ${k}: ${val}${sub ? ` (${sub})` : ''}`);
-    if (b?.actividad) lineas.push(`- Actividad: ${b.actividad.solicitudesPendientes} solicitudes pendientes, ${b.actividad.basesHoy} bases pedidas hoy, ${b.actividad.outboxPendientes} avisos pendientes.`);
-    return lineas.join('\n').slice(0, 4000);
-  }
-
-  async function preguntar(e) {
-    e?.preventDefault?.();
-    const q = pregunta.trim();
-    if (!q || pensando) return;
-    setPregunta('');
-    setCharla((c) => [...c, { quien: 'tú', texto: q }]);
-    setPensando(true);
-    try {
-      const j = demo
-        ? { respuesta: `${t('En forma')}: ${nota}/100. Vercel, la base, la API de Clash, la IA y los dos bots responden; los 5 jobs corrieron bien. Sé 246 tropas y defensas del glosario, 7 lecciones de los líderes y las normas del 11 de septiembre. (Demo: aquí contestaría la IA con el estado real.)` }
-        : await conSesion('/api/asistente', { pregunta: q, contexto: resumenParaLaIA() });
-      setCharla((c) => [...c, { quien: 'cerebro', texto: j?.respuesta || t('Ahora mismo no puedo pensar (sin IA o tope del día). Mira los semáforos de arriba.') }]);
-    } catch {
-      setCharla((c) => [...c, { quien: 'cerebro', texto: t('No pude contestar.') }]);
-    } finally {
-      setPensando(false);
-    }
-  }
-
-  const sugerencias = [t('¿Cómo estás?'), t('¿Qué falla ahora mismo?'), t('¿Qué sabes de las normas?'), t('¿Qué jobs corrieron hoy?')];
-
   return (
     <>
+      <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
       {msg && <p className={msg.startsWith('Error') ? 'error' : 'aviso'}>{msg}</p>}
 
-      {/* ---------- Cabecera: la cara y la nota ---------- */}
-      <div className={`cerebro-cabecera ${cara.clave}`}>
-        <img src={cara.imagen} alt="" className="cerebro-cara" />
-        <div className="cerebro-nota">
-          <h2 className="sec" style={{ marginTop: 0 }}>{t('Cerebro del sistema')}</h2>
-          <div className="cerebro-gauge" aria-label={`${nota ?? '?'} / 100`}>
-            <div className="cerebro-gauge-barra" style={{ width: `${nota ?? 0}%` }} />
+      {/* ---------- La escena: la cabeza arriba, la pantalla debajo ---------- */}
+      <div className={`lab ${animo}`}>
+        <div className="lab-cabeza">
+          <video className="lab-fondo" autoPlay muted loop playsInline poster="/cerebro-lab.jpg">
+            <source src="/cerebro-lab.mp4" type="video/mp4" />
+          </video>
+          {/* El cerebro digital parpadea: se desconecta a ratos. */}
+          <div className="lab-glitch" aria-hidden="true" />
+          <div className="lab-nota" aria-hidden="true">
+            <span className="lab-nota-num">{nota == null ? '…' : nota}</span>
+            <span className="lab-nota-txt">/100 · {t(TITULO_ANIMO[animo] ?? '')}</span>
           </div>
-          <p className="cerebro-titulo">
-            <b>{nota == null ? '…' : `${nota} / 100`}</b> · {t(cara.titulo)}
-          </p>
-          <p className="sub" style={{ marginTop: 4 }}>
-            {cargando && !v
-              ? t('Mirando cada pieza…')
-              : fallan.length
-                ? `${t('Falla')}: ${fallan.map((x) => x.titulo).join(', ')}.`
-                : t('Todo responde. Vercel, la base, la API de Clash, la IA, los bots y los jobs.')}
-            {v?.version && ` · ${t('versión')} ${v.version}`}
-          </p>
-          <button className="fantasma" onClick={mirar} disabled={cargando} style={{ marginTop: 8 }}>
-            {cargando ? t('Mirando…') : `🔄 ${t('Volver a mirar')}`}
-          </button>
+        </div>
+
+        {/* La pantalla negra, plana, hacia abajo: los vitales y la charla. */}
+        <div className="lab-pantalla">
+          <div className="lab-terminal">
+            {lineas.map((l, i) => (
+              <div key={i} className={`lab-linea${/ MAL /.test(l) || /^> FALLA/.test(l) ? ' mal' : ''}`}>{l}</div>
+            ))}
+            {terminal.map((c, i) => (
+              <div key={`c${i}`} className={`lab-linea ${c.quien === 'tú' ? 'mia' : 'suya'}`}>{c.quien === 'tú' ? `$ ${c.texto}` : c.texto}</div>
+            ))}
+            {pensando ? <div className="lab-linea suya">…</div> : <div className="lab-linea cursor">_</div>}
+            <div ref={finRef} />
+          </div>
+          <form onSubmit={preguntar} className="lab-prompt">
+            <span>&gt;</span>
+            <input value={pregunta} onChange={(e) => setPregunta(e.target.value)} placeholder={t('pregúntale o dale una orden…')} disabled={pensando} />
+            <button type="submit" disabled={pensando || !pregunta.trim()}>{t('ENTER')}</button>
+          </form>
+          <div className="lab-sugerencias">
+            {sugerencias.map((s) => (
+              <button key={s} type="button" onClick={() => setPregunta(s)} disabled={pensando}>{s}</button>
+            ))}
+            <button type="button" onClick={mirar} disabled={cargando}>{cargando ? t('midiendo…') : t('volver a mirar')}</button>
+          </div>
         </div>
       </div>
 
-      {/* ---------- Signos vitales ---------- */}
-      <h2 className="sec">{t('Signos vitales')}</h2>
+      {/* ---------- Lo que sabe ---------- */}
+      <h2 className="sec">{t('Lo que sabe')}</h2>
       <div className="grid">
-        {piezas.map((x) => (
-          <div className="card" key={x.clave}>
-            <h3>
-              {x.titulo} <span className={`pill ${x.ok ? 'ok' : x.peso ? 'mal' : 'aviso'}`}>{x.ok ? 'OK' : x.peso ? t('FALLA') : t('OJO')}</span>
-            </h3>
-            <p style={{ margin: '6px 0 0' }}>{x.detalle}</p>
-            {x.sub && <p className="sub">{x.sub}</p>}
+        {saberes.map(([k, val, sub]) => (
+          <div className="card" key={k}>
+            <h3>{k}</h3>
+            <p className="big">{val}</p>
+            <p className="sub">{sub}</p>
           </div>
         ))}
-        {!piezas.length && !cargando && <p className="vacio">{t('Sin datos. ¿Hay sesión?')}</p>}
       </div>
+
+      {/* ---------- Bitacora ---------- */}
+      {v?.bitacora?.length > 0 && (
+        <>
+          <h2 className="sec">{t('Bitácora: lo último que contestó')}</h2>
+          <div className="card">
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {v.bitacora.slice(0, 15).map((b) => (
+                <li key={b.id} style={{ padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,.08)' }}>
+                  <span className="sub">{new Date(b.creado_en).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })} · {b.bot} · {b.modo}{b.nombre ? ` · ${t('a')} ${b.nombre}` : ''}</span>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{String(b.texto).slice(0, 400)}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
 
       {/* ---------- Jobs ---------- */}
       {v?.jobs?.length > 0 && (
@@ -278,48 +314,6 @@ export default function Cerebro({ d, recargar, demo = false }) {
           </div>
         </>
       )}
-
-      {/* ---------- Lo que sabe ---------- */}
-      <h2 className="sec">{t('Lo que sabe')}</h2>
-      <div className="grid">
-        {saberes.map(([k, val, sub]) => (
-          <div className="card" key={k}>
-            <h3>{k}</h3>
-            <p className="big">{val}</p>
-            <p className="sub">{sub}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ---------- Preguntarle ---------- */}
-      <h2 className="sec">{t('Pregúntale al cerebro')}</h2>
-      <div className="card cerebro-charla">
-        <p className="sub" style={{ marginTop: 0 }}>
-          {t('Contesta con lo que acaba de leer arriba: cómo está cada pieza, qué sabe, qué falla. Es la misma IA del panel, con el estado del sistema delante.')}
-        </p>
-        <div className="cerebro-sugerencias">
-          {sugerencias.map((s) => (
-            <button key={s} className="fantasma" onClick={() => setPregunta(s)} disabled={pensando}>
-              {s}
-            </button>
-          ))}
-        </div>
-        {charla.length > 0 && (
-          <div className="cerebro-hilo">
-            {charla.map((c, i) => (
-              <div key={i} className={`cerebro-msg ${c.quien === 'tú' ? 'mio' : 'suyo'}`}>
-                {c.quien === 'cerebro' && <img src="/cerebro-sano.jpg" alt="" />}
-                <div>{c.texto}</div>
-              </div>
-            ))}
-            {pensando && <div className="cerebro-msg suyo"><img src="/cerebro-sano.jpg" alt="" /><div>{t('Pensando…')}</div></div>}
-          </div>
-        )}
-        <form onSubmit={preguntar} style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <input className="campo" style={{ flex: 1, marginTop: 0 }} value={pregunta} onChange={(e) => setPregunta(e.target.value)} placeholder={t('Pregúntale algo…')} disabled={pensando} />
-          <button className="accion" type="submit" disabled={pensando || !pregunta.trim()}>{t('Preguntar')}</button>
-        </form>
-      </div>
 
       {/* ---------- Entrenar ---------- */}
       {!demo && <Entrenar d={d} memoriaInicial={String(inicial.bots_memoria ?? '')} recargar={recargar} aviso={aviso} />}

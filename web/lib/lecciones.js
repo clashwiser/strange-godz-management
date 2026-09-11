@@ -62,3 +62,26 @@ export function elegirLeccion(lecciones, texto, bot) {
 export function aplicarLeccion(leccion, nombre = null) {
   return String(leccion?.respuesta ?? '').replace(/\{nombre\}/g, nombre || 'socio');
 }
+
+/**
+ * Una correccion al bot: alguien contesta a un mensaje SUYO diciendo que
+ * esta mal. Solo cuenta si el texto empieza por un "no" o lleva una de
+ * las formas de decir "te equivocaste"; un "no" perdido en medio de una
+ * frase no es una correccion. Con esto el cerebro propone una leccion
+ * que un lider completa y aprueba (pestaña Cerebro > Entrenar).
+ */
+export function esCorreccion(texto) {
+  const q = plano(texto);
+  if (!q) return false;
+  if (/^(no|nop|nope|noo+)\b/.test(q)) return true;
+  return /\b(esta mal|esta malo|eso es falso|es falso|es mentira|mentira|incorrecto|te equivocas|te equivocaste|no es asi|no fue asi|nada que ver|mal dicho|error|equivocado|no es cierto|eso no)\b/.test(q);
+}
+
+/** Lo que va de respuesta en la propuesta: la correccion sin el "no, Heraldo," de delante. */
+export function limpiarCorreccion(texto) {
+  return String(texto ?? '')
+    .replace(/^\s*(nope|nop|noo+|no)[\s,.!:;-]*/i, '')
+    .replace(/^\s*@?(heraldo|valquiria|valqui)[\s,.!:;-]*/i, '')
+    .replace(/^\s*(eso|esto)\s+(esta|está)\s+mal[\s,.!:;-]*/i, '')
+    .trim();
+}

@@ -298,7 +298,24 @@ const diaCuba = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Americ
  * @param {string} pregunta    lo que escribieron, tal cual
  * @param {string} [nombre]    quien pregunta, para que pueda nombrarlo
  */
-export async function pensar(admin, quien, pregunta, nombre = null, { buscar = false, th = null, panel = false, contexto = '' } = {}) {
+export async function pensar(admin, quien, pregunta, nombre = null, opciones = {}) {
+  const respuesta = await pensarSinBitacora(admin, quien, pregunta, nombre, opciones);
+  // Lo que contesto queda en la bitacora (pestaña Cerebro): solo la
+  // respuesta y el nombre de pila de quien pregunto; la pregunta no.
+  if (respuesta) await anotarEnBitacora(admin, { bot: opciones.panel ? 'panel' : quien, modo: opciones.panel ? 'panel' : opciones.buscar ? 'buscar' : 'charla', nombre, texto: respuesta });
+  return respuesta;
+}
+
+/** Una linea en la bitacora. Nunca tira: es informativa. */
+export async function anotarEnBitacora(admin, { bot, modo, nombre, texto }) {
+  try {
+    await admin.from('bitacora').insert({ bot, modo, nombre: nombre ? String(nombre).slice(0, 60) : null, texto: String(texto).slice(0, 1500) });
+  } catch {
+    /* la bitacora no puede tumbar una respuesta */
+  }
+}
+
+async function pensarSinBitacora(admin, quien, pregunta, nombre = null, { buscar = false, th = null, panel = false, contexto = '' } = {}) {
   if (!MOTOR || !PERSONAJES[quien]) return null;
   const texto = String(pregunta ?? '').trim().slice(0, 500);
   if (!texto) return null;

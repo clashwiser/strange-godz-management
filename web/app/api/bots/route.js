@@ -17,6 +17,7 @@
 
 import { admin } from '../../../lib/supabase-admin';
 import { usoDeHoy } from '../../../lib/pensar';
+import { tg, saludDelBot } from '../../../lib/bots-salud';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,21 +62,6 @@ const BOTS = {
   },
 };
 
-const tg = async (token, metodo, cuerpo) => {
-  try {
-    const r = await fetch(`https://api.telegram.org/bot${token}/${metodo}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cuerpo ?? {}),
-      signal: AbortSignal.timeout(8000),
-    });
-    return await r.json();
-  } catch (e) {
-    return { ok: false, description: e.message };
-  }
-};
-
-/** Quien llama y que puede. Devuelve null si no es lider. */
 async function quienLlama(request) {
   const jwt = (request.headers.get('authorization') ?? '').replace(/^Bearer /, '');
   if (!jwt) return null;
@@ -89,38 +75,6 @@ async function quienLlama(request) {
   return lider ? { ...lider, email: usuario.user.email } : null;
 }
 
-async function saludDe(clave) {
-  const b = BOTS[clave];
-  const base = { clave, ruta: b.ruta, webhookEsperado: `${SITIO}${b.ruta}`, configurado: Boolean(b.token && b.secreto) };
-  if (!b.token) return { ...base, error: 'sin token' };
-
-  const [yo, wh, miembro] = await Promise.all([
-    tg(b.token, 'getMe'),
-    tg(b.token, 'getWebhookInfo'),
-    GRUPO ? tg(b.token, 'getChatMember', { chat_id: GRUPO, user_id: Number(b.token.split(':')[0]) }) : null,
-  ]);
-
-  if (!yo.ok) return { ...base, error: `token rechazado: ${yo.description ?? '?'}` };
-
-  const info = wh.result ?? {};
-  return {
-    ...base,
-    usuario: yo.result.username,
-    nombre: yo.result.first_name,
-    // can_read_all_group_messages = modo privacidad QUITADO.
-    oyeTodo: Boolean(yo.result.can_read_all_group_messages),
-    webhook: {
-      url: info.url || null,
-      ok: Boolean(info.url) && info.url === base.webhookEsperado,
-      pendientes: info.pending_update_count ?? 0,
-      ultimoError: info.last_error_message || null,
-      ultimoErrorEn: info.last_error_date ? new Date(info.last_error_date * 1000).toISOString() : null,
-    },
-    enGrupo: ['member', 'administrator', 'creator'].includes(miembro?.result?.status),
-    esAdmin: ['administrator', 'creator'].includes(miembro?.result?.status),
-  };
-}
-
 export async function GET(request) {
   const lider = await quienLlama(request);
   if (!lider) return Response.json({ ok: false, error: 'no autorizado' }, { status: 401 });
@@ -129,8 +83,8 @@ export async function GET(request) {
   // Habana ya es mañana en UTC y el contador se pondria a cero antes de tiempo.
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
   const [heraldo, recluta, sol, vinc, basesHoy, outbox, ia] = await Promise.all([
-    saludDe('heraldo'),
-    saludDe('recluta'),
+    saludDelBot('heraldo'),
+    saludDelBot('recluta'),
     admin.from('solicitudes').select('estado'),
     admin.from('tg_vinculos').select('*', { count: 'exact', head: true }),
     admin.from('base_pedidos').select('*', { count: 'exact', head: true }).eq('dia', hoy),

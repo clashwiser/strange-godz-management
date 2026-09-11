@@ -23,6 +23,8 @@
     "bases:importar": "node --env-file-if-exists=.env src/jobs/importar-bases.js",
     "sql:unir": "node --env-file-if-exists=.env src/jobs/unir-sql.js",
     "meta": "node --env-file-if-exists=.env src/jobs/meta.js",
+    "cerebro:latido": "node --env-file-if-exists=.env src/jobs/cerebro-latido.js",
+    "cerebro:parte": "node --env-file-if-exists=.env src/jobs/cerebro-parte.js",
     "cierre": "node --env-file-if-exists=.env src/jobs/cierre-mensual.js",
     "wars:sync": "node --env-file-if-exists=.env src/jobs/wars-sync.js",
     "guerra:alerta": "node --env-file-if-exists=.env src/jobs/guerra-alerta.js",

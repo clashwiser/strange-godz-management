@@ -19,6 +19,7 @@ import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastil
 import { fotoDe } from '../../../lib/castillo-foto';
 import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
+import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
 import { plano as planoNombre } from '../../../lib/nombres';
 
 export const dynamic = 'force-dynamic';
@@ -219,6 +220,23 @@ export async function POST(request) {
           await responder(chatId, r);
           return Response.json({ ok: true });
         }
+      }
+    }
+
+    // Una correccion a un bot ("no, Heraldo, eso esta mal", contestando a
+    // un mensaje suyo): el cerebro la anota como leccion propuesta y los
+    // lideres la aprueban en Cerebro > Entrenar. Vale para los dos bots;
+    // lo anota Heraldo, que es el que oye todo.
+    if (respondeA?.from?.is_bot && respondeA.text && esCorreccion(texto)) {
+      const r = await proponerLeccion(admin, {
+        bot: respondeA.from.id === VALQUIRIA_ID ? 'valquiria' : 'heraldo',
+        dijo: respondeA.text,
+        correccion: texto,
+        quien: esc(quien.nombre ?? 'alguien'),
+      });
+      if (r) {
+        await responder(chatId, r);
+        return Response.json({ ok: true });
       }
     }
 
