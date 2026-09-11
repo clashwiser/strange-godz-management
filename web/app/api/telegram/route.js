@@ -26,7 +26,9 @@ export const dynamic = 'force-dynamic';
 // moria a mitad: la llamada a Gemini se contaba, la respuesta nunca
 // llegaba al grupo y Telegram veia un 500. Treinta segundos es el margen;
 // pensar() se rinde mucho antes.
-export const maxDuration = 30;
+// Y con las fotos, mas: bajar la captura, leerla (15 s de tope por
+// modelo, con un segundo intento si el primero se cuelga) y contestar.
+export const maxDuration = 60;
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 // Su propio id de usuario: la parte del token antes de los dos puntos.

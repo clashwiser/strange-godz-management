@@ -66,7 +66,7 @@ export function extraerJson(texto) {
  * @param {object} admin   Supabase con service_role (para el tope)
  * @param {{ base64:string, mime?:string, instrucciones:string, max_tokens?:number, timeout?:number }} p
  */
-export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 20000 }) {
+export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000 }) {
   if (!visionConfigurada || !base64 || !instrucciones) return null;
   if (!(await ajusteWeb(admin, 'ia_activa', true))) return null;
 
@@ -146,6 +146,10 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
       return { texto, json: extraerJson(texto), modelo };
     } catch (e) {
       console.error(`[vision] ${modelo} fallo la llamada: ${e?.message ?? e}`);
+      // Un timeout (Groq con cola) se reintenta con el otro modelo si queda
+      // tiempo de funcion; la primera prueba real se perdio por uno de 20 s.
+      const timeout_ = /abort|timeout/i.test(String(e?.name ?? e?.message ?? ''));
+      if (timeout_ && cola.length && Date.now() - t0 < 22000) continue;
       await contarFallo(admin);
       return null;
     }
