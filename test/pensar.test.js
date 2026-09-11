@@ -212,7 +212,7 @@ test('pensar en el panel: instrucciones de asistente, con glosario y sin el tope
   await pensar(admin, 'heraldo', 'qué es el webhook?', 'Carlos', { panel: true });
   const p = estado.peticiones[0];
   assert.equal(p.max_tokens, 700, 'puede explicar');
-  assert.match(p.messages[0].content, /eres el ASISTENTE del panel/);
+  assert.match(p.messages[0].content, /eres el CEREBRO del panel/);
   assert.match(p.messages[0].content, /WEBHOOK es la dirección/);
   assert.doesNotMatch(p.messages[0].content, /Máximo 2 frases/);
   assert.equal(p.messages[1].content, 'Carlos dice: qué es el webhook?');
