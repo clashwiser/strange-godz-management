@@ -32,14 +32,15 @@ const LLAVE = process.env.GEMINI_API_KEY;
 const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
 
 // Segundo motor: cualquier proveedor que hable el formato de OpenAI
-// (Mistral, Groq, OpenRouter, Cloudflare...). Existe porque Google
-// rechazo el proyecto: "Your project has been denied access", que es lo
-// que contesta cuando la cuenta esta en un pais donde Gemini no se
-// ofrece, y Cuba esta en esa lista. Con IA_LLAVE puesta, manda este motor.
+// (Groq, Mistral, OpenRouter, Cloudflare...). Existe porque Google
+// rechazo el proyecto de Cris con "Your project has been denied access"
+// y AI Studio pedia facturacion para seguir ("API access is restricted.
+// Please set up billing"); nunca supimos por que. Con IA_LLAVE puesta,
+// manda este motor. En produccion es Groq, que tiene plan gratis.
 //
 //   IA_LLAVE     la llave del proveedor
-//   IA_URL       la base, p. ej. https://api.mistral.ai/v1
-//   IA_MODELO    el modelo, p. ej. mistral-small-latest
+//   IA_URL       la base, p. ej. https://api.groq.com/openai/v1
+//   IA_MODELO    el modelo, p. ej. llama-3.3-70b-versatile
 const LLAVE_COMPAT = process.env.IA_LLAVE;
 const URL_COMPAT = (process.env.IA_URL || '').replace(/\/$/, '');
 const MOTOR = LLAVE_COMPAT && URL_COMPAT ? 'openai' : LLAVE ? 'gemini' : null;
@@ -209,7 +210,7 @@ async function contarFallo(admin) {
  * formato que hablan Mistral, Groq, OpenRouter y la mayoria.
  */
 async function pensarCompat(admin, quien, texto, nombre) {
-  const modelo = process.env.IA_MODELO || 'mistral-small-latest';
+  const modelo = process.env.IA_MODELO || 'llama-3.3-70b-versatile';
   try {
     const r = await fetch(`${URL_COMPAT}/chat/completions`, {
       method: 'POST',
@@ -265,7 +266,7 @@ export async function usoDeHoy(admin) {
     motor: MOTOR,
     modelo:
       MOTOR === 'openai'
-        ? process.env.IA_MODELO || 'mistral-small-latest'
+        ? process.env.IA_MODELO || 'llama-3.3-70b-versatile'
         : (modeloElegido ?? (MOTOR === 'gemini' ? await elegirModelo() : null)),
     hoy: data?.llamadas ?? 0,
     fallos: data?.fallos ?? 0,

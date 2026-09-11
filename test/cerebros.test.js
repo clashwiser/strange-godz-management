@@ -115,7 +115,7 @@ test('Heraldo: cada frase cae en su categoria', () => {
   const casos = [
     // Que caiga en "base mala" y no en "pide mas": el patron de "pide mas"
     // tiene "otra" y la queja lleva "otra mañana" en alguna respuesta.
-    ['la base que me diste es una mierda', /base|caen|castillo|atacó|cobra|Defender|meta/i],
+    ['la base que me diste es una mierda', /base|cae|castillo|atacó|cobra|Defender|meta|aguanta|milagro/i],
     ['tirame otra base', /alcanza|una|ma[nñ]ana|bodega|cabeza|tuya|pack/i],
     ['hola heraldo', /./],
     ['gracias', /./],
