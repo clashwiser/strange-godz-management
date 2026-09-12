@@ -10,15 +10,20 @@
 // Letras de adorno y la latina que imitan. Se aplica DESPUES de pasar a
 // minusculas (Λ baja a λ) y de NFKD (Ｖ de ancho completo baja a v).
 const ADORNOS = {
-  'λ': 'a', 'δ': 'a', 'ʌ': 'a',
-  'ξ': 'e', 'σ': 'e', 'є': 'e',
-  'ø': 'o', 'θ': 'o', 'φ': 'o', 'ω': 'o',
-  'ð': 'd', 'ß': 'b',
-  'π': 'n', 'и': 'n',
-  'я': 'r', 'ш': 'w', 'ψ': 'y', 'ч': 'y',
-  'ѕ': 's', 'ս': 's', 'տ': 's',
-  'ι': 'i', 'ν': 'v', 'τ': 't', 'κ': 'k', 'ρ': 'p', 'μ': 'u', 'υ': 'u',
+  'λ': 'a', 'δ': 'a', 'ʌ': 'a', '∆': 'a', '∧': 'a', '⋀': 'a', '🔺': 'a', '▲': 'a', 'ᗩ': 'a', 'α': 'a',
+  'ξ': 'e', 'σ': 'e', 'є': 'e', 'ε': 'e', '∑': 'e', 'ᗴ': 'e',
+  'ø': 'o', 'θ': 'o', 'φ': 'o', 'ω': 'o', '⚫': 'o', '⚪': 'o', '●': 'o', '○': 'o', '◯': 'o', '⭕': 'o', '◉': 'o', '🔴': 'o', '🔵': 'o', 'ᗝ': 'o', 'о': 'o',
+  'ð': 'd', 'ß': 'b', 'ᗪ': 'd', 'ᗷ': 'b',
+  'π': 'n', 'и': 'n', 'ᑎ': 'n', 'η': 'n',
+  'я': 'r', 'ш': 'w', 'ψ': 'y', 'ч': 'y', 'ᖇ': 'r', 'г': 'r',
+  'ѕ': 's', 'ս': 's', 'տ': 's', '$': 's',
+  'ι': 'i', 'ν': 'v', 'τ': 't', 'κ': 'k', 'ρ': 'p', 'μ': 'u', 'υ': 'u', 'ᛕ': 'k', 'ᒪ': 'l', 'ᗰ': 'm', 'ᑭ': 'p', 'ᑌ': 'u', 'ᐯ': 'v', '᙭': 'x', 'ᑕ': 'c', 'ᕼ': 'h', 'ᖴ': 'f', 'ᘜ': 'g', 'ᒍ': 'j', 'ᑫ': 'q', 'т': 't', 'к': 'k', 'м': 'm', 'н': 'h', 'в': 'b', 'у': 'y', 'х': 'x', 'с': 'c', 'а': 'a', 'е': 'e', 'р': 'p',
 };
+
+// Digitos que la gente usa como letras: "LIO D10S" es "LIO DIOS", "x300" se
+// queda como esta (se aplica a los dos lados de la comparacion, asi que da
+// igual). Solo para la busqueda laxa, no para el nombre reducido normal.
+const DIGITOS_LETRA = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't' };
 
 /** El nombre reducido a minusculas ASCII y digitos: "«ΛVΞNTUS»" -> "aventus". */
 export const plano = (s) =>
@@ -29,6 +34,9 @@ export const plano = (s) =>
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '');
+
+/** Como plano, pero con los digitos que hacen de letra: "LIO D10S" -> "liodios". */
+export const planoLaxo = (s) => plano(s).replace(/[013457]/g, (d) => DIGITOS_LETRA[d]);
 
 /**
  * Dos nombres "se parecen" si, reducidos, son iguales, uno contiene al otro

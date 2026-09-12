@@ -43,7 +43,7 @@ const BOTS = {
       { command: 'faltan', description: 'Quién no ha atacado en la CWL' },
       { command: 'estrellas', description: 'Tabla de estrellas de la temporada' },
       { command: 'resumen', description: 'Estado de los clanes' },
-      { command: 'soy', description: 'Dile tu nombre del juego: /soy Fulano' },
+      { command: 'soy', description: 'Quién eres en el juego: elige de la lista, o /soy Fulano, o /soy #TuTag' },
       { command: 'reglas', description: 'Las normas del clan' },
       { command: 'castillo', description: 'Con la captura del mapa de guerra: tu castillo donado (+puntos)' },
       { command: 'fc', description: 'Con la captura del chat: 5 desafíos amistosos de 2⭐ o más (+puntos)' },

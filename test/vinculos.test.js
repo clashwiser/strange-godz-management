@@ -55,3 +55,11 @@ test('"tambien" / "la otra": lo que quedaba por atar', () => {
     assert.deepEqual(interpretarEleccion(q, resto).map((x) => x.tag), ['#B'], q);
   }
 });
+
+test('a una cuenta ofrecida vale un "si", pero a una pregunta no', () => {
+  const ofrecida = [{ ...c[1], ofrecida: true }];
+  for (const q of ['Si es mia', 'sí', 'si', 'claro', 'esa es mía', 'si, es mia']) {
+    assert.deepEqual(interpretarEleccion(q, ofrecida).map((x) => x.tag), ['#B'], q);
+  }
+  assert.deepEqual(interpretarEleccion('si', c), []);
+});

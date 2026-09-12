@@ -20,8 +20,8 @@ import { fotoDe } from '../../../lib/castillo-foto';
 import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
-import { plano as planoNombre } from '../../../lib/nombres';
-import { tagsDe, vincular, guardarSoyPendiente, soyPendiente, olvidarSoyPendiente, interpretarEleccion, listaNumerada } from '../../../lib/vinculos';
+import { tagsDe } from '../../../lib/vinculos';
+import { ordenSoy, contestarSoy as contestarSoyLib, atenderBotonSoy } from '../../../lib/soy';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
 import { avisarALideres } from '../../../lib/bots-salud';
 
@@ -65,13 +65,17 @@ const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.
  */
 async function responder(chatId, respuesta) {
   const conFoto = respuesta && typeof respuesta === 'object' && respuesta.foto;
+  // {texto, botones}: botones dentro del mensaje (inline_keyboard), como
+  // los del /soy. Lo que se toca llega como callback_query.
+  const conBotones = respuesta && typeof respuesta === 'object' && respuesta.texto;
   const cuerpo = conFoto
     ? { chat_id: chatId, photo: respuesta.foto, caption: respuesta.pie, parse_mode: 'HTML' }
     : {
         chat_id: chatId,
-        text: String(respuesta),
+        text: conBotones ? respuesta.texto : String(respuesta),
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
+        ...(conBotones && respuesta.botones ? { reply_markup: { inline_keyboard: respuesta.botones } } : {}),
       };
 
   const res = await fetch(
@@ -117,9 +121,24 @@ export async function POST(request) {
     return Response.json({ ok: true });
   }
 
-  // Un boton tocado en un mensaje suyo (aceptar las normas, en privado).
+  // Un boton tocado en un mensaje suyo: los del /soy (elegir clan, nombre,
+  // "las dos") o el de aceptar las normas (en privado).
   if (update.callback_query) {
-    await atenderBoton(admin, TOKEN, update.callback_query, 'heraldo');
+    const cq = update.callback_query;
+    if (String(cq.data ?? '').startsWith('soy:')) {
+      const tg = (metodo, cuerpo) =>
+        fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cuerpo),
+          signal: AbortSignal.timeout(8000),
+        })
+          .then((r) => r.json())
+          .catch(() => ({ ok: false }));
+      await atenderBotonSoy(admin, cq, { tg, esc });
+    } else {
+      await atenderBoton(admin, TOKEN, cq, 'heraldo');
+    }
     return Response.json({ ok: true });
   }
 
@@ -217,6 +236,8 @@ export async function POST(request) {
     // "/jugador@x300bot Cris" -> comando "jugador", argumento "Cris"
     const [crudo, ...resto] = texto.split(/\s+/);
     comando = crudo.slice(1).split('@')[0].toLowerCase();
+    // "/ soy Drakon": el telefono mete un espacio despues de la barra.
+    if (!comando && resto.length) comando = resto.shift().toLowerCase();
     arg = resto.join(' ');
   } else {
     // Sin barra: nadie escribe comandos, la gente pregunta.
@@ -461,7 +482,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 ` +
         `/miclan — a qué clan te toca ir esta CWL
 ` +
-        `/soy &lt;tu nombre del juego&gt; — para que te reconozca (repítelo con cada cuenta que tengas)
+        `/soy — quién eres en el juego: solo te sale la lista para tocar tu nombre; o /soy TuNombre, o /soy #TuTag (una vez por cuenta)
 ` +
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
@@ -898,110 +919,11 @@ const plano = (s) =>
   String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 /**
- * "Heraldo yo soy Anabolic Batman" -> ata esa cuenta con ese jugador.
- *
- * Una persona puede tener varias cuentas (lo normal en el juego): "/soy"
- * las va sumando, y "/soy solo Fulano" deja esa nada mas. Si hay varios
- * con ese nombre, pregunta cual y se queda esperando la respuesta
- * ("las dos", "la primera", "1", el nombre entero): ver contestarSoy.
+ * "Heraldo yo soy Anabolic Batman": quien es en el juego. Todo vive en
+ * soy.js (por nombre, por tag, o eligiendo de la lista con botones).
  */
-async function cmdSoy(arg, quien) {
-  // Si estaba esperando "¿cual de los dos eres?", esto es la respuesta
-  // ("/soy los dos", "/soy la primera", "/soy DR STRANGE~❤️").
-  const contestado = await contestarSoy(arg, quien);
-  if (contestado) return contestado;
-
-  const solo = /^solo\s+/i.test(arg.trim());
-  const nombre = arg.trim().replace(/^solo\s+/i, '');
-  // Con los adornos traducidos (nombres.js): "/soy Aventus" encuentra a
-  // ﹏⪻ΛＶΞＮΤＵՏ⪼﹏, que es como se llama de verdad.
-  const buscado = planoNombre(nombre);
-  if (!buscado) {
-    return 'Dime tu nombre del juego, mi hermano: <code>/soy Anabolic Batman</code>';
-  }
-
-  const { data: jugadores, error } = await admin
-    .from('players')
-    .select('player_tag, nombre_actual');
-  if (error) throw error;
-
-  const hallados = (jugadores ?? []).filter((p) => planoNombre(p.nombre_actual).includes(buscado));
-
-  if (!hallados.length) {
-    return (
-      `No encuentro a nadie que se llame "${esc(nombre)}" en los clanes, asere.\n` +
-      `Escríbelo igualito que en el juego.`
-    );
-  }
-  // Escrito igualito que una de ellas ("DR STRANGE~❤️"), esa es; si solo
-  // se parece a varias ("Dr strange"), se pregunta cual.
-  const exactos = hallados.filter((p) => planoNombre(p.nombre_actual) === buscado);
-  if (hallados.length > 1 && exactos.length !== 1) {
-    // Con varios no se elige por el bot: elegir mal es peor que no elegir,
-    // porque despues le responde la alineacion de otro. Se pregunta, y se
-    // guarda entre quienes dudaba para entender la respuesta.
-    const candidatos = hallados.slice(0, 6).map((p) => ({ tag: p.player_tag, nombre: p.nombre_actual }));
-    await guardarSoyPendiente(admin, quien.id, candidatos);
-    return (
-      `Hay ${hallados.length} con ese nombre:\n` +
-      listaNumerada(candidatos, esc) +
-      `\n\n¿Cuál eres? Contesta con el número (<code>1</code>), o con el nombre completo. ` +
-      `Si las ${candidatos.length === 2 ? 'dos' : candidatos.length} cuentas son tuyas, dime <b>las ${candidatos.length === 2 ? 'dos' : candidatos.length}</b>.`
-    );
-  }
-
-  const p = exactos.length === 1 ? exactos[0] : hallados[0];
-  let texto = await atar([{ tag: p.player_tag, nombre: p.nombre_actual }], quien, { solo });
-  // Las demas que se parecen ("ᴵᴬᴹ◎Dя Strange◎" cuando dijo "DR STRANGE~❤️"):
-  // se ofrecen, y quedan pendientes por si dice "también".
-  const otras = hallados.filter((x) => x !== p).slice(0, 5).map((x) => ({ tag: x.player_tag, nombre: x.nombre_actual }));
-  if (otras.length && !solo) {
-    await guardarSoyPendiente(admin, quien.id, otras);
-    texto +=
-      `\n\nVi ${otras.length === 1 ? 'otra cuenta parecida' : 'otras cuentas parecidas'}: ${otras.map((o) => `<b>${esc(o.nombre)}</b>`).join(', ')}. ` +
-      `Si ${otras.length === 1 ? 'también es tuya' : 'también son tuyas'}, dime <b>también</b>.`;
-  }
-  return texto;
-}
-
-/**
- * Ata las cuentas elegidas y lo dice. Con `solo`, quita las demas; si no,
- * se suman a las que ya tenia.
- */
-async function atar(elegidas, quien, { solo = false } = {}) {
-  const antes = solo ? [] : await tagsDe(admin, quien.id);
-  const tags = await vincular(admin, { tgId: quien.id, tgNombre: quien.nombre ?? null, tags: elegidas.map((e) => e.tag), reemplazar: solo });
-  await olvidarSoyPendiente(admin, quien.id);
-
-  const nombres = elegidas.map((e) => `<b>${esc(e.nombre)}</b>`);
-  const lista = nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}` : nombres[0];
-  const nuevas = elegidas.filter((e) => !antes.includes(e.tag)).length;
-  if (nuevas === 0) return `Ya te tenía anotado como ${lista}, mi hermano. 📜`;
-  if (antes.length && tags.length > elegidas.length) {
-    const { data: todas } = await admin.from('players').select('nombre_actual').in('player_tag', tags);
-    const nombresTodas = (todas ?? []).map((p) => `<b>${esc(p.nombre_actual)}</b>`).join(', ');
-    return (
-      `Anotado: también eres ${lista}. Ahora te reconozco con ${tags.length} cuentas: ${nombresTodas}. 📜\n` +
-      `Si alguna no es tuya, dime <code>/soy solo TuNombre</code>.`
-    );
-  }
-  return elegidas.length > 1
-    ? `Anotado: tú eres ${lista}. Ya te reconozco con las ${elegidas.length === 2 ? 'dos' : elegidas.length} cuentas. 📜`
-    : `Anotado: tú eres ${lista}. Ya te reconozco. 📜`;
-}
-
-/**
- * Si esta persona tiene un /soy a medias ("¿cual de los dos eres?"),
- * intenta leer su respuesta y atar lo elegido. Null si no hay nada
- * pendiente o no se entiende (y entonces el mensaje sigue su camino).
- */
-async function contestarSoy(texto, quien) {
-  const candidatos = await soyPendiente(admin, quien.id);
-  if (!candidatos) return null;
-  const elegidas = interpretarEleccion(texto, candidatos);
-  if (!elegidas.length) return null;
-  return await atar(elegidas, quien);
-}
+const cmdSoy = (arg, quien) => ordenSoy(admin, arg, quien, esc);
+const contestarSoy = (texto, quien) => contestarSoyLib(admin, texto, quien, esc);
 
 /**
  * "¿Pa que clan voy yo?" — la alineacion de CWL de quien pregunta, con el

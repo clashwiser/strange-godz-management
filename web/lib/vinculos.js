@@ -103,6 +103,7 @@ const suave = (s) =>
 
 const TODAS =
   /^(ambos|ambas|los dos|las dos|los 2|las 2|todas|todos|las tres|los tres|las 3|los 3|las cuatro|los cuatro|las 4|los 4|todas son mias|todas mias|las dos son mias|los dos son mios|son mias|son mios|tambien|esa tambien|esas tambien|la otra|las otras|la otra tambien|y la otra|y esa|si tambien|tambien es mia|tambien son mias|es mia|esa es mia)$/;
+const AFIRMA = /^(si|sí|si es mia|si son mias|si es mio|si son mios|claro|dale|ok|okey|correcto|asi es|exacto|si claro|si dale|si tambien|si esa|esa|esa es|esa misma|es esa|si esa es mia|si esa es|es mia|esa es mia|si la otra|la otra es mia)( es mia| son mias| es mio| son mios)?$/;
 const ORDINAL = { primer: 1, primera: 1, primero: 1, segunda: 2, segundo: 2, tercera: 3, tercero: 3, cuarta: 4, cuarto: 4, quinta: 5, quinto: 5 };
 
 /**
@@ -119,6 +120,10 @@ export function interpretarEleccion(texto, candidatos) {
   if (!crudo) return [];
   // "las dos", "la otra": antes de quitar articulos, que ahi son parte de la frase.
   if (TODAS.test(crudo)) return candidatos;
+  // A una cuenta OFRECIDA ("si tambien es tuya, dime tambien") vale un si:
+  // "si es mia", "si", "claro". Solo ahi: un "si" suelto en el grupo no
+  // puede atar nada si el bot no acaba de ofrecer una cuenta.
+  if (candidatos.every((c) => c.ofrecida) && AFIRMA.test(crudo)) return candidatos;
   const q = crudo.replace(/^(eres|es|la|el)\s+/, '').trim();
   if (!q) return [];
   if (TODAS.test(q)) return candidatos;
