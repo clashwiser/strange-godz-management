@@ -920,7 +920,10 @@ async function cmdSoy(arg, quien) {
       `Escríbelo igualito que en el juego.`
     );
   }
-  if (hallados.length > 1) {
+  // Escrito igualito que una de ellas ("DR STRANGE~❤️"), esa es; si solo
+  // se parece a varias ("Dr strange"), se pregunta cual.
+  const exactos = hallados.filter((p) => planoNombre(p.nombre_actual) === buscado);
+  if (hallados.length > 1 && exactos.length !== 1) {
     // Con varios no se elige por el bot: elegir mal es peor que no elegir,
     // porque despues le responde la alineacion de otro. Se pregunta, y se
     // guarda entre quienes dudaba para entender la respuesta.
@@ -934,7 +937,18 @@ async function cmdSoy(arg, quien) {
     );
   }
 
-  return await atar([hallados[0]].map((p) => ({ tag: p.player_tag, nombre: p.nombre_actual })), quien, { solo });
+  const p = exactos.length === 1 ? exactos[0] : hallados[0];
+  let texto = await atar([{ tag: p.player_tag, nombre: p.nombre_actual }], quien, { solo });
+  // Las demas que se parecen ("ᴵᴬᴹ◎Dя Strange◎" cuando dijo "DR STRANGE~❤️"):
+  // se ofrecen, y quedan pendientes por si dice "también".
+  const otras = hallados.filter((x) => x !== p).slice(0, 5).map((x) => ({ tag: x.player_tag, nombre: x.nombre_actual }));
+  if (otras.length && !solo) {
+    await guardarSoyPendiente(admin, quien.id, otras);
+    texto +=
+      `\n\nVi ${otras.length === 1 ? 'otra cuenta parecida' : 'otras cuentas parecidas'}: ${otras.map((o) => `<b>${esc(o.nombre)}</b>`).join(', ')}. ` +
+      `Si ${otras.length === 1 ? 'también es tuya' : 'también son tuyas'}, dime <b>también</b>.`;
+  }
+  return texto;
 }
 
 /**

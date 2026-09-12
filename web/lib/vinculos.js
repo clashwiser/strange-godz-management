@@ -101,22 +101,25 @@ const suave = (s) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
-const TODAS = /^(ambos|ambas|los dos|las dos|los 2|las 2|todas|todos|las tres|los tres|las 3|los 3|las cuatro|los cuatro|las 4|los 4|todas son mias|todas mias|las dos son mias|los dos son mios|son mias|son mios)$/;
+const TODAS =
+  /^(ambos|ambas|los dos|las dos|los 2|las 2|todas|todos|las tres|los tres|las 3|los 3|las cuatro|los cuatro|las 4|los 4|todas son mias|todas mias|las dos son mias|los dos son mios|son mias|son mios|tambien|esa tambien|esas tambien|la otra|las otras|la otra tambien|y la otra|y esa|si tambien|tambien es mia|tambien son mias|es mia|esa es mia)$/;
 const ORDINAL = { primer: 1, primera: 1, primero: 1, segunda: 2, segundo: 2, tercera: 3, tercero: 3, cuarta: 4, cuarto: 4, quinta: 5, quinto: 5 };
 
 /**
  * Que cuentas eligio, de entre los candidatos [{tag, nombre}]:
  *   "las dos" / "ambos" / "todas"      -> todas
+ *   "también" / "la otra"              -> todas (las que quedaban por atar)
  *   "1", "la 2", "la primera", "1 y 2" -> esas
  *   "DR STRANGE~❤️" (o casi)           -> esa, si solo casa con una
  * Devuelve [] si no se entiende.
  */
 export function interpretarEleccion(texto, candidatos) {
   if (!Array.isArray(candidatos) || !candidatos.length) return [];
-  let q = suave(texto)
-    .replace(/^(soy|yo soy|eres|es|la|el)\s+/, '')
-    .replace(/^(soy|yo soy)\s+/, '')
-    .trim();
+  const crudo = suave(texto).replace(/^(yo soy|soy)\s+/, '');
+  if (!crudo) return [];
+  // "las dos", "la otra": antes de quitar articulos, que ahi son parte de la frase.
+  if (TODAS.test(crudo)) return candidatos;
+  const q = crudo.replace(/^(eres|es|la|el)\s+/, '').trim();
   if (!q) return [];
   if (TODAS.test(q)) return candidatos;
 

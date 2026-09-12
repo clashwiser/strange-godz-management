@@ -48,3 +48,10 @@ test('lo que no es una respuesta no elige nada', () => {
 test('la lista numerada para preguntar', () => {
   assert.equal(listaNumerada(c), '1. DR STRANGE~❤️\n2. ᴵᴬᴹ◎Dя Strange◎');
 });
+
+test('"tambien" / "la otra": lo que quedaba por atar', () => {
+  const resto = [c[1]];
+  for (const q of ['también', 'tambien', 'la otra', 'esa también', 'y la otra']) {
+    assert.deepEqual(interpretarEleccion(q, resto).map((x) => x.tag), ['#B'], q);
+  }
+});
