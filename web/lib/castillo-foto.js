@@ -284,31 +284,49 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     await admin.from('castillos').update({ nota: String(nota).slice(0, 200) }).eq('id', fila.id);
   };
 
-  // Quien es en el juego: sin /soy no hay con que cruzar la foto.
-  let tag = fila.player_tag;
-  if (!tag) {
-    const { data: v } = await admin.from('tg_vinculos').select('player_tag').eq('tg_user_id', fila.tg_user_id).maybeSingle();
-    tag = v?.player_tag ?? null;
-  }
-  if (!tag) {
+  // Quien es en el juego: sin /soy no hay con que cruzar la foto. Con
+  // varias cuentas se prueba cada una: la que este en el mapa de una
+  // guerra en curso es la que dono.
+  const { data: vinculos } = await admin
+    .from('tg_vinculos')
+    .select('player_tag')
+    .eq('tg_user_id', fila.tg_user_id)
+    .order('principal', { ascending: false });
+  const tags = [...new Set([fila.player_tag, ...(vinculos ?? []).map((v) => v.player_tag)].filter(Boolean))];
+  if (!tags.length) {
     return {
       texto: `📷 Recibí la foto, ${quien}, pero no sé quién eres en el juego. Preséntate con <code>/soy TuNombre</code> y vuelve a mandarla. ${MANUAL}`,
       verificado: false,
     };
   }
 
-  const perfil = await pedirPerfil(tag);
-  const clanTag = perfil?.clan?.tag;
-  const guerra = clanTag ? await guerraDe(clanTag) : null;
-  if (!guerra) {
+  let tag = null;
+  let guerra = null;
+  let sitio = null;
+  let hayGuerra = false;
+  for (const candidato of tags) {
+    const perfil = await pedirPerfil(candidato);
+    const clanTag = perfil?.clan?.tag;
+    const g = clanTag ? await guerraDe(clanTag) : null;
+    if (!g) continue;
+    hayGuerra = true;
+    const s = castilloDeAbajo(g, candidato);
+    if (!s) continue;
+    tag = candidato;
+    guerra = g;
+    sitio = s;
+    break;
+  }
+  if (!hayGuerra) {
     await anota('foto: sin guerra en curso en la API');
     return { texto: `📷 No encuentro una guerra en curso para tu clan, ${quien}, así que no puedo cruzar la foto. ${MANUAL}`, verificado: false };
   }
-  const sitio = castilloDeAbajo(guerra, tag);
   if (!sitio) {
     await anota('foto: no esta en el mapa de esta guerra');
     return { texto: `📷 No te veo en el mapa de esta guerra, ${quien}. Si estás fuera de la alineación, no hay castillo que donar. ${MANUAL}`, verificado: false };
   }
+  // La cuenta que dono, por si la fila se anoto con la principal.
+  if (fila.player_tag !== tag) await admin.from('castillos').update({ player_tag: tag }).eq('id', fila.id);
   const { abajo } = sitio;
   const quienAbajo = `<b>${esc(abajo.nombre)}</b> (#${abajo.posicion})`;
 

@@ -133,12 +133,18 @@ export async function verificarFCConFoto(admin, { token, msg, tgId, quien }) {
   }
 
   // Quien es en el juego: el nombre del atacante tiene que ser el suyo.
-  const { data: v } = await admin.from('tg_vinculos').select('player_tag').eq('tg_user_id', tgId).maybeSingle();
-  if (!v?.player_tag) {
+  // Con varias cuentas, la que mas tarjetas tenga en la captura.
+  const { data: vinculos } = await admin
+    .from('tg_vinculos')
+    .select('player_tag')
+    .eq('tg_user_id', tgId)
+    .order('principal', { ascending: false });
+  const tags = (vinculos ?? []).map((x) => x.player_tag);
+  if (!tags.length) {
     return { texto: `📷 Recibí la captura, ${quien}, pero no sé quién eres en el juego. Preséntate con <code>/soy TuNombre</code> y vuelve a mandarla.`, verificado: false, id: null };
   }
-  const perfil = await pedirPerfil(v.player_tag);
-  if (!perfil?.name) {
+  const perfiles = (await Promise.all(tags.map((tag) => pedirPerfil(tag)))).map((p, i) => (p?.name ? { tag: tags[i], name: p.name } : null)).filter(Boolean);
+  if (!perfiles.length) {
     return { texto: `📷 Ahora mismo no puedo consultar tu perfil en el juego, ${quien}. Prueba en un rato.`, verificado: false, id: null };
   }
 
@@ -157,7 +163,11 @@ export async function verificarFCConFoto(admin, { token, msg, tgId, quien }) {
   // hace falta: un desafio amistoso solo se ataca dentro del propio clan,
   // asi que unas tarjetas con tu nombre de atacante son de tu chat.
 
-  const cuenta = contarFC(lectura, perfil.name);
+  // La cuenta con mas tarjetas buenas en la captura (empate: la principal).
+  const { perfil, cuenta } = perfiles
+    .map((p) => ({ perfil: p, cuenta: contarFC(lectura, p.name) }))
+    .reduce((mejor, x) => (x.cuenta.buenas > mejor.cuenta.buenas ? x : mejor));
+  const v = { player_tag: perfil.tag };
   if (cuenta.buenas < FC_MINIMO) {
     const detalle = cuenta.total === 0
       ? 'no distingo ninguna tarjeta de desafío'

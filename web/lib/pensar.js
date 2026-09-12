@@ -270,7 +270,14 @@ let buscaDisponible = true;
 export async function thDe(admin, tgUserId) {
   if (!tgUserId) return null;
   try {
-    const { data: v } = await admin.from('tg_vinculos').select('player_tag').eq('tg_user_id', tgUserId).maybeSingle();
+    // Con varias cuentas, la principal.
+    const { data: v } = await admin
+      .from('tg_vinculos')
+      .select('player_tag')
+      .eq('tg_user_id', tgUserId)
+      .order('principal', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (!v?.player_tag) return null;
     const { data: s } = await admin
       .from('snapshots')

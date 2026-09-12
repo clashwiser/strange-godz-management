@@ -69,7 +69,8 @@ if (!SECRETO) {
 const r = await api('setWebhook', {
   url: URL_WEBHOOK,
   secret_token: SECRETO,
-  allowed_updates: ['message', 'edited_message'],
+  // callback_query: los botones en los mensajes (aceptar las normas).
+  allowed_updates: ['message', 'edited_message', 'callback_query'],
   drop_pending_updates: true,
 });
 

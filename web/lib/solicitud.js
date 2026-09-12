@@ -108,8 +108,8 @@ const VOZ = {
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
     reglas: (resumen, url) =>
       `📜 Ya casi, mi cielo. Antes de anotarte, léete las normas de la casa; aquí se juega en serio.\n\n${resumen}\n\n` +
-      `Completas: ${url}\n\nSi las aceptas, tócame <b>Acepto las normas</b>.`,
-    reglasNo: (url) => `Sin aceptar las normas no sigo, mi cielo. Léelas aquí: ${url} y, si estás de acuerdo, dime <b>acepto</b>.`,
+      `Completas: ${url}\n\nSi las aceptas, toca el botón <b>He leído y acepto las normas</b> aquí debajo (o escríbeme <b>acepto</b>).`,
+    reglasNo: (url) => `Sin aceptar las normas no sigo, mi cielo. Léelas aquí: ${url} y, si estás de acuerdo, toca el botón o dime <b>acepto</b>.`,
     listo:
       `⚔️ <b>Anotado, mi cielo.</b> Ya sé cómo peleas.\n\n` +
       `Ahora lo miran los líderes. Si te eligen te escribo por aquí con la puerta del clan.\n\n` +
@@ -158,8 +158,8 @@ const VOZ = {
       `Cuéntame en un mensaje <b>de dónde sales, a qué hora sueles jugar y por qué quieres entrar</b>.`,
     reglas: (resumen, url) =>
       `📜 Ya casi. Antes de anotarte, lee las normas de la casa; aquí se juega en serio.\n\n${resumen}\n\n` +
-      `Completas: ${url}\n\nSi las aceptas, dale a <b>Acepto las normas</b>.`,
-    reglasNo: (url) => `Sin aceptar las normas no sigo, mi hermano. Léelas aquí: ${url} y, si estás de acuerdo, dime <b>acepto</b>.`,
+      `Completas: ${url}\n\nSi las aceptas, dale al botón <b>He leído y acepto las normas</b> aquí debajo (o escríbeme <b>acepto</b>).`,
+    reglasNo: (url) => `Sin aceptar las normas no sigo, mi hermano. Léelas aquí: ${url} y, si estás de acuerdo, dale al botón o dime <b>acepto</b>.`,
     listo:
       `📯 <b>Listo.</b> Tu solicitud queda anotada en mi pergamino.\n\n` +
       `Ahora la miran los líderes. Si te aceptan te escribo por aquí con el enlace del clan.\n\n` +
@@ -216,7 +216,16 @@ export async function escribiendo(token, chatId) {
 
 export async function decirCon(token, chatId, respuesta) {
   if (!token || !respuesta) return false;
-  const { texto, teclado } = typeof respuesta === 'string' ? { texto: respuesta } : respuesta;
+  const { texto, teclado, botones } = typeof respuesta === 'string' ? { texto: respuesta } : respuesta;
+  // Dos clases de botones: el teclado de respuesta (teclado: abajo, en vez
+  // del teclado del telefono; al tocarlo manda ese texto) y los botones EN
+  // el mensaje (botones: inline_keyboard; con callback_data o con url).
+  // Telegram solo admite uno de los dos por mensaje.
+  const markup = botones
+    ? { inline_keyboard: botones }
+    : teclado
+      ? { keyboard: teclado.map((fila) => fila.map((t) => ({ text: t }))), one_time_keyboard: true, resize_keyboard: true }
+      : { remove_keyboard: true };
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -226,9 +235,7 @@ export async function decirCon(token, chatId, respuesta) {
         text: texto,
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
-        reply_markup: teclado
-          ? { keyboard: teclado.map((fila) => fila.map((t) => ({ text: t }))), one_time_keyboard: true, resize_keyboard: true }
-          : { remove_keyboard: true },
+        reply_markup: markup,
       }),
     });
     if (!r.ok) return false;
@@ -341,6 +348,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       .from('tg_vinculos')
       .select('player_tag')
       .eq('tg_user_id', uid)
+      .limit(1)
       .maybeSingle();
     if (atado || (await esAdminDelGrupo(uid))) {
       // Los de casa no solicitan, pero con Valquiria pueden hablar: tiene
@@ -534,12 +542,15 @@ export async function flujoSolicitud(admin, msg, texto, via) {
     await guardar({ paso: 'reglas', respuestas });
     const r = await reglasDelClan(admin);
     const resumen = r.resumen || r.texto.slice(0, 2500) || 'Las normas están en el enlace.';
-    return { texto: v.reglas(esc(resumen), `${SITIO}/reglas`), teclado: [['Acepto las normas']] };
+    // Los botones van EN el mensaje (inline): el teclado de respuesta de
+    // antes no siempre se veia en el telefono y la gente tocaba la frase en
+    // negrita creyendo que era un enlace. Ver atenderBoton.
+    return { texto: v.reglas(esc(resumen), `${SITIO}/reglas`), botones: botonesNormas(`${SITIO}/reglas`) };
   }
 
   if (sol.paso === 'reglas') {
-    const acepta = /\b(acepto|aceptar|acepta|si|sí|ok|dale|de acuerdo|claro|vale|yes)\b/i.test(texto);
-    if (!acepta) return v.reglasNo(`${SITIO}/reglas`);
+    const acepta = /\b(acepto|aceptar|acepta|aceptado|acepta[dt]as?|le[ií]d[oa]|si|sí|ok|dale|de acuerdo|claro|vale|yes)\b/i.test(texto);
+    if (!acepta) return { texto: v.reglasNo(`${SITIO}/reglas`), botones: botonesNormas(`${SITIO}/reglas`) };
     await guardar({ paso: 'listo', estado: 'pendiente', acepto_normas: true, creado_en: new Date().toISOString() });
 
     // Que no se caiga la respuesta al aspirante si falla el aviso.
@@ -557,6 +568,39 @@ export async function flujoSolicitud(admin, msg, texto, via) {
 
 /** Botones de una fila por opcion: en el telefono se leen mejor asi. */
 const tecladoDe = (opciones) => opciones.map(([, etiqueta]) => [etiqueta]);
+
+/** Lo que se toca en el mensaje de las normas: leerlas enteras, y aceptarlas. */
+export const ACEPTO_NORMAS = 'acepto_normas';
+const botonesNormas = (url) => [
+  [{ text: '📖 Leer las normas completas', url }],
+  [{ text: '✅ He leído y acepto las normas', callback_data: ACEPTO_NORMAS }],
+];
+
+/**
+ * Un boton tocado en un mensaje del bot (callback_query). Hoy solo hay
+ * uno: aceptar las normas en la entrevista. Se contesta el callback (que
+ * el telefono deje de "cargar"), se quitan los botones del mensaje ya
+ * tocado, y se sigue la conversacion como si hubiera escrito "acepto".
+ * El que llama manda la respuesta con SU token.
+ */
+export async function atenderBoton(admin, token, cq, via) {
+  const chatId = cq?.message?.chat?.id;
+  const api = (metodo, cuerpo) =>
+    fetch(`https://api.telegram.org/bot${token}/${metodo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo),
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => null);
+  await api('answerCallbackQuery', { callback_query_id: cq.id });
+  if (!chatId || cq.data !== ACEPTO_NORMAS) return;
+  if (cq.message.chat.type !== 'private') return;
+  await api('editMessageReplyMarkup', { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [] } });
+  // El mensaje "es" del que toco el boton, no del bot que lo mando.
+  const msg = { ...cq.message, from: cq.from, text: 'acepto' };
+  const r = await flujoSolicitud(admin, msg, 'acepto', via);
+  if (r) await decirCon(token, chatId, r);
+}
 
 /** Que boton toco. Acepta tambien la clave escrita ("75") por si teclea. */
 function claveDe(opciones, texto) {

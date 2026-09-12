@@ -70,7 +70,7 @@ export default function Bonos({ d, demo = false, recargar }) {
   function agregar() {
     setFilas((f) => [
       ...f,
-      { id: null, mes, orden: f.length, titulo: '', criterio: '', monto_usd: 0, tipo: 'efectivo', activo: true },
+      { id: null, mes, orden: f.length, titulo: '', criterio: '', clan_tag: null, monto_usd: 0, tipo: 'efectivo', activo: true },
     ]);
   }
 
@@ -78,6 +78,11 @@ export default function Bonos({ d, demo = false, recargar }) {
     if (demo) return aviso(t('En la demo no se guarda, pero así queda.'));
     const vacias = filas.filter((f) => !f.titulo.trim());
     if (vacias.length) return aviso(t('Hay premios sin título.'), true);
+    // Dos premios con el mismo titulo en el mes no caben (la base lo
+    // prohibe); mejor decirlo con nombre que dejar que reviente al guardar.
+    const titulos = filas.map((f) => f.titulo.trim().toLowerCase());
+    const repetido = titulos.find((x, i) => titulos.indexOf(x) !== i);
+    if (repetido) return aviso(`${t('Hay dos premios con el mismo título:')} ${filas[titulos.indexOf(repetido)].titulo.trim()}`, true);
 
     setOcupado(true);
     try {
@@ -92,12 +97,27 @@ export default function Bonos({ d, demo = false, recargar }) {
         orden: i,
         titulo: f.titulo.trim(),
         criterio: f.criterio || null,
+        // El clan del premio: con el, el cierre del mes lo resuelve solo
+        // (1º, 2º, 3º en estrellas de ESE clan). Sin clan queda "a mano".
+        clan_tag: f.clan_tag || null,
         monto_usd: Number(f.monto_usd) || 0,
         tipo: f.tipo,
         activo: f.activo,
       }));
-      const { error } = await supabase.from('premios_plan').upsert(payload, { onConflict: 'mes,titulo' });
-      if (error) throw error;
+      // Los que ya existen se actualizan por su id; los nuevos se insertan.
+      // Antes iba todo en un upsert por (mes, titulo), y al cambiarle el
+      // titulo a un premio existente la base lo tomaba por uno nuevo con
+      // el mismo id: "duplicate key". Con eso no se podia renombrar nada.
+      const existentes = payload.filter((p) => p.id);
+      const nuevos = payload.filter((p) => !p.id);
+      if (existentes.length) {
+        const { error } = await supabase.from('premios_plan').upsert(existentes, { onConflict: 'id' });
+        if (error) throw error;
+      }
+      if (nuevos.length) {
+        const { error } = await supabase.from('premios_plan').insert(nuevos);
+        if (error) throw error;
+      }
 
       if (Number(cfg.presupuesto_mensual) !== presupuesto) {
         const { error: e2 } = await supabase
@@ -111,7 +131,9 @@ export default function Bonos({ d, demo = false, recargar }) {
       aviso(quitados ? `${t('Guardado.')} ${quitados} ${t('premio(s) eliminado(s).')}` : t('Guardado.'));
       recargar?.();
     } catch (e) {
-      aviso(`Error: ${e.message}`, true);
+      // El error de la base en cristiano: el codigo 23505 es "ya existe".
+      const texto = e.code === '23505' ? t('Ya hay un premio con ese título en este mes.') : e.message;
+      aviso(`Error: ${texto}`, true);
     } finally {
       setOcupado(false);
     }
@@ -354,6 +376,7 @@ export default function Bonos({ d, demo = false, recargar }) {
               <th>{t('Cómo se gana')}</th>
               <th className="num">{t('Monto')}</th>
               <th>{t('Tipo')}</th>
+              <th>{t('Clan')}</th>
               <th>{t('Activo')}</th>
               <th>{t('Se lo ganó')}</th>
               <th></th>
@@ -401,6 +424,22 @@ export default function Bonos({ d, demo = false, recargar }) {
                     <option value="pase_oro">{t('Pase de Oro')}</option>
                     <option value="pase_evento">{t('Pase de evento')}</option>
                     <option value="medallas">{t('Medallas')}</option>
+                  </select>
+                </td>
+                <td>
+                  {/* Con clan, el cierre del mes saca solo al 1º/2º/3º en
+                      estrellas de CWL de ese clan; sin clan (guerra normal,
+                      Leyenda, puntos) queda para decidir a mano. */}
+                  <select
+                    className="campo campo-corto"
+                    style={{ marginTop: 0, minWidth: 120 }}
+                    value={f.clan_tag ?? ''}
+                    onChange={(e) => cambiar(i, 'clan_tag', e.target.value || null)}
+                  >
+                    <option value="">{t('— toda la alianza')}</option>
+                    {(d.clans ?? []).map((c) => (
+                      <option key={c.clan_tag} value={c.clan_tag}>{c.nombre}</option>
+                    ))}
                   </select>
                 </td>
                 <td>

@@ -24,7 +24,7 @@
 //   RECLUTA_SECRET_TOKEN   uno inventado, el mismo que lleva el webhook
 
 import { admin } from '../../../lib/supabase-admin';
-import { flujoSolicitud, decirCon, decirConVideo, escribiendo, esc, esAdminDelGrupo } from '../../../lib/solicitud';
+import { flujoSolicitud, decirCon, decirConVideo, escribiendo, esc, esAdminDelGrupo, atenderBoton } from '../../../lib/solicitud';
 import {
   entenderValquiria,
   cuantosEsperan,
@@ -74,6 +74,12 @@ export async function POST(request) {
   try {
     update = await request.json();
   } catch {
+    return Response.json({ ok: true });
+  }
+
+  // Un boton tocado en un mensaje suyo (aceptar las normas).
+  if (update.callback_query) {
+    await atenderBoton(admin, TOKEN, update.callback_query, 'recluta');
     return Response.json({ ok: true });
   }
 

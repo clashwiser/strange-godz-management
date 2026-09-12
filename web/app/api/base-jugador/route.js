@@ -74,6 +74,7 @@ export async function POST(request) {
     .from('tg_vinculos')
     .select('tg_user_id')
     .eq('player_tag', base.asignada_a)
+    .limit(1)
     .maybeSingle();
 
   const mencion = vinculo

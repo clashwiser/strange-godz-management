@@ -94,7 +94,7 @@ export async function medirSalud(admin) {
         admin.from('snapshots').select('fecha').order('fecha', { ascending: false }).limit(1).maybeSingle(),
         admin.from('config').select('clave, valor').in('clave', ['meta_digest', 'bots_memoria', 'ia_activa', 'telegram_activo', 'meta_canales', 'cerebro_estado']),
         admin.from('lecciones').select('bot, activa, propuesta'),
-        admin.from('tg_vinculos').select('*', { count: 'exact', head: true }),
+        admin.from('tg_vinculos').select('tg_user_id'),
         admin.from('players').select('*', { count: 'exact', head: true }).eq('activo', true),
         admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'),
         admin.from('castillos').select('verificado').eq('temporada', mes),
@@ -128,7 +128,7 @@ export async function medirSalud(admin) {
           reglas: { fecha: reglas.fecha ?? null, palabras: reglas.texto ? reglas.texto.split(/\s+/).length : 0 },
           memoriaLideres: String(config.bots_memoria ?? '').length,
           canales: Array.isArray(config.meta_canales) ? config.meta_canales.length : null,
-          vinculados: vinc.count ?? 0,
+          vinculados: new Set((vinc.data ?? []).map((v) => v.tg_user_id)).size, // personas, no cuentas
           jugadores: players.count ?? 0,
           clanes: (clans.data ?? []).length,
           bases: bases.count ?? 0,

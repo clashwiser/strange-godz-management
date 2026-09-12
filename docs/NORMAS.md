@@ -8,7 +8,7 @@ Estas normas las lees antes de entrar y las aceptas al entrar. Los líderes las 
 
 ## 1. Comunicación
 
-- **Telegram es obligatorio.** Es donde salen las listas de CWL, los avisos de guerra, las bases y los premios. Al entrar al grupo preséntate con `/soy TuNombreDelJuego` para que Heraldo te reconozca y te avise cuando haga falta.
+- **Telegram es obligatorio.** Es donde salen las listas de CWL, los avisos de guerra, las bases y los premios. Al entrar al grupo preséntate con `/soy TuNombreDelJuego` para que Heraldo te reconozca y te avise cuando haga falta (si tienes varias cuentas, una vez por cuenta).
 - WhatsApp es secundario y manual: lo que salga por ahí es copia de lo de Telegram.
 - Contesta cuando te mencionen. Un aviso sin respuesta cuenta como que no lo viste, y las decisiones se toman con lo que hay.
 - Si vas a estar fuera (viaje, trabajo, sin datos), avísalo antes en el grupo o a un líder. Con aviso no hay problema; sin aviso sí.

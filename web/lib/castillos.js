@@ -84,8 +84,15 @@ export async function anotarCastillo(admin, { tgId, nombre, texto }) {
   }
 
   // Quien es en el juego, si se presento con /soy: para que el lider sepa
-  // que castillo mirar.
-  const { data: vinculo } = await admin.from('tg_vinculos').select('player_tag').eq('tg_user_id', tgId).maybeSingle();
+  // que castillo mirar. Con varias cuentas, la principal; la foto del
+  // castillo ya mira cual de ellas esta en el mapa (castillo-foto.js).
+  const { data: vinculo } = await admin
+    .from('tg_vinculos')
+    .select('player_tag')
+    .eq('tg_user_id', tgId)
+    .order('principal', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const { data: fila, error } = await admin
     .from('castillos')

@@ -131,7 +131,8 @@ export async function POST(request) {
     const r = await tg(b.token, 'setWebhook', {
       url: `${SITIO}${b.ruta}`,
       secret_token: b.secreto,
-      allowed_updates: ['message', 'edited_message'],
+      // callback_query: los botones en los mensajes (aceptar las normas).
+      allowed_updates: ['message', 'edited_message', 'callback_query'],
       drop_pending_updates: true,
     });
     return Response.json({ ok: r.ok, error: r.ok ? null : r.description });

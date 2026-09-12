@@ -10,7 +10,7 @@
 
 import { admin } from '../../../lib/supabase-admin';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
-import { flujoSolicitud, decirCon, escribiendo, esAdminDelGrupo } from '../../../lib/solicitud';
+import { flujoSolicitud, decirCon, escribiendo, esAdminDelGrupo, atenderBoton } from '../../../lib/solicitud';
 import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 import { leccionPara, reglasDelClan, ajusteWeb } from '../../../lib/entrenamiento';
@@ -21,6 +21,7 @@ import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/re
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
 import { plano as planoNombre } from '../../../lib/nombres';
+import { tagsDe, vincular, guardarSoyPendiente, soyPendiente, olvidarSoyPendiente, interpretarEleccion, listaNumerada } from '../../../lib/vinculos';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -111,6 +112,12 @@ export async function POST(request) {
   try {
     update = await request.json();
   } catch {
+    return Response.json({ ok: true });
+  }
+
+  // Un boton tocado en un mensaje suyo (aceptar las normas, en privado).
+  if (update.callback_query) {
+    await atenderBoton(admin, TOKEN, update.callback_query, 'heraldo');
     return Response.json({ ok: true });
   }
 
@@ -234,6 +241,18 @@ export async function POST(request) {
         correccion: texto,
         quien: esc(quien.nombre ?? 'alguien'),
       });
+      if (r) {
+        await responder(chatId, r);
+        return Response.json({ ok: true });
+      }
+    }
+
+    // La respuesta a "¿cual de los dos eres?" (de /soy): "las dos", "la
+    // primera", "1", o el nombre entero. Sin nombrar al bot, que asi es
+    // como contesta la gente ("Soy ambos"). Solo si ese alguien tiene un
+    // /soy a medias, y de hace menos de media hora.
+    if (texto.length <= 60) {
+      const r = await contestarSoy(texto, quien);
       if (r) {
         await responder(chatId, r);
         return Response.json({ ok: true });
@@ -429,7 +448,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 ` +
         `/miclan — a qué clan te toca ir esta CWL
 ` +
-        `/soy &lt;tu nombre del juego&gt; — para que te reconozca
+        `/soy &lt;tu nombre del juego&gt; — para que te reconozca (repítelo con cada cuenta que tengas)
 ` +
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
@@ -533,8 +552,13 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         return 'Eso es de los líderes, mi hermano. Prueba /resumen o /estrellas.';
       }
       return await cmdReporte();
-    default:
+    default: {
+      // "/DE strange~❤️" contestando a "¿cual de los dos eres?": el
+      // telefono le puso la barra al nombre. Si casa con un candidato, vale.
+      const r = await contestarSoy(`${comando} ${arg}`.trim(), quien);
+      if (r) return r;
       return `No conozco <code>/${esc(comando)}</code>. Prueba /ayuda.`;
+    }
   }
 }
 
@@ -860,11 +884,25 @@ async function esLider(chatId, userId) {
 const plano = (s) =>
   String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-/** "Heraldo yo soy Anabolic Batman" -> ata esa cuenta con ese jugador. */
+/**
+ * "Heraldo yo soy Anabolic Batman" -> ata esa cuenta con ese jugador.
+ *
+ * Una persona puede tener varias cuentas (lo normal en el juego): "/soy"
+ * las va sumando, y "/soy solo Fulano" deja esa nada mas. Si hay varios
+ * con ese nombre, pregunta cual y se queda esperando la respuesta
+ * ("las dos", "la primera", "1", el nombre entero): ver contestarSoy.
+ */
 async function cmdSoy(arg, quien) {
+  // Si estaba esperando "¿cual de los dos eres?", esto es la respuesta
+  // ("/soy los dos", "/soy la primera", "/soy DR STRANGE~❤️").
+  const contestado = await contestarSoy(arg, quien);
+  if (contestado) return contestado;
+
+  const solo = /^solo\s+/i.test(arg.trim());
+  const nombre = arg.trim().replace(/^solo\s+/i, '');
   // Con los adornos traducidos (nombres.js): "/soy Aventus" encuentra a
   // ﹏⪻ΛＶΞＮΤＵՏ⪼﹏, que es como se llama de verdad.
-  const buscado = planoNombre(arg);
+  const buscado = planoNombre(nombre);
   if (!buscado) {
     return 'Dime tu nombre del juego, mi hermano: <code>/soy Anabolic Batman</code>';
   }
@@ -878,29 +916,64 @@ async function cmdSoy(arg, quien) {
 
   if (!hallados.length) {
     return (
-      `No encuentro a nadie que se llame "${esc(arg)}" en los clanes, asere.\n` +
+      `No encuentro a nadie que se llame "${esc(nombre)}" en los clanes, asere.\n` +
       `Escríbelo igualito que en el juego.`
     );
   }
   if (hallados.length > 1) {
     // Con varios no se elige por el bot: elegir mal es peor que no elegir,
-    // porque despues le responde la alineacion de otro.
+    // porque despues le responde la alineacion de otro. Se pregunta, y se
+    // guarda entre quienes dudaba para entender la respuesta.
+    const candidatos = hallados.slice(0, 6).map((p) => ({ tag: p.player_tag, nombre: p.nombre_actual }));
+    await guardarSoyPendiente(admin, quien.id, candidatos);
     return (
       `Hay ${hallados.length} con ese nombre:\n` +
-      hallados.slice(0, 6).map((p) => `• ${esc(p.nombre_actual)}`).join('\n') +
-      `\n\nEscríbelo completo para saber cuál eres.`
+      listaNumerada(candidatos, esc) +
+      `\n\n¿Cuál eres? Contesta con el número (<code>1</code>), o con el nombre completo. ` +
+      `Si las ${candidatos.length === 2 ? 'dos' : candidatos.length} cuentas son tuyas, dime <b>las ${candidatos.length === 2 ? 'dos' : candidatos.length}</b>.`
     );
   }
 
-  const p = hallados[0];
-  await admin
-    .from('tg_vinculos')
-    .upsert(
-      { tg_user_id: quien.id, player_tag: p.player_tag, tg_nombre: quien.nombre ?? null },
-      { onConflict: 'tg_user_id' }
-    );
+  return await atar([hallados[0]].map((p) => ({ tag: p.player_tag, nombre: p.nombre_actual })), quien, { solo });
+}
 
-  return `Anotado: tú eres <b>${esc(p.nombre_actual)}</b>. Ya te reconozco. 📜`;
+/**
+ * Ata las cuentas elegidas y lo dice. Con `solo`, quita las demas; si no,
+ * se suman a las que ya tenia.
+ */
+async function atar(elegidas, quien, { solo = false } = {}) {
+  const antes = solo ? [] : await tagsDe(admin, quien.id);
+  const tags = await vincular(admin, { tgId: quien.id, tgNombre: quien.nombre ?? null, tags: elegidas.map((e) => e.tag), reemplazar: solo });
+  await olvidarSoyPendiente(admin, quien.id);
+
+  const nombres = elegidas.map((e) => `<b>${esc(e.nombre)}</b>`);
+  const lista = nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}` : nombres[0];
+  const nuevas = elegidas.filter((e) => !antes.includes(e.tag)).length;
+  if (nuevas === 0) return `Ya te tenía anotado como ${lista}, mi hermano. 📜`;
+  if (antes.length && tags.length > elegidas.length) {
+    const { data: todas } = await admin.from('players').select('nombre_actual').in('player_tag', tags);
+    const nombresTodas = (todas ?? []).map((p) => `<b>${esc(p.nombre_actual)}</b>`).join(', ');
+    return (
+      `Anotado: también eres ${lista}. Ahora te reconozco con ${tags.length} cuentas: ${nombresTodas}. 📜\n` +
+      `Si alguna no es tuya, dime <code>/soy solo TuNombre</code>.`
+    );
+  }
+  return elegidas.length > 1
+    ? `Anotado: tú eres ${lista}. Ya te reconozco con las ${elegidas.length === 2 ? 'dos' : elegidas.length} cuentas. 📜`
+    : `Anotado: tú eres ${lista}. Ya te reconozco. 📜`;
+}
+
+/**
+ * Si esta persona tiene un /soy a medias ("¿cual de los dos eres?"),
+ * intenta leer su respuesta y atar lo elegido. Null si no hay nada
+ * pendiente o no se entiende (y entonces el mensaje sigue su camino).
+ */
+async function contestarSoy(texto, quien) {
+  const candidatos = await soyPendiente(admin, quien.id);
+  if (!candidatos) return null;
+  const elegidas = interpretarEleccion(texto, candidatos);
+  if (!elegidas.length) return null;
+  return await atar(elegidas, quien);
 }
 
 /**
@@ -908,25 +981,31 @@ async function cmdSoy(arg, quien) {
  * enlace para entrar al clan.
  */
 async function cmdMiClan(quien) {
-  const { data: vinculo } = await admin
-    .from('tg_vinculos')
-    .select('player_tag')
-    .eq('tg_user_id', quien.id)
-    .maybeSingle();
-
-  if (!vinculo) {
+  const tags = await jugadoresDe(quien);
+  if (!tags.length) {
     return (
       `Todavía no sé quién eres en el juego, mi hermano.\n\n` +
       `Dime <code>/soy TuNombreDelJuego</code> y te reconozco para siempre.`
     );
   }
+  // Con varias cuentas, una respuesta por cuenta, con su nombre delante.
+  if (tags.length > 1) {
+    const { data: players } = await admin.from('players').select('player_tag, nombre_actual').in('player_tag', tags);
+    const nombre = Object.fromEntries((players ?? []).map((p) => [p.player_tag, p.nombre_actual]));
+    const partes = [];
+    for (const tag of tags) partes.push(`👤 <b>${esc(nombre[tag] ?? tag)}</b>\n${await miClanDe(tag)}`);
+    return partes.join('\n\n');
+  }
+  return await miClanDe(tags[0]);
+}
 
+async function miClanDe(playerTag) {
   const temporada = temporadaActual();
   const { data: alin } = await admin
     .from('alineaciones')
     .select('clan_tag')
     .eq('temporada', temporada)
-    .eq('player_tag', vinculo.player_tag)
+    .eq('player_tag', playerTag)
     .maybeSingle();
 
   if (!alin) {
@@ -1038,26 +1117,24 @@ const rankearClan = (tabla, clan) =>
     .filter((j) => j.clan === clan && j.elegible)
     .sort((a, b) => b.estrellas - a.estrellas || b.usados - a.usados || b.prom - a.prom);
 
-/** El jugador atado a esta cuenta de Telegram, o null. */
-async function jugadorDe(quien) {
-  const { data } = await admin
-    .from('tg_vinculos')
-    .select('player_tag')
-    .eq('tg_user_id', quien.id)
-    .maybeSingle();
-  return data?.player_tag ?? null;
-}
+/** Las cuentas atadas a esta persona (la principal primero), o []. */
+const jugadoresDe = (quien) => tagsDe(admin, quien.id);
 
 const PIDE_VINCULO =
   'Todavía no sé quién eres en el juego, mi hermano.\n\n' +
   'Dime <code>/soy TuNombreDelJuego</code> y te reconozco para siempre.';
 
-/** "¿Cuánto llevo?" */
+/** "¿Cuánto llevo?" Con varias cuentas, lo de cada una. */
 async function cmdYo(quien) {
-  const tag = await jugadorDe(quien);
-  if (!tag) return PIDE_VINCULO;
-
+  const tags = await jugadoresDe(quien);
+  if (!tags.length) return PIDE_VINCULO;
   const tabla = await tablaDelMes();
+  const partes = [];
+  for (const tag of tags) partes.push(await yoDe(tag, tabla));
+  return partes.join('\n\n');
+}
+
+async function yoDe(tag, tabla) {
   const yo = tabla?.get(tag);
   if (!yo) return 'Todavía no apareces en ninguna ronda cerrada de esta CWL, asere.';
 
@@ -1084,12 +1161,17 @@ async function cmdYo(quien) {
   );
 }
 
-/** "¿Cuánto voy a cobrar?" */
+/** "¿Cuánto voy a cobrar?" Con varias cuentas, lo de cada una. */
 async function cmdCobro(quien) {
-  const tag = await jugadorDe(quien);
-  if (!tag) return PIDE_VINCULO;
-
+  const tags = await jugadoresDe(quien);
+  if (!tags.length) return PIDE_VINCULO;
   const tabla = await tablaDelMes();
+  const partes = [];
+  for (const tag of tags) partes.push(await cobroDe(tag, tabla));
+  return partes.join('\n\n');
+}
+
+async function cobroDe(tag, tabla) {
   const yo = tabla?.get(tag);
   if (!yo) return 'Todavía no apareces en ninguna ronda cerrada de esta CWL, asere.';
   if (!yo.elegible) {
