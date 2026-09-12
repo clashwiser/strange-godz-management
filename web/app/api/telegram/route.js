@@ -484,7 +484,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 ` +
         `/soy — quién eres en el juego: solo te sale la lista para tocar tu nombre; o /soy TuNombre, o /soy #TuTag (una vez por cuenta)
 ` +
-        `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini\n` +
+        `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini (una cada 3 días)\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
         `/puntos — la tabla de puntos del mes\n\n` +
         `<b>Con foto</b> (el comando va en el pie de la captura):\n` +
@@ -766,10 +766,12 @@ async function cmdReporte() {
 
 // ---------------------------------------------------------- Bases
 // El pack es contenido PAGADO. Soltar los diecisiete enlaces de golpe es
-// regalarlo: basta con que alguien reenvie el mensaje. Va de una en una y
-// con cupo diario. Ver sql/016_base_pedidos.sql.
+// regalarlo: basta con que alguien reenvie el mensaje. Va de una en una:
+// una base cada CADA_DIAS dias por persona (antes era una al dia y Cris lo
+// subio a tres el 12 sep 2026: "que no lo agarren como relajo"). Ver
+// sql/016_base_pedidos.sql.
 
-const CUPO_DIARIO = 1;
+const CADA_DIAS = 3;
 // Tope de TODO el grupo por dia. El pack trae unas 32 bases y en el grupo
 // esta el clan entero: con una por cabeza, cuarenta personas lo vacian en
 // una tarde. Esto reparte el pack a lo largo del mes en vez de quemarlo el
@@ -779,6 +781,14 @@ const CUPO_GRUPO = 10;
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
   new Date().toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
+/** "2026-09-12" + 3 -> "2026-09-15". Dias enteros, sin horas ni zonas. */
+const sumarDias = (dia, n) => {
+  const [a, m, d] = dia.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+};
+const diasEntre = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+/** "2026-09-15" -> "15/9". */
+const fechaCorta = (dia) => `${Number(dia.slice(8, 10))}/${Number(dia.slice(5, 7))}`;
 
 /**
  * Una base al azar, con su miniatura y con lo que hay que donarle al
@@ -802,12 +812,18 @@ async function cmdBase(arg, quien) {
   const tipo = /guerra|war|cwl|wb/.test(texto) ? 'WB' : /aldea|home|hv/.test(texto) ? 'HV' : null;
 
   const hoy = diaCuba();
-  const { count: llevaHoy, error: errCupo } = await admin
+  // Su ultima base: si fue hace menos de CADA_DIAS dias, todavia no toca.
+  const { data: ultima, error: errCupo } = await admin
     .from('base_pedidos')
-    .select('id', { count: 'exact', head: true })
+    .select('dia')
     .eq('tg_user_id', quien.id)
-    .eq('dia', hoy);
+    .order('dia', { ascending: false })
+    .limit(1)
+    .maybeSingle();
   if (errCupo) throw errCupo;
+  const llevaHoy = ultima?.dia === hoy ? 1 : 0;
+  const proxima = ultima ? sumarDias(ultima.dia, CADA_DIAS) : null;
+  const leToca = !proxima || proxima <= hoy;
 
   // El tope del grupo se mira ANTES que el personal: si el pack ya se
   // repartio hoy, da igual que a esta persona le quede la suya.
@@ -823,14 +839,11 @@ async function cmdBase(arg, quien) {
     );
   }
 
-  if ((llevaHoy ?? 0) >= CUPO_DIARIO) {
-    // El texto se adapta al cupo: con CUPO_DIARIO en 1, "tus 1 bases de hoy"
-    // canta a plantilla mal hecha y el bot pierde toda la gracia.
-    const cuantas =
-      CUPO_DIARIO === 1 ? 'una base por día' : `${CUPO_DIARIO} bases por día`;
+  if (!leToca) {
+    const faltan = diasEntre(hoy, proxima);
     return (
-      `📜 Ya alcanzaste tu límite de <b>${cuantas}</b>, pipo.\n\n` +
-      `Mañana puedes pedir ${CUPO_DIARIO === 1 ? 'otra' : 'más'}.`
+      `📜 Es <b>una base cada ${CADA_DIAS} días</b> por cabeza, pipo: la tuya fue el ${fechaCorta(ultima.dia)}.\n\n` +
+      `${faltan === 1 ? 'Mañana' : `El ${fechaCorta(proxima)}`} puedes pedir otra. Mientras, monta bien la que tienes.`
     );
   }
 

@@ -22,7 +22,7 @@ Estas normas las lees antes de entrar y las aceptas al entrar. Los líderes las 
 - **No atacamos al espejo.** Se hace scouting, eliges una base a la que le puedes hacer tres estrellas, la marcas en el mapa, la estudias y la atacas. Si otro ya marcó esa base, elige otra o coordínalo en el grupo.
 - Primer ataque, a por tres estrellas en una base marcada. Segundo ataque, a cerrar lo que quedó abierto (la base más alta que aún no tenga tres).
 - No dejes los ataques para la última hora. Si sabes que atacarás tarde, dilo.
-- Planifica: pide la base de guerra a Heraldo con `/base`, busca el ataque en video, entrena en amistosas. Nadie te va a regañar por un ataque que salió mal; sí por uno que no se hizo o que se tiró sin pensar.
+- Planifica: pide la base de guerra a Heraldo con `/base` (una cada 3 días por persona; móntala bien, no la pidas por pedir), busca el ataque en video, entrena en amistosas. Nadie te va a regañar por un ataque que salió mal; sí por uno que no se hizo o que se tiró sin pensar.
 
 ## 3. Castillos de guerra y de liga
 
