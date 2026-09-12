@@ -22,6 +22,8 @@ import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
 import { tagsDe } from '../../../lib/vinculos';
 import { ordenSoy, contestarSoy as contestarSoyLib, atenderBotonSoy } from '../../../lib/soy';
+import { guerrasAbiertas } from '../../../lib/castillo-foto';
+import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
 import { avisarALideres } from '../../../lib/bots-salud';
 
@@ -350,6 +352,9 @@ export function entender(texto) {
   // "mejor" a secas no: "cual es el mejor ejercito" no pide la tabla.
   if (/(estrella|tabla|ranking|quien va gan|quien (es|va) (el )?mejor|los mejores|mejores del clan)/.test(q))
     return { comando: 'estrellas', arg: '' };
+  // "¿Estamos en guerra?": la guerra de AHORA, clan por clan, con las horas.
+  if (/(estamos en guerra|hay guerra|en guerra\b|guerra ahora|tenemos guerra|guerra hoy|cuando (es|empieza|termina|acaba|cierra) la guerra|(estado|como va|como vamos en) (de )?la guerra|contra quien|quien es el rival|dia de (preparacion|batalla)|hay liga|estamos en liga)/.test(q))
+    return { comando: 'guerra', arg: '' };
   if (/(resumen|como vamos|estado|situacion)/.test(q)) return { comando: 'resumen', arg: '' };
 
   // "pa que clan voy yo", "a donde me toca", "en que clan estoy"
@@ -473,7 +478,8 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return (
         `<b>x300 · bot de líderes</b>\n\n` +
         `/resumen — estado de los 3 clanes y de los jobs\n` +
-        `/faltan — quién no ha atacado en la CWL de ahora\n` +
+        `/guerra — qué clanes están en guerra ahora y cuánto falta\n` +
+        `/faltan — quién no ha atacado en la guerra de ahora\n` +
         `/estrellas — tabla de estrellas de la temporada\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
         `/yo — tus estrellas y ataques de esta CWL
@@ -562,6 +568,8 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return await cmdResumen();
     case 'faltan':
       return await cmdFaltan();
+    case 'guerra':
+      return await cmdGuerra(quien);
     case 'estrellas':
       return await cmdEstrellas();
     case 'jugador':
@@ -633,21 +641,44 @@ async function cmdResumen() {
   );
 }
 
+/**
+ * "¿Estamos en guerra?": la guerra de AHORA de cada clan, por la API, con
+ * las horas que faltan; y a quien pregunta, si esta en una de esas guerras,
+ * el recordatorio del castillo (que son puntos).
+ */
+async function cmdGuerra(quien) {
+  const guerras = await guerrasDeLaAlianza(admin, guerrasAbiertas);
+  const mio = await tagsDe(admin, quien.id);
+  let castilloHoy = false;
+  if (mio.length) {
+    const { data: c } = await admin
+      .from('castillos')
+      .select('id')
+      .eq('tg_user_id', quien.id)
+      .gte('creado_en', `${diaCuba()}T00:00:00-04:00`)
+      .limit(1)
+      .maybeSingle();
+    castilloHoy = Boolean(c);
+  }
+  return textoGuerrasHeraldo(guerras, { esc, mio, castilloHoy });
+}
+
 async function cmdFaltan() {
   const { data: seasons } = await admin
     .from('cwl_seasons')
     .select('id, clan_tag')
     .eq('temporada', temporadaActual());
 
-  if (!seasons?.length) return 'No hay CWL registrada para este mes.';
+  const { data: wars } = seasons?.length
+    ? await admin
+        .from('cwl_wars')
+        .select('id, ronda, estado, end_time, season_id')
+        .in('season_id', seasons.map((s) => s.id))
+        .eq('estado', 'inWar')
+    : { data: [] };
 
-  const { data: wars } = await admin
-    .from('cwl_wars')
-    .select('id, ronda, estado, end_time, season_id')
-    .in('season_id', seasons.map((s) => s.id))
-    .eq('estado', 'inWar');
-
-  if (!wars?.length) return 'No hay ninguna ronda de CWL en curso ahora mismo.';
+  // Sin ronda de liga en batalla: la guerra normal, por la API, en vivo.
+  if (!wars?.length) return await faltanEnGuerraNormal();
 
   const ids = wars.map((w) => w.id);
   const [{ data: roster }, { data: ataques }, { data: players }] = await Promise.all([
@@ -677,6 +708,35 @@ async function cmdFaltan() {
 
   return bloques.length ? `⚔️ <b>SIN ATACAR</b>\n\n${bloques.join('\n')}` : '✅ Todos atacaron.';
 }
+
+/** Quien falta por atacar en las guerras normales abiertas (API, en vivo). */
+async function faltanEnGuerraNormal() {
+  const guerras = await guerrasDeLaAlianza(admin, guerrasAbiertas);
+  const activas = guerras.filter((g) => g.estado === 'preparation' || g.estado === 'inWar');
+  if (!activas.length) return '⚔️ Ahora mismo ningún clan está en guerra, así que nadie falta por atacar.';
+  const bloques = [];
+  for (const g of activas) {
+    if (g.estado === 'preparation') {
+      bloques.push(`🛡 <b>${esc(g.clan)}</b> contra ${esc(g.rival)}: día de preparación, la batalla empieza en ${enCuantoTexto(g.empieza)}. Nadie tiene que atacar todavía.`);
+      continue;
+    }
+    if (!g.faltan.length) {
+      bloques.push(`✅ <b>${esc(g.clan)}</b> contra ${esc(g.rival)}: todos atacaron.`);
+      continue;
+    }
+    bloques.push(
+      `⚔️ <b>${esc(g.clan)}</b> contra ${esc(g.rival)} — cierra en ${enCuantoTexto(g.termina)}\n` +
+        `<pre>${g.faltan.map((m) => `${esc(m.nombre)}${m.restantes > 1 ? ` (${m.restantes})` : ''}`).join('\n')}</pre>`
+    );
+  }
+  return `<b>SIN ATACAR</b>\n\n${bloques.join('\n\n')}`;
+}
+
+/** "5 h" o "40 min" desde ahora. */
+const enCuantoTexto = (iso) => {
+  const min = Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 60_000));
+  return min >= 60 ? `${Math.round(min / 60)} h` : `${min} min`;
+};
 
 async function cmdEstrellas() {
   const { data: seasons } = await admin
@@ -843,7 +903,7 @@ async function cmdBase(arg, quien) {
     const faltan = diasEntre(hoy, proxima);
     return (
       `📜 Es <b>una base cada ${CADA_DIAS} días</b> por cabeza, pipo: la tuya fue el ${fechaCorta(ultima.dia)}.\n\n` +
-      `${faltan === 1 ? 'Mañana' : `El ${fechaCorta(proxima)}`} puedes pedir otra. Mientras, monta bien la que tienes.`
+      `${faltan === 1 ? 'Mañana' : `El ${fechaCorta(proxima)}`} puedes pedir otra. Mientras, usa la que tienes.`
     );
   }
 

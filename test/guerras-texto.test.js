@@ -62,3 +62,25 @@ test('registro de guerra privado: se dice, no se da por "sin guerra"', () => {
   assert.match(s, /ningún clan está en guerra \(x300\)/);
   assert.match(s, /No puedo ver la guerra normal de Cuba: registro de guerra privado/);
 });
+
+test('Heraldo: "¿estamos en guerra?" con la fase, las horas y el recordatorio del castillo', async () => {
+  const { textoGuerrasHeraldo } = await import('../web/lib/guerras.js');
+  const ahora = Date.parse('2026-09-12T20:00:00Z');
+  const g = [
+    { clan: 'x300', estado: 'preparation', liga: false, rival: 'Canadian Elite', empieza: '2026-09-13T02:48:02.000Z', faltan: [], miembros: ['#L9P88U'] },
+    { clan: 'STRANGE WORLD', estado: 'notInWar' },
+    { clan: 'Cuba', estado: 'privado' },
+  ];
+  const mio = textoGuerrasHeraldo(g, { mio: ['#L9P88U'], ahora });
+  assert.match(mio, /x300.*día de preparación.*empieza en <b>7 h<\/b>/);
+  assert.match(mio, /¿Ya donaste tu castillo\?/);
+  assert.match(mio, /Sin guerra: STRANGE WORLD/);
+  assert.match(mio, /Cuba: registro de guerra privado/);
+  const otro = textoGuerrasHeraldo(g, { mio: [], ahora });
+  assert.match(otro, /Los que están en guerra: donen el castillo/);
+  const anotado = textoGuerrasHeraldo(g, { mio: ['#L9P88U'], castilloHoy: true, ahora });
+  assert.match(anotado, /Tu castillo de hoy ya está anotado/);
+  const nada = textoGuerrasHeraldo([{ clan: 'x300', estado: 'notInWar' }], { ahora });
+  assert.match(nada, /ningún clan está en guerra/);
+  assert.ok(!/castillo/.test(nada));
+});

@@ -8,7 +8,7 @@
 
 import { admin } from '../../../lib/supabase-admin';
 import { guerrasAbiertas } from '../../../lib/castillo-foto';
-import { estadoDelClan } from '../../../lib/guerras';
+import { guerrasDeLaAlianza } from '../../../lib/guerras';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -26,12 +26,6 @@ export async function GET(request) {
   const lider = await quienLlama(request);
   if (!lider) return Response.json({ ok: false, error: 'no autorizado' }, { status: 401 });
 
-  const { data: clans } = await admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra');
-  const guerras = await Promise.all(
-    (clans ?? []).map(async (c) => {
-      const { abiertas, privado } = await guerrasAbiertas(c.clan_tag);
-      return estadoDelClan(c, abiertas, { privado });
-    })
-  );
+  const guerras = await guerrasDeLaAlianza(admin, guerrasAbiertas);
   return Response.json({ ok: true, ahora: new Date().toISOString(), guerras });
 }
