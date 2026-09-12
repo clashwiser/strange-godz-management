@@ -66,6 +66,21 @@ export async function vincular(admin, { tgId, tgNombre = null, tags, reemplazar 
   return [...yaEstan, ...aInsertar.map((f) => f.player_tag)];
 }
 
+/**
+ * Quita cuentas a una persona ("me equivoqué"). Si se va la principal y
+ * quedan otras, la mas antigua pasa a principal. Devuelve las que quedan.
+ */
+export async function desvincular(admin, { tgId, tags }) {
+  const quitar = [...new Set(tags.filter(Boolean))];
+  if (!tgId || !quitar.length) return tagsDe(admin, tgId);
+  await admin.from('tg_vinculos').delete().eq('tg_user_id', tgId).in('player_tag', quitar);
+  const quedan = await cuentasDe(admin, tgId);
+  if (quedan.length && !quedan.some((c) => c.principal)) {
+    await admin.from('tg_vinculos').update({ principal: true }).eq('tg_user_id', tgId).eq('player_tag', quedan[0].player_tag);
+  }
+  return quedan.map((c) => c.player_tag);
+}
+
 // ---------- El /soy a medias ----------
 
 export async function guardarSoyPendiente(admin, tgId, candidatos) {
@@ -114,8 +129,11 @@ const ORDINAL = { primer: 1, primera: 1, primero: 1, segunda: 2, segundo: 2, ter
  *   "DR STRANGE~❤️" (o casi)           -> esa, si solo casa con una
  * Devuelve [] si no se entiende.
  */
-export function interpretarEleccion(texto, candidatos) {
-  if (!Array.isArray(candidatos) || !candidatos.length) return [];
+export function interpretarEleccion(texto, candidatosTodos) {
+  // Las que ya se ataron van en la lista solo para poder deshacerlas ("me
+  // equivoque"); no son opciones.
+  const candidatos = Array.isArray(candidatosTodos) ? candidatosTodos.filter((c) => !c.atada) : [];
+  if (!candidatos.length) return [];
   const crudo = suave(texto).replace(/^(yo soy|soy)\s+/, '');
   if (!crudo) return [];
   // "las dos", "la otra": antes de quitar articulos, que ahi son parte de la frase.
@@ -142,6 +160,9 @@ export function interpretarEleccion(texto, candidatos) {
   if (!buscado) return [];
   const exacto = candidatos.filter((c) => plano(c.nombre) === buscado);
   if (exacto.length === 1) return exacto;
+  // Escrito igualito que una ya atada: no es una eleccion nueva (y que no
+  // se cuele la otra por contener el nombre).
+  if (candidatosTodos.some((c) => c.atada && plano(c.nombre) === buscado)) return [];
   const dentro = candidatos.filter((c) => {
     const n = plano(c.nombre);
     return n.length >= 3 && buscado.length >= 3 && (n.includes(buscado) || buscado.includes(n));

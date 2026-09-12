@@ -63,3 +63,11 @@ test('a una cuenta ofrecida vale un "si", pero a una pregunta no', () => {
   }
   assert.deepEqual(interpretarEleccion('si', c), []);
 });
+
+test('lo recien atado no es una opcion: solo sirve para deshacerlo', () => {
+  const lista = [{ ...c[0], atada: true }, { ...c[1], ofrecida: true }];
+  assert.deepEqual(interpretarEleccion('1', lista).map((x) => x.tag), ['#B'], 'el 1 es la primera OPCION, no la atada');
+  assert.deepEqual(interpretarEleccion('si', lista).map((x) => x.tag), ['#B']);
+  assert.deepEqual(interpretarEleccion('DR STRANGE~❤️', lista), []);
+  assert.deepEqual(interpretarEleccion('las dos', [{ ...c[0], atada: true }]), []);
+});

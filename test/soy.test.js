@@ -78,3 +78,10 @@ test('el boton de otra persona no hace nada: se le dice que escriba /soy', async
   assert.equal(llamadas[0].metodo, 'answerCallbackQuery');
   assert.match(llamadas[0].cuerpo.text, /otra persona/);
 });
+
+test('despues de atar hay boton de "me equivoque", y deshace lo recien atado', async () => {
+  const { botonesDespues } = await import('../web/lib/soy.js');
+  const filas = botonesDespues(7);
+  assert.equal(filas[1][0].callback_data, 'soy:u:7');
+  assert.match(filas[1][0].text, /equivoqué/);
+});

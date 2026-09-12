@@ -15,7 +15,7 @@
 
 import { plano, planoLaxo, parecidos } from './nombres.js';
 import { pedirPerfil } from './coc-perfil.js';
-import { tagsDe, vincular, guardarSoyPendiente, olvidarSoyPendiente, soyPendiente, interpretarEleccion } from './vinculos.js';
+import { tagsDe, vincular, desvincular, guardarSoyPendiente, olvidarSoyPendiente, soyPendiente, interpretarEleccion } from './vinculos.js';
 
 /** Un tag del juego: #, y letras/numeros del alfabeto de Supercell (la O se escribe como 0). */
 export const esTag = (s) => {
@@ -115,8 +115,11 @@ export const botonesCandidatos = (candidatos, uid) => [
   [{ text: '✖️ Cerrar', callback_data: dato('soy', 'x', uid) }],
 ];
 
-export const botonesDespues = (uid) => [
+export const botonesDespues = (uid, { deshacer = true } = {}) => [
   [{ text: '➕ Tengo otra cuenta', callback_data: dato('soy', 'm', uid) }, { text: '✔️ Listo', callback_data: dato('soy', 'x', uid) }],
+  // Con cincuenta nombres en la lista, un dedo se va: que se pueda deshacer
+  // ahi mismo, sin buscar a un lider.
+  ...(deshacer ? [[{ text: '↩️ Me equivoqué, no soy ese', callback_data: dato('soy', 'u', uid) }]] : []),
 ];
 
 // ---------- Textos ----------
@@ -177,10 +180,9 @@ export async function ordenSoy(admin, arg, quien, esc) {
   }
 
   const p = exactos.length === 1 ? exactos[0] : hallados[0];
-  const r = await atar(admin, [comoCandidato(p)], quien, esc, { solo });
-  const otras = hallados.filter((x) => x !== p).slice(0, 5).map((x) => ({ ...comoCandidato(x), ofrecida: true }));
-  if (otras.length && !solo) {
-    await guardarSoyPendiente(admin, uid, otras);
+  const otras = solo ? [] : hallados.filter((x) => x !== p).slice(0, 5).map((x) => ({ ...comoCandidato(x), ofrecida: true }));
+  const r = await atar(admin, [comoCandidato(p)], quien, esc, { solo, ofrecidas: otras });
+  if (otras.length) {
     r.texto +=
       `\n\nVi ${otras.length === 1 ? 'otra cuenta parecida' : 'otras cuentas parecidas'}: ${otras.map((o) => `<b>${esc(o.nombre)}</b>`).join(', ')}. ` +
       `Si ${otras.length === 1 ? 'también es tuya' : 'también son tuyas'}, dime <b>también</b>.`;
@@ -193,10 +195,12 @@ export async function ordenSoy(admin, arg, quien, esc) {
  * Ata las cuentas elegidas y arma la respuesta (texto y botones de
  * "otra cuenta" / "listo"). Con `solo`, quita las demas.
  */
-export async function atar(admin, elegidas, quien, esc, { solo = false } = {}) {
+export async function atar(admin, elegidas, quien, esc, { solo = false, ofrecidas = [] } = {}) {
   const antes = solo ? [] : await tagsDe(admin, quien.id);
   const tags = await vincular(admin, { tgId: quien.id, tgNombre: quien.nombre ?? null, tags: elegidas.map((e) => e.tag), reemplazar: solo });
-  await olvidarSoyPendiente(admin, quien.id);
+  // Queda pendiente lo recien atado (por si dice "me equivoque") y lo que
+  // se le ofrecio (por si dice "tambien").
+  await guardarSoyPendiente(admin, quien.id, [...ofrecidas, ...elegidas.map((e) => ({ tag: e.tag, nombre: e.nombre, atada: true }))]);
 
   const nombres = elegidas.map((e) => `<b>${esc(e.nombre)}</b>`);
   const lista = nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}` : nombres[0];
@@ -290,9 +294,23 @@ export async function atenderBotonSoy(admin, cq, { tg, esc }) {
     return;
   }
   if (accion === 'a') {
-    const candidatos = await soyPendiente(admin, uid);
-    if (!candidatos) return await editar('Eso ya caducó, mi hermano. Escribe /soy otra vez.', null);
+    const candidatos = (await soyPendiente(admin, uid))?.filter((c) => !c.atada);
+    if (!candidatos?.length) return await editar('Eso ya caducó, mi hermano. Escribe /soy otra vez.', null);
     const r = await atar(admin, candidatos, quien, esc);
     await editar(r.texto, r.botones);
+    return;
+  }
+  if (accion === 'u') {
+    // "Me equivoque": se quitan las que acaba de atar y vuelve a la lista.
+    const atadas = (await soyPendiente(admin, uid))?.filter((c) => c.atada) ?? [];
+    if (!atadas.length) return await editar('No tengo nada reciente que deshacer, mi hermano. Si una cuenta no es tuya, dime <code>/soy solo TuNombre</code>.', null);
+    const quedan = await desvincular(admin, { tgId: uid, tags: atadas.map((a) => a.tag) });
+    await olvidarSoyPendiente(admin, uid);
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const quitadas = atadas.map((a) => `<b>${esc(a.nombre)}</b>`).join(', ');
+    await editar(
+      `Sin problema: quité ${quitadas}.${quedan.length ? '' : ' Ya no tienes ninguna cuenta atada.'}\n\n` + TEXTO.elegirClan(nombreVisible),
+      botonesClanes(clans ?? [], uid)
+    );
   }
 }
