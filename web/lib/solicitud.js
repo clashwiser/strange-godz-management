@@ -29,12 +29,12 @@ import {
   PRUEBA,
   banderasRespuestas,
   resumenRespuestas,
-} from './aspirante';
-import { pedirPerfil } from './coc-perfil';
-import { entenderValquiria, cuantosEsperan } from './charla-valquiria';
-import { pensar, thDe } from './pensar';
-import { esPreguntaDelJuego } from './conocimiento';
-import { leccionPara, reglasDelClan } from './entrenamiento';
+} from './aspirante.js';
+import { pedirPerfil } from './coc-perfil.js';
+import { entenderValquiria, cuantosEsperan } from './charla-valquiria.js';
+import { pensar, thDe } from './pensar.js';
+import { esPreguntaDelJuego } from './conocimiento.js';
+import { leccionPara, reglasDelClan } from './entrenamiento.js';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
