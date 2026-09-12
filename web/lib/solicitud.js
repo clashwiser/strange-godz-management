@@ -35,15 +35,13 @@ import { entenderValquiria, cuantosEsperan } from './charla-valquiria.js';
 import { pensar, thDe } from './pensar.js';
 import { esPreguntaDelJuego } from './conocimiento.js';
 import { leccionPara, reglasDelClan } from './entrenamiento.js';
+import { grupoActual } from './grupo.js';
+import { admin as db } from './supabase-admin.js';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.app').replace(/\/$/, '');
 
-/** El grupo de la comunidad: el id negativo de la lista blanca. */
-const GRUPO = (process.env.TELEGRAM_CHAT_ID || '')
-  .split(',')
-  .map((s) => s.trim())
-  .find((x) => x.startsWith('-'));
+// El grupo se le pide a grupo.js (grupoActual): el del env puede quedarse viejo.
 
 export const esc = (s) =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -65,6 +63,9 @@ export const esc = (s) =>
 // mandarlo a una puerta que ella no atiende.
 const VOZ = {
   recluta: {
+    lider: (nombre) =>
+      `⚔️ Listo, ${nombre}: eres administrador del grupo. Por aquí te reenvío los videos de los aspirantes; ` +
+      `las solicitudes te las manda Heraldo. Y si quieres preguntarme algo del juego, aquí estoy.`,
     deCasa:
       'Tú ya eres de casa, mi cielo. Aquí solo atiendo a los que quieren entrar; ' +
       'para lo demás tienes a Heraldo en el grupo.',
@@ -117,6 +118,9 @@ const VOZ = {
       `No es un examen, mi vida; es para saber en qué guerra ponerte.`,
   },
   heraldo: {
+    lider: (nombre) =>
+      `📯 Listo, ${nombre}: eres administrador del grupo. Por aquí te llegan en privado las solicitudes nuevas, ` +
+      `los avisos del cerebro y el parte de los lunes. Lo demás, en el grupo.`,
     deCasa:
       'Tú ya eres de casa, mi hermano. Escríbeme en el grupo, que aquí solo atiendo a los que quieren entrar.',
     saludo:
@@ -173,10 +177,13 @@ const NO = /\b(no|nel|negativo|equivocado|ese no|otro)\b/i;
 
 /** Lo pregunta Heraldo, que es el que esta en el grupo. Falla cerrado. */
 export async function esAdminDelGrupo(uid) {
-  if (!HERALDO || !GRUPO || !uid) return false;
+  if (!HERALDO || !uid) return false;
   try {
+    // El grupo que vale ahora (grupo.js): si cambio de id, el nuevo.
+    const grupo = await grupoActual(db);
+    if (!grupo) return false;
     const r = await fetch(
-      `https://api.telegram.org/bot${HERALDO}/getChatMember?chat_id=${GRUPO}&user_id=${uid}`
+      `https://api.telegram.org/bot${HERALDO}/getChatMember?chat_id=${grupo}&user_id=${uid}`
     );
     const j = await r.json();
     return ['creator', 'administrator'].includes(j?.result?.status);
@@ -338,6 +345,25 @@ export async function flujoSolicitud(admin, msg, texto, via) {
     .eq('tg_user_id', uid)
     .maybeSingle();
 
+  // Un lider (administrador del grupo) no solicita nada, tenga o no una
+  // solicitud de antes: Deibis toco /start en Heraldo y le salio la
+  // entrevista porque su fila se creo un minuto antes de hacerlo admin, y
+  // Carlos tenia la de cuando probo la entrevista. Se borra esa fila y se le
+  // dice para que sirve este chat. Es una llamada a Telegram, asi que se
+  // mira solo cuando hace falta: sin fila, con /start, o con una fila que
+  // no esta esperando a los lideres (esas son aspirantes de verdad).
+  const nombre = esc(msg.from?.first_name ?? (via === 'recluta' ? 'mi cielo' : 'mi hermano'));
+  const esStart = /^\/start\b/i.test(texto);
+  const mirarAdmin = Boolean(texto) && (!sol || esStart || !['pendiente', 'prueba'].includes(sol.estado));
+  const esAdmin = mirarAdmin ? await esAdminDelGrupo(uid) : false;
+  // Con Valquiria un lider puede charlar: el chat se le presenta solo al
+  // abrirlo (/start) o al limpiarle una solicitud vieja; con Heraldo, que
+  // en privado no conversa, siempre.
+  if (esAdmin && (sol || esStart || via !== 'recluta')) {
+    if (sol) await admin.from('solicitudes').delete().eq('tg_user_id', uid);
+    return v.lider(nombre);
+  }
+
   // Primera vez que escribe.
   if (!sol) {
     if (!texto) return null;
@@ -350,7 +376,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
       .eq('tg_user_id', uid)
       .limit(1)
       .maybeSingle();
-    if (atado || (await esAdminDelGrupo(uid))) {
+    if (atado || esAdmin) {
       // Los de casa no solicitan, pero con Valquiria pueden hablar: tiene
       // cerebro para eso. Con Heraldo en privado no, que lo suyo es el grupo.
       if (via !== 'recluta') return v.deCasa;
@@ -632,9 +658,11 @@ function elegirHeroe(perfil) {
  * en una variable de entorno que hay que acordarse de tocar.
  */
 async function avisarLideres(sol, via) {
-  if (!HERALDO || !GRUPO) return;
+  if (!HERALDO) return;
+  const grupo = await grupoActual(db);
+  if (!grupo) return;
   const res = await fetch(
-    `https://api.telegram.org/bot${HERALDO}/getChatAdministrators?chat_id=${GRUPO}`
+    `https://api.telegram.org/bot${HERALDO}/getChatAdministrators?chat_id=${grupo}`
   );
   const j = await res.json();
   const admins = (j?.result ?? []).filter((a) => !a.user?.is_bot);

@@ -66,18 +66,21 @@ export async function saludDelBot(clave) {
  * privado cuando algo falla. Solo llega a los que alguna vez le dieron a
  * Start; a los demas Telegram no deja escribirles, y se ignora.
  */
-export async function administradoresDelGrupo() {
+export async function administradoresDelGrupo(grupo = GRUPO) {
   const token = BOTS.heraldo.token();
-  if (!token || !GRUPO) return [];
-  const r = await tg(token, 'getChatAdministrators', { chat_id: GRUPO });
+  if (!token || !grupo) return [];
+  const r = await tg(token, 'getChatAdministrators', { chat_id: grupo });
   return (r.result ?? []).map((m) => m.user).filter((u) => u && !u.is_bot);
 }
 
-/** Manda un texto (HTML) en privado a cada administrador. Devuelve a cuantos llego. */
-export async function avisarALideres(texto) {
+/**
+ * Manda un texto (HTML) en privado a cada administrador. Devuelve a cuantos
+ * llego. `grupo` por si el id del env ya no vale (grupo.js).
+ */
+export async function avisarALideres(texto, { grupo = GRUPO } = {}) {
   const token = BOTS.heraldo.token();
   let llegaron = 0;
-  for (const u of await administradoresDelGrupo()) {
+  for (const u of await administradoresDelGrupo(grupo)) {
     const r = await tg(token, 'sendMessage', { chat_id: u.id, text: texto, parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
     if (r.ok) llegaron += 1;
   }

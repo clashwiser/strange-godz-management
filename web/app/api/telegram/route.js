@@ -22,6 +22,8 @@ import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
 import { plano as planoNombre } from '../../../lib/nombres';
 import { tagsDe, vincular, guardarSoyPendiente, soyPendiente, olvidarSoyPendiente, interpretarEleccion, listaNumerada } from '../../../lib/vinculos';
+import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
+import { avisarALideres } from '../../../lib/bots-salud';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -127,9 +129,20 @@ export async function POST(request) {
 
   if (!chatId) return Response.json({ ok: true });
 
+  // Los chats permitidos AHORA: los del env, mas el grupo si cambio de id
+  // (Telegram lo convierte en supergrupo y le cambia el id; ver grupo.js).
+  const permitidos = await chatsPermitidos(admin);
+  const migracion = migracionDe(msg, permitidos);
+  if (migracion) {
+    await anotarMigracion(admin, migracion.nuevo);
+    console.log(`[grupo] migrado: ${migracion.viejo} -> ${migracion.nuevo}`);
+    await avisarALideres(AVISO_MIGRACION(migracion.nuevo), { grupo: migracion.nuevo });
+    return Response.json({ ok: true });
+  }
+
   // Sin "PERMITIDOS.length &&": la lista vacia ya se rechaza arriba con 503,
   // asi que aca un chat que no este en la lista blanca siempre se corta.
-  if (!PERMITIDOS.includes(String(chatId))) {
+  if (!permitidos.includes(String(chatId))) {
     // La rendija: un desconocido, EN PRIVADO, solo puede pedir entrar. Ni
     // un comando, ni un dato del clan, ni una base. Ver flujoSolicitud.
     // Sin exigir texto: en el paso del video llega un archivo, y la

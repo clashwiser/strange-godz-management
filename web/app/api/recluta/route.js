@@ -38,6 +38,7 @@ import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, recordarMensaje } from '../../../lib/castillos';
 import { fotoDe } from '../../../lib/castillo-foto';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
+import { grupoActual, migracionDe, anotarMigracion } from '../../../lib/grupo';
 
 export const dynamic = 'force-dynamic';
 // Vercel corta las funciones a los 10 segundos por defecto. Con la IA de
@@ -100,7 +101,15 @@ export async function POST(request) {
   }
 
   // ---- En un grupo: solo en el nuestro ----
-  if (String(chatId) !== String(GRUPO)) return Response.json({ ok: true });
+  // El que vale ahora (grupo.js): si Telegram le cambio el id al grupo, el
+  // nuevo. El aviso a los lideres lo da Heraldo; aqui solo se anota.
+  const grupo = await grupoActual(admin);
+  const migracion = migracionDe(msg, grupo ? [String(grupo)] : []);
+  if (migracion) {
+    await anotarMigracion(admin, migracion.nuevo);
+    return Response.json({ ok: true });
+  }
+  if (String(chatId) !== String(grupo)) return Response.json({ ok: true });
 
   // Alguien entro. La bienvenida la da ELLA -es la que elige quien entra,
   // asi que es la que recibe- y sale con su video saludando. Heraldo se
