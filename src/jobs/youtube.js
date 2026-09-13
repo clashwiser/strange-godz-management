@@ -17,6 +17,7 @@ import { db, chk, correrJob } from '../lib/db.js';
 import { encolar } from '../lib/outbox.js';
 import { ajuste, apagado } from '../lib/config.js';
 import { miniaturasYoutube } from '../lib/telegram.js';
+import { directoDe, textoVideo } from '../../web/lib/youtube-texto.js';
 
 const LLAVE = process.env.YOUTUBE_API_KEY;
 const SECO = process.argv.includes('--seco') || process.env.YOUTUBE_SECO === '1';
@@ -121,11 +122,23 @@ await correrJob('youtube', async () => {
       continue;
     }
 
+    // Si alguno es un directo (en vivo o programado) lo dice videos.list,
+    // no la playlist: una llamada (1 unidad) con todos los ids. Si falla,
+    // se anuncian como videos, que es lo que eran hasta hoy.
+    try {
+      const j = await api(`videos?part=snippet,liveStreamingDetails&id=${nuevos.map((v) => v.videoId).join(',')}`);
+      for (const it of j.items ?? []) {
+        const v = nuevos.find((x) => x.videoId === it.id);
+        if (!v) continue;
+        if (it.snippet?.title) v.titulo = it.snippet.title;
+        Object.assign(v, directoDe(it));
+      }
+    } catch (e) {
+      console.log(`  ${canal.nombre}: sin detalle de directos (${e.message})`);
+    }
+
     for (const v of nuevos) {
-      const cuerpo =
-        `${v.etiqueta}  *${v.canal}*\n\n` +
-        `${v.titulo}\n\n` +
-        `https://www.youtube.com/watch?v=${v.videoId}`;
+      const cuerpo = textoVideo(v);
 
       if (SECO) {
         console.log(`\n----- ${v.canal} -----\n${cuerpo}\n`);

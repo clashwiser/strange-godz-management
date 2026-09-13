@@ -19,6 +19,7 @@
 
 import { admin } from '../../../lib/supabase-admin';
 import { ajusteWeb } from '../../../lib/entrenamiento';
+import { tituloDeEntrada, directoDe, textoVideo } from '../../../lib/youtube-texto';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,11 @@ export async function GET(request) {
   });
 }
 
-/** Saca el primer valor de una etiqueta del Atom que manda YouTube. */
+/**
+ * Saca el primer valor de una etiqueta del Atom que manda YouTube. OJO: el
+ * feed trae un <title> propio ("YouTube video feed") antes del de la
+ * entrada; para el titulo del video esta tituloDeEntrada.
+ */
 const etiqueta = (xml, nombre) =>
   (new RegExp(`<${nombre}>([^<]*)</${nombre}>`).exec(xml) || [])[1] ?? null;
 
@@ -80,7 +85,10 @@ export async function POST(request) {
 
   const videoId = etiqueta(xml, 'yt:videoId');
   const canalId = etiqueta(xml, 'yt:channelId');
-  const titulo = etiqueta(xml, 'title');
+  let titulo = tituloDeEntrada(xml);
+  // Si es un directo (en vivo o programado): lo dice la API, no el Atom.
+  let directo = 'none';
+  let empieza = null;
 
   // Un aviso sin video es un borrado o un cambio de titulo: se ignora.
   if (!videoId || !canalId) return new Response('', { status: 204 });
@@ -99,25 +107,29 @@ export async function POST(request) {
   if (LLAVE) {
     try {
       const r = await fetch(
-        `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${encodeURIComponent(videoId)}&key=${LLAVE}`,
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=${encodeURIComponent(videoId)}&key=${LLAVE}`,
         { signal: AbortSignal.timeout(10000) }
       );
       const j = await r.json();
-      const real = j.items?.[0]?.snippet;
+      const item = j.items?.[0];
+      const real = item?.snippet;
       if (!real || real.channelId !== canalId) {
         console.log(`[youtube] ${videoId} no existe o no es de ${canalId}`);
         return new Response('', { status: 204 });
       }
+      // El titulo de la API manda: es el que se ve en YouTube.
+      if (real.title) titulo = real.title;
+      ({ directo, empieza } = directoDe(item));
     } catch (e) {
       console.log(`[youtube] no se pudo verificar ${videoId}: ${e.message}`);
       return new Response('', { status: 204 });
     }
   }
 
-  const cuerpo =
-    `${canal.etiqueta}  <b>${esc(canal.nombre)}</b>\n\n` +
-    `${esc(titulo ?? 'Video nuevo')}\n\n` +
-    `https://www.youtube.com/watch?v=${videoId}`;
+  const cuerpo = textoVideo(
+    { etiqueta: canal.etiqueta, canal: canal.nombre, titulo, videoId, directo, empieza },
+    { b: (s) => `<b>${s}</b>`, esc }
+  );
 
   // Al outbox con la MISMA clave que usa el cron: si por lo que sea los dos
   // ven el mismo video, solo sale una vez.
