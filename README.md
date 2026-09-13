@@ -309,3 +309,7 @@ escribe en Supabase.
 - **GitHub desactiva cron tras 60 dias sin actividad en el repo.** El workflow de snapshot
   commitea un `.heartbeat` diario para evitarlo. Si aun asi lo desactivan, llega un mail y se
   reactiva con un click.
+
+---
+
+© 2026 Praxiflux · Todos los derechos reservados. Ver [LICENSE](LICENSE).

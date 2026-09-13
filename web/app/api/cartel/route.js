@@ -232,6 +232,11 @@ function Cartel({ mes, premios, fondoUri }) {
         )}
       </div>
 
+      {/* El credito, discreto, abajo a la derecha */}
+      <div style={{ position: 'absolute', right: 26, bottom: 16, display: 'flex', fontFamily: 'Open Sans', fontWeight: 800, fontSize: 15, color: 'rgba(243,230,204,0.75)' }}>
+        © {new Date().getFullYear()} Praxiflux · Management OS
+      </div>
+
       {/* El pie, sobre la piedra */}
       <div style={{ position: 'absolute', left: 0, top: 1428, width: ANCHO, display: 'flex', justifyContent: 'center' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 34px', borderRadius: 16, background: 'rgba(12,6,4,0.78)', border: `2px solid ${ORO_HONDO}` }}>

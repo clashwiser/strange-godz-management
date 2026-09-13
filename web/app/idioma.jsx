@@ -902,6 +902,8 @@ export const EN = {
   'Parte de CWL': 'CWL report',
   'Video de YouTube': 'YouTube video',
   'Medallas de CWL': 'CWL medals',
+  // ---- Logs y Telegram de jugadores (sep 2026) ----
+  'Todos los derechos reservados.': 'All rights reserved.',
 };
 
 const Ctx = createContext({ idioma: 'es', setIdioma: () => {}, t: (s) => s });
@@ -963,13 +965,20 @@ export function useT() {
 export function AvisoLegal() {
   const t = useT();
   return (
-    <p className="aviso-legal">
-      {t('Este material no está creado ni respaldado por Supercell. Para más información, consulta la')}{' '}
-      <a href="https://supercell.com/en/fan-content-policy/" target="_blank" rel="noopener noreferrer">
-        {t('Política de Contenido de Fans')}
-      </a>{' '}
-      {t('de Supercell.')}
-    </p>
+    <>
+      <p className="aviso-legal">
+        {t('Este material no está creado ni respaldado por Supercell. Para más información, consulta la')}{' '}
+        <a href="https://supercell.com/en/fan-content-policy/" target="_blank" rel="noopener noreferrer">
+          {t('Política de Contenido de Fans')}
+        </a>{' '}
+        {t('de Supercell.')}
+      </p>
+      {/* La obra es de Praxiflux: el aviso de derechos va en todas las
+          paginas (panel, demo, entrada, normas). */}
+      <p className="aviso-legal copyright">
+        © {new Date().getFullYear()} <b>Praxiflux</b> · Management OS · {t('Todos los derechos reservados.')}
+      </p>
+    </>
   );
 }
 
