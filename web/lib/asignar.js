@@ -21,9 +21,17 @@ const corto = (s) => (String(s).length > MAX_BOTON ? String(s).slice(0, MAX_BOTO
 
 // ---------- Quien escribe en el grupo, apuntado para poder mencionarlo ----------
 
+// Para no escribir en la base con cada mensaje del grupo: a cada persona
+// se la apunta como mucho una vez cada diez minutos por instancia.
+const vistos = new Map();
+const CADA_MS = 10 * 60_000;
+
 /** Apunta (o refresca) a quien acaba de escribir. Nunca falla hacia fuera. */
 export async function anotarUsuario(admin, from) {
   if (!from?.id || from.is_bot) return;
+  const clave = `${from.id}|${from.username ?? ''}|${from.first_name ?? ''}`;
+  if (Date.now() - (vistos.get(clave) ?? 0) < CADA_MS) return;
+  vistos.set(clave, Date.now());
   try {
     await admin
       .from('tg_usuarios')

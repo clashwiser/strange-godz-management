@@ -25,6 +25,7 @@ import { plano as planoNombre } from '../../../lib/nombres';
 import { pedirPerfil } from '../../../lib/coc-perfil';
 import { ordenSoy, contestarSoy as contestarSoyLib, atenderBotonSoy } from '../../../lib/soy';
 import { ordenAsignar, atenderBotonAsignar, anotarUsuario } from '../../../lib/asignar';
+import { consultar } from '../../../lib/consulta';
 import { guerrasAbiertas } from '../../../lib/castillo-foto';
 import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
@@ -835,10 +836,12 @@ async function cmdEstrellas() {
   const { data: wars } = await admin.from('cwl_wars').select('id, season_id').in('season_id', seasons.map((x) => x.id));
   if (!wars?.length) return 'Todavía no hay rondas guardadas.';
 
-  const [{ data: ataques }, { data: players }, { data: clans }] = await Promise.all([
-    admin.from('cwl_attacks').select('war_id, player_tag, estrellas, destruccion_pct').in('war_id', wars.map((w) => w.id)),
-    admin.from('players').select('player_tag, nombre_actual'),
-    admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'),
+  // Con reintento y error visible: una vez salio la tabla con tags en vez
+  // de nombres porque la consulta de jugadores fallo en silencio.
+  const [ataques, players, clans] = await Promise.all([
+    consultar(() => admin.from('cwl_attacks').select('war_id, player_tag, estrellas, destruccion_pct').in('war_id', wars.map((w) => w.id)), 'ataques'),
+    consultar(() => admin.from('players').select('player_tag, nombre_actual'), 'jugadores'),
+    consultar(() => admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'), 'clanes'),
   ]);
 
   const nombre = Object.fromEntries((players ?? []).map((p) => [p.player_tag, p.nombre_actual]));

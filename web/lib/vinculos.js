@@ -10,6 +10,7 @@
 // Eso se guarda en soy_pendientes hasta que conteste (media hora).
 
 import { plano, parecidos } from './nombres.js';
+import { consultar } from './consulta.js';
 
 /** Cuanto se espera la respuesta a "¿cual de los dos eres?". */
 const PENDIENTE_MIN = 30;
@@ -17,15 +18,12 @@ const PENDIENTE_MIN = 30;
 /** Las cuentas atadas a esta persona, la principal primero. */
 export async function cuentasDe(admin, tgId) {
   if (!tgId) return [];
-  const { data, error } = await admin
-    .from('tg_vinculos')
-    .select('player_tag, principal, creado_en')
-    .eq('tg_user_id', tgId)
-    .order('principal', { ascending: false })
-    .order('creado_en', { ascending: true });
-  // Si la consulta falla, que se note: "sin cuentas" por un fallo de la
-  // base le dio a Cris el limite de otra persona el 12 sep 2026.
-  if (error) throw new Error(`tg_vinculos: ${error.message}`);
+  // Con reintento y error visible: "sin cuentas" por un fallo pasajero de
+  // la base le dio a Cris el limite de otra persona el 12 sep 2026.
+  const data = await consultar(
+    () => admin.from('tg_vinculos').select('player_tag, principal, creado_en').eq('tg_user_id', tgId).order('principal', { ascending: false }).order('creado_en', { ascending: true }),
+    'tg_vinculos'
+  );
   return data ?? [];
 }
 
