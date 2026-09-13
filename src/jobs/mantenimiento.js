@@ -17,19 +17,19 @@ import { grupoTelegram } from '../lib/config.js';
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SECO = process.argv.includes('--seco');
 
-// A lo que se va Valquiria mientras tanto: en la foto le esta limpiando
-// la corneta a Heraldo con un trapito, asi que las frases van por ahi.
-// Una cada vez, para que el aviso no sea siempre el mismo.
-const VALQUIRIA_SE_VA = [
-  'a limpiarme la corneta con un trapito, que dice que suena mejor así',
-  'a sacarle brillo a mi corneta, que según ella suena a lata',
-  'a limpiarme la corneta, con el cuervo vigilando que no se la lleve nadie',
-  'a frotar la corneta con un trapito hasta que se vea en ella',
+// Lo que hace Valquiria mientras tanto: en la foto le esta limpiando la
+// corneta a Heraldo con un trapito, y el aviso dice eso (lo pidio Cris).
+// Con una coletilla distinta cada vez, para que no sea siempre igual.
+const VALQUIRIA_MIENTRAS = [
+  'me va a limpiar la corneta 🎺',
+  'me va a limpiar la corneta, que según ella suena a lata 🎺',
+  'me va a limpiar la corneta con un trapito, con el cuervo de supervisor 🎺',
+  'me va a limpiar la corneta; dice que después suena a victoria 🎺',
 ];
 
 const escoger = (lista) => lista[Math.floor(Math.random() * lista.length)];
 
-export function textoMantenimiento(valquiria = escoger(VALQUIRIA_SE_VA)) {
+export function textoMantenimiento(valquiria = escoger(VALQUIRIA_MIENTRAS)) {
   return (
     `🔧 <b>Estamos en mantenimiento.</b>\n\n` +
     `Cris nos tiene en el taller arreglándonos un par de cosas. Si ven mensajes de prueba o un comando contesta raro, es eso: no le hagan caso.\n\n` +
