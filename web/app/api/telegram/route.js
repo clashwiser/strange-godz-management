@@ -27,6 +27,7 @@ import { ordenSoy, contestarSoy as contestarSoyLib, atenderBotonSoy } from '../.
 import { ordenAsignar, atenderBotonAsignar, anotarUsuario } from '../../../lib/asignar';
 import { consultar } from '../../../lib/consulta';
 import { contactosDe, textoContactos } from '../../../lib/contactos';
+import { atenderBotonNuevo } from '../../../lib/nuevos';
 import { guerrasAbiertas } from '../../../lib/castillo-foto';
 import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
@@ -193,6 +194,8 @@ async function atenderCallback(cq) {
       await atenderBotonSoy(admin, cq, { tg, esc });
   } else if (String(cq.data ?? '').startsWith('base:')) {
     await atenderBotonBase(cq);
+  } else if (String(cq.data ?? '').startsWith('nm:')) {
+    await atenderBotonNuevo(admin, TOKEN, cq);
   } else if (String(cq.data ?? '').startsWith('asg:')) {
     const tg = (metodo, cuerpo) =>
       fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {

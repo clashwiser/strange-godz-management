@@ -38,6 +38,7 @@ import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, recordarMensaje } from '../../../lib/castillos';
 import { fotoDe } from '../../../lib/castillo-foto';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
+import { atenderBotonNuevo } from '../../../lib/nuevos';
 import { grupoActual, migracionDe, anotarMigracion } from '../../../lib/grupo';
 
 export const dynamic = 'force-dynamic';
@@ -63,55 +64,6 @@ const GRUPO = (process.env.TELEGRAM_CHAT_ID || '')
   .map((x) => x.trim())
   .find((x) => x.startsWith('-'));
 
-/**
- * "nm:casa:<id>" / "nm:visita:<id>" / "nm:nose:<id>": un lider dice que es
- * el miembro nuevo del clan por el que pregunto Valquiria. Solo
- * administradores del grupo. Se anota, se contesta el callback y se edita
- * el mensaje tocado; los avisos gemelos (grupo y privados) se editan
- * tambien para que nadie conteste dos veces.
- */
-async function atenderBotonNuevo(cq) {
-  const tg = (metodo, cuerpo) =>
-    fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(8000) })
-      .then((r) => r.json())
-      .catch(() => ({ ok: false }));
-  const [, accion, idCrudo] = String(cq.data ?? '').split(':');
-  const id = Number(idCrudo);
-  if (!(await esAdminDelGrupo(cq.from?.id))) {
-    await tg('answerCallbackQuery', { callback_query_id: cq.id, text: 'Eso lo deciden los líderes, mi cielo.' });
-    return;
-  }
-  await tg('answerCallbackQuery', { callback_query_id: cq.id });
-  const { data: fila } = await admin.from('miembros_vistos').select('id, nombre, clan_tag, estado, avisos').eq('id', id).maybeSingle();
-  if (!fila) return;
-  const quien = esc(cq.from.first_name || cq.from.username || 'un líder');
-  const nombre = esc(fila.nombre ?? '?');
-  let texto;
-  if (accion === 'casa') {
-    await admin.from('miembros_vistos').update({ estado: 'de_casa', decidido_por: cq.from.first_name ?? String(cq.from.id), decidido_en: new Date().toISOString() }).eq('id', id);
-    texto = `🏠 <b>${nombre}</b> es de casa — lo dijo ${quien}. Cuando entre al grupo, preséntenlo con <code>/asignar</code> y listo.`;
-  } else if (accion === 'visita') {
-    await admin.from('miembros_vistos').update({ estado: 'visita', decidido_por: cq.from.first_name ?? String(cq.from.id), decidido_en: new Date().toISOString() }).eq('id', id);
-    texto = `👀 <b>${nombre}</b> es solo un visitante — lo dijo ${quien}. No pregunto más por él.`;
-  } else {
-    texto = `❓ ${quien} todavía no sabe qué es <b>${nombre}</b>. Sigo esperando; en un rato recuerdo.`;
-  }
-  // El mensaje tocado y sus gemelos, ya sin botones (salvo el "no se", que sigue abierto).
-  const avisos = Array.isArray(fila.avisos) ? fila.avisos : [];
-  const propio = { chat_id: cq.message?.chat?.id, message_id: cq.message?.message_id };
-  const todos = [propio, ...avisos.filter((a) => !(String(a.chat_id) === String(propio.chat_id) && a.message_id === propio.message_id))];
-  for (const a of todos) {
-    if (!a.chat_id || !a.message_id) continue;
-    await tg('editMessageText', {
-      chat_id: a.chat_id,
-      message_id: a.message_id,
-      text: texto,
-      parse_mode: 'HTML',
-      reply_markup: accion === 'nose' ? cq.message?.reply_markup ?? { inline_keyboard: [] } : { inline_keyboard: [] },
-    });
-  }
-}
-
 export async function POST(request) {
   // Falla cerrado, igual que el de Heraldo: sin variables, inerte.
   if (!TOKEN || !SECRETO) return new Response('bot de reclutar sin configurar', { status: 503 });
@@ -132,7 +84,7 @@ export async function POST(request) {
   if (update.callback_query) {
     const cq = update.callback_query;
     try {
-      if (String(cq.data ?? '').startsWith('nm:')) await atenderBotonNuevo(cq);
+      if (String(cq.data ?? '').startsWith('nm:')) await atenderBotonNuevo(admin, TOKEN, cq);
       else await atenderBoton(admin, TOKEN, cq, 'recluta');
     } catch (e) {
       console.error(`[boton] ${e.message}`);

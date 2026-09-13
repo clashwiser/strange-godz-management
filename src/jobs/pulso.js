@@ -29,7 +29,10 @@ import { encolar, negrita } from '../lib/outbox.js';
 import { db, chk, correrJob } from '../lib/db.js';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
-const VALQUIRIA = process.env.RECLUTA_BOT_TOKEN;
+// Pregunta Valquiria; si a GitHub le falta su token (RECLUTA_BOT_TOKEN),
+// pregunta Heraldo antes que quedarse callado. Los botones los atiende el
+// bot que mando el mensaje (web/lib/nuevos.js, en las dos rutas).
+const VALQUIRIA = process.env.RECLUTA_BOT_TOKEN || HERALDO;
 // El grupo que vale ahora (config manda sobre el env; ver config.js).
 let GRUPO = null;
 
@@ -230,8 +233,9 @@ await correrJob('pulso', async () => {
   const avisos = await avisarGuerras(lista);
   console.log(`guerras por empezar: ${avisos} aviso(s)`);
   let preguntas = 0;
+  if (!process.env.RECLUTA_BOT_TOKEN) console.log('sin RECLUTA_BOT_TOKEN: pregunta Heraldo en vez de Valquiria');
   if (VALQUIRIA && GRUPO) preguntas = await vigilarMiembros(lista);
-  else console.log('sin RECLUTA_BOT_TOKEN o grupo: no se vigilan miembros nuevos');
+  else console.log('sin token de bot o sin grupo: no se vigilan miembros nuevos');
   console.log(`miembros nuevos: ${preguntas} pregunta(s)`);
   return { filas: avisos + preguntas, detalle: { avisos, preguntas } };
 });
