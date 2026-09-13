@@ -123,9 +123,12 @@ const botonesDe = (id) => ({
   inline_keyboard: [
     [
       { text: '🏠 Es de casa', callback_data: `nm:casa:${id}` },
-      { text: '👀 Solo visita', callback_data: `nm:visita:${id}` },
+      { text: '🆕 Es nuevo, se queda', callback_data: `nm:nuevo:${id}` },
     ],
-    [{ text: '❓ Todavía no sé', callback_data: `nm:nose:${id}` }],
+    [
+      { text: '👀 Solo visita', callback_data: `nm:visita:${id}` },
+      { text: '❓ Todavía no sé', callback_data: `nm:nose:${id}` },
+    ],
   ],
 });
 
@@ -140,7 +143,7 @@ function textoNuevo(fila, nombreClan, admins) {
   const quienes = admins.map(mencion).join(', ');
   return (
     `👀 ${quienes}: acaba de entrar <b>${esc(fila.nombre ?? fila.player_tag)}</b>${fila.th ? ` (TH${fila.th})` : ''} al clan <b>${esc(nombreClan)}</b>, y no lo tenía visto.\n\n` +
-    `¿Ya hablaron con él para traerlo aquí, o es solo un visitante? Díganmelo con un botón.`
+    `¿Es de casa, es nuevo y viene a quedarse, o es solo un visitante? Díganmelo con un botón.`
   );
 }
 

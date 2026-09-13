@@ -2228,7 +2228,7 @@ create table if not exists miembros_vistos (
   nombre        text,
   th            int,
   primera_vez   timestamptz not null default now(),
-  estado        text not null default 'pendiente',  -- conocido | pendiente | de_casa | visita | sin_respuesta
+  estado        text not null default 'pendiente',  -- conocido | pendiente | de_casa | nuevo | visita | sin_respuesta
   avisos        jsonb,                              -- [{chat_id, message_id}] de las preguntas mandadas
   recordado_en  timestamptz,
   decidido_por  text,

@@ -38,6 +38,9 @@ export async function atenderBotonNuevo(admin, token, cq) {
   if (accion === 'casa') {
     await admin.from('miembros_vistos').update({ estado: 'de_casa', ...decidido }).eq('id', id);
     texto = `🏠 <b>${nombre}</b> es de casa — lo dijo ${quien}. Cuando entre al grupo, preséntenlo con <code>/asignar</code> y listo.`;
+  } else if (accion === 'nuevo') {
+    await admin.from('miembros_vistos').update({ estado: 'nuevo', ...decidido }).eq('id', id);
+    texto = `🆕 <b>${nombre}</b> es nuevo y viene a quedarse — lo dijo ${quien}. Pásenle el enlace del grupo; cuando entre lo recibo yo, y ustedes lo presentan con <code>/asignar</code>.`;
   } else if (accion === 'visita') {
     await admin.from('miembros_vistos').update({ estado: 'visita', ...decidido }).eq('id', id);
     texto = `👀 <b>${nombre}</b> es solo un visitante — lo dijo ${quien}. No pregunto más por él.`;
