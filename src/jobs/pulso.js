@@ -214,15 +214,18 @@ async function vigilarMiembros(lista) {
       continue;
     }
     if (horas >= RECORDAR_H && !p.recordado_en) {
-      const enGrupo = (p.avisos ?? []).find((a) => String(a.chat_id) === String(GRUPO));
-      await tg(VALQUIRIA, 'sendMessage', {
+      const avisos = Array.isArray(p.avisos) ? p.avisos : [];
+      const enGrupo = avisos.find((a) => String(a.chat_id) === String(GRUPO));
+      const r = await tg(VALQUIRIA, 'sendMessage', {
         chat_id: GRUPO,
-        text: `⏳ ${admins.map(mencion).join(', ')}: sigo esperando por <b>${esc(p.nombre ?? p.player_tag)}</b>. ¿De casa o de visita?`,
+        text: `⏳ ${admins.map(mencion).join(', ')}: sigo esperando por <b>${esc(p.nombre ?? p.player_tag)}</b>. ¿De casa, nuevo que se queda, o de visita?`,
         parse_mode: 'HTML',
         reply_markup: botonesDe(p.id),
         ...(enGrupo ? { reply_parameters: { message_id: enGrupo.message_id } } : {}),
       });
-      await db.from('miembros_vistos').update({ recordado_en: new Date().toISOString() }).eq('id', p.id);
+      // El recordatorio tambien es un aviso: cuando contesten, se edita con los demas.
+      if (r.ok) avisos.push({ chat_id: Number(GRUPO), message_id: r.result.message_id });
+      await db.from('miembros_vistos').update({ recordado_en: new Date().toISOString(), avisos }).eq('id', p.id);
     }
   }
   return preguntas;
