@@ -41,3 +41,28 @@ test('textoVideo: video normal, directo en vivo y directo programado', () => {
   assert.match(prog, /⏰ <b>Directo programado: .*13 sept.*8:00.*<\/b>\nBOTINAZOS/);
   assert.match(textoVideo({ ...v, titulo: '' }), /\n\nVideo nuevo\n\n/);
 });
+
+test('el segundo aviso: que hacer con cada directo programado', async () => {
+  const { decidirDirectos, PACIENCIA_H } = await import('../web/lib/youtube-directos.js');
+  const { textoYaEmpezo } = await import('../web/lib/youtube-texto.js');
+  const ahora = Date.parse('2026-09-14T00:30:00Z');
+  const pendientes = {
+    vivo: { canal: 'Gonca Clash', etiqueta: '🇪🇸 En español', titulo: 'Directazo', empieza: '2026-09-14T00:00:00Z' },
+    espera: { canal: 'Gonca Clash', etiqueta: '🇪🇸 En español', titulo: 'Mañana', empieza: '2026-09-14T20:00:00Z' },
+    viejo: { canal: 'Gonca Clash', etiqueta: '🇪🇸 En español', titulo: 'Nunca arrancó', empieza: '2026-09-13T00:00:00Z' },
+    termino: { canal: 'Gonca Clash', etiqueta: '🇪🇸 En español', titulo: 'Ya fue', empieza: '2026-09-13T20:00:00Z' },
+    borrado: { canal: 'Gonca Clash', etiqueta: '🇪🇸 En español', titulo: 'Se borró', empieza: null },
+  };
+  const items = [
+    { id: 'vivo', snippet: { liveBroadcastContent: 'live' } },
+    { id: 'espera', snippet: { liveBroadcastContent: 'upcoming' }, liveStreamingDetails: { scheduledStartTime: '2026-09-14T20:00:00Z' } },
+    { id: 'viejo', snippet: { liveBroadcastContent: 'upcoming' }, liveStreamingDetails: { scheduledStartTime: '2026-09-13T00:00:00Z' } },
+    { id: 'termino', snippet: { liveBroadcastContent: 'none' } },
+  ];
+  assert.ok(PACIENCIA_H >= 6);
+  const d = decidirDirectos(pendientes, items, ahora);
+  assert.deepEqual(d.avisar, ['vivo']);
+  assert.deepEqual(d.olvidar.sort(), ['borrado', 'termino', 'viejo', 'vivo']);
+  const t = textoYaEmpezo({ ...pendientes.vivo, videoId: 'vivo' });
+  assert.equal(t, '🇪🇸 En español  *Gonca Clash*\n\n🔴 *¡Ya empezó el directo!*\nDirectazo\n\nhttps://www.youtube.com/watch?v=vivo');
+});

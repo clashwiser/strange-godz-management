@@ -3,6 +3,7 @@ name: Pulso
 # Cada cinco minutos (GitHub lo corre cuando puede; a veces diez tarde):
 #   - Heraldo avisa cuando la guerra esta por empezar (~10 min antes).
 #   - Valquiria pregunta a los lideres por los miembros nuevos de los clanes.
+#   - Heraldo avisa cuando un directo de YouTube programado ya empezo.
 # Ver src/jobs/pulso.js. En un repo publico los minutos de Actions son
 # ilimitados; el job tarda menos de un minuto.
 
@@ -28,6 +29,7 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       RECLUTA_BOT_TOKEN: ${{ secrets.RECLUTA_BOT_TOKEN }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

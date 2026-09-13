@@ -27,6 +27,9 @@ import { getClan, getCurrentWar, getLeagueGroup, getLeagueWar, parseCocDate, opc
 import { clanes, grupoTelegram } from '../lib/config.js';
 import { encolar, negrita } from '../lib/outbox.js';
 import { db, chk, correrJob } from '../lib/db.js';
+import { miniaturasYoutube } from '../lib/telegram.js';
+import { textoYaEmpezo } from '../../web/lib/youtube-texto.js';
+import { directosProgramados, decidirDirectos, olvidarDirectos } from '../../web/lib/youtube-directos.js';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
 // Pregunta Valquiria; si a GitHub le falta su token (RECLUTA_BOT_TOKEN),
@@ -231,6 +234,45 @@ async function vigilarMiembros(lista) {
   return preguntas;
 }
 
+// ---------------------------------------------------------------- 3. Directos de YouTube
+
+/**
+ * Los directos que Heraldo anuncio como programados: cuando la API dice
+ * que ya estan en vivo, el segundo aviso. Una llamada a videos.list (1
+ * unidad) solo cuando hay alguno pendiente.
+ */
+async function vigilarDirectos() {
+  const LLAVE = process.env.YOUTUBE_API_KEY;
+  const pendientes = await directosProgramados(db);
+  const ids = Object.keys(pendientes);
+  if (!ids.length) return 0;
+  if (!LLAVE) {
+    console.log(`sin YOUTUBE_API_KEY: ${ids.length} directo(s) programado(s) sin vigilar`);
+    return 0;
+  }
+  const r = await fetch(
+    `https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=${ids.join(',')}&key=${LLAVE}`,
+    { signal: AbortSignal.timeout(20000) }
+  );
+  const j = await r.json();
+  if (!r.ok) throw new Error(`YouTube ${r.status}: ${j?.error?.message ?? ''}`);
+  const { avisar, olvidar } = decidirDirectos(pendientes, j.items ?? []);
+  let avisos = 0;
+  for (const id of avisar) {
+    const p = pendientes[id];
+    const nuevo = await encolar({
+      tipo: 'youtube',
+      cuerpo: textoYaEmpezo({ ...p, videoId: id }),
+      clave: `yt:${id}:live`,
+      pose: 'corneta',
+      fotos: miniaturasYoutube(id),
+    });
+    if (nuevo) avisos += 1;
+  }
+  await olvidarDirectos(db, olvidar);
+  return avisos;
+}
+
 // ---------------------------------------------------------------- El job
 
 await correrJob('pulso', async () => {
@@ -243,5 +285,12 @@ await correrJob('pulso', async () => {
   if (VALQUIRIA && GRUPO) preguntas = await vigilarMiembros(lista);
   else console.log('sin token de bot o sin grupo: no se vigilan miembros nuevos');
   console.log(`miembros nuevos: ${preguntas} pregunta(s)`);
-  return { filas: avisos + preguntas, detalle: { avisos, preguntas } };
+  let directos = 0;
+  try {
+    directos = await vigilarDirectos();
+  } catch (e) {
+    console.log(`directos de YouTube: ${e.message}`);
+  }
+  console.log(`directos que empezaron: ${directos} aviso(s)`);
+  return { filas: avisos + preguntas + directos, detalle: { avisos, preguntas, directos } };
 });

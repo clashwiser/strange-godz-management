@@ -70,3 +70,9 @@ export function textoVideo(v, { b = (s) => `*${s}*`, esc = (s) => s } = {}) {
   }
   return `${cab}\n\n${titulo}\n\n${url}`;
 }
+
+/** El segundo aviso de un directo programado: ya esta en vivo. */
+export function textoYaEmpezo(v, { b = (s) => `*${s}*`, esc = (s) => s } = {}) {
+  const titulo = esc(v.titulo || 'Directo');
+  return `${v.etiqueta}  ${b(esc(v.canal))}\n\n🔴 ${b('¡Ya empezó el directo!')}\n${titulo}\n\nhttps://www.youtube.com/watch?v=${v.videoId}`;
+}

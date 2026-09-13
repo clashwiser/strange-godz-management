@@ -18,6 +18,7 @@ import { encolar } from '../lib/outbox.js';
 import { ajuste, apagado } from '../lib/config.js';
 import { miniaturasYoutube } from '../lib/telegram.js';
 import { directoDe, textoVideo } from '../../web/lib/youtube-texto.js';
+import { anotarDirectoProgramado } from '../../web/lib/youtube-directos.js';
 
 const LLAVE = process.env.YOUTUBE_API_KEY;
 const SECO = process.argv.includes('--seco') || process.env.YOUTUBE_SECO === '1';
@@ -154,6 +155,8 @@ await correrJob('youtube', async () => {
         fotos: miniaturasYoutube(v.videoId),
       });
       if (nuevo) mandados += 1;
+      // Un directo programado se apunta para que el pulso avise cuando empiece.
+      if (nuevo && v.directo === 'upcoming') await anotarDirectoProgramado(db, v);
     }
 
     if (!SECO) {

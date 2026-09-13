@@ -20,6 +20,7 @@
 import { admin } from '../../../lib/supabase-admin';
 import { ajusteWeb } from '../../../lib/entrenamiento';
 import { tituloDeEntrada, directoDe, textoVideo } from '../../../lib/youtube-texto';
+import { anotarDirectoProgramado } from '../../../lib/youtube-directos';
 
 export const dynamic = 'force-dynamic';
 
@@ -147,6 +148,13 @@ export async function POST(request) {
   }
   // Ya estaba: lo anuncio el cron o un aviso repetido del hub.
   if (!data?.length) return new Response('', { status: 204 });
+
+  // Un directo programado se apunta para que el pulso avise cuando empiece.
+  if (directo === 'upcoming') {
+    await anotarDirectoProgramado(admin, { videoId, canal: canal.nombre, etiqueta: canal.etiqueta, titulo, empieza }).catch((e) =>
+      console.log(`[youtube] no pude apuntar el directo programado: ${e.message}`)
+    );
+  }
 
   // Con la miniatura del video delante: la grande solo existe si el video
   // se subio en HD, la hq existe siempre. Si ninguna carga, Heraldo con la
