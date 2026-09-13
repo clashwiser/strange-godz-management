@@ -837,9 +837,32 @@ export function Jugadores({ d, recargar }) {
 }
 
 // ------------------------------------------------------------- Mensajes
+//
+// Dos bandejas. Lo que generan los lideres desde el panel (la lista de
+// CWL, los premios, una felicitacion, las normas) espera a que alguien lo
+// apruebe y lo mande; lo que escriben los robots (avisos de guerra y CWL,
+// el parte diario, los videos) sale solo por Heraldo y aqui queda como
+// historial. Mezclados, nadie sabia que era que.
+const POR_APROBAR = new Set(['alineacion_cwl', 'premios_del_mes', 'felicitacion', 'reglas']);
+const NOMBRE_TIPO = {
+  alineacion_cwl: 'Lista CWL',
+  premios_del_mes: 'Premios del mes',
+  felicitacion: 'Felicitación',
+  reglas: 'Normas',
+  alerta_cwl: 'Aviso de CWL',
+  alerta_guerra: 'Aviso de guerra',
+  cwl_heraldo: 'Parte de CWL',
+  youtube: 'Video de YouTube',
+  medallas_cwl: 'Medallas de CWL',
+};
+
 export function Mensajes({ d, recargar }) {
   const t = useT();
   const [copiado, setCopiado] = useState(null);
+  const pendientesAprobar = (d.outbox ?? []).filter((m) => POR_APROBAR.has(m.tipo) && m.estado === 'pendiente').length;
+  // Se abre en la bandeja que tiene trabajo.
+  const [bandeja, setBandeja] = useState(pendientesAprobar ? 'aprobar' : 'notificaciones');
+  const mensajes = (d.outbox ?? []).filter((m) => (bandeja === 'aprobar' ? POR_APROBAR.has(m.tipo) : !POR_APROBAR.has(m.tipo)));
   const [enviando, setEnviando] = useState(null);
   const [err, setErr] = useState('');
   const [borrando, setBorrando] = useState(null);
@@ -946,14 +969,26 @@ export function Mensajes({ d, recargar }) {
 
   return (
     <>
+      <div className="bandejas">
+        <button className={bandeja === 'aprobar' ? 'bandeja on' : 'bandeja'} onClick={() => setBandeja('aprobar')}>
+          ✍️ {t('Por aprobar')}
+          {pendientesAprobar ? <span className="bandeja-num">{pendientesAprobar}</span> : null}
+        </button>
+        <button className={bandeja === 'notificaciones' ? 'bandeja on' : 'bandeja'} onClick={() => setBandeja('notificaciones')}>
+          🎺 {t('Notificaciones')}
+        </button>
+      </div>
       <p className="sub" style={{ color: 'var(--tenue)' }}>
-        {t('Dale a Enviar y Heraldo lo publica en el grupo, o cópialo y pégalo tú.')}
+        {bandeja === 'aprobar'
+          ? t('Lo que preparan los líderes (la lista de CWL, los premios, felicitaciones, las normas). No sale hasta que alguien le da a Enviar, o lo copia y lo pega.')
+          : t('Lo que Heraldo manda solo (avisos de guerra y CWL, el parte diario, los videos). Aquí queda el historial; si uno falló, se puede reenviar.')}
       </p>
       <p className="sub" style={{ color: 'var(--tenue)', fontSize: 12, marginTop: -6 }}>
         {t('Para borrar uno: arrástralo a la derecha o usa la papelera.')}
       </p>
       {err && <p className="error">{err}</p>}
-      {d.outbox.map((m) => (
+      {!mensajes.length && <p className="vacio">{bandeja === 'aprobar' ? t('Nada por aprobar.') : t('Sin notificaciones todavía.')}</p>}
+      {mensajes.map((m) => (
         // La caja de fuera no se mueve: dentro va la tarjeta, que se desliza
         // y deja ver el rojo de debajo. Sin envoltorio, la tarjeta al
         // desplazarse se saldria del ancho y empujaria la pagina de lado.
@@ -983,7 +1018,7 @@ export function Mensajes({ d, recargar }) {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <strong>{m.tipo}</strong>
+            <strong title={m.tipo}>{t(NOMBRE_TIPO[m.tipo] ?? m.tipo)}</strong>
             <span className={`pill ${m.estado === 'enviado' || m.estado === 'copiado' ? 'ok' : m.estado === 'fallido' ? 'mal' : 'aviso'}`}>
               {m.estado}
             </span>

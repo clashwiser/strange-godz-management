@@ -652,8 +652,12 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return await cmdEstrellas();
     case 'premios':
     case 'bonus':
-    case 'bonos':
+    case 'bonos': {
+      // El cartel (lo dibuja /api/cartel con los premios del mes) y,
+      // debajo, la lista en texto. Si la foto no sale, queda la lista.
+      if (chatId) await responder(chatId, { foto: `${SITIO}/api/cartel?mes=${temporadaActual()}`, pie: `🏆 Premios de ${temporadaActual()}` });
       return await cmdPremios();
+    }
     case 'contacto':
     case 'contactos':
     case 'lideres':

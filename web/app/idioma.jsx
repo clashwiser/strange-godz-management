@@ -885,6 +885,23 @@ export const EN = {
   'Rol': 'Role',
   'Id de Telegram': 'Telegram id',
   'Añadir líder': 'Add leader',
+  // ---- Logs y Telegram de jugadores (sep 2026) ----
+  'Cartel del mes': 'Poster of the month',
+  'El cartel de los premios, para compartir': 'The prizes poster, to share',
+  // ---- Logs y Telegram de jugadores (sep 2026) ----
+  'Por aprobar': 'To approve',
+  'Notificaciones': 'Notifications',
+  'Lo que preparan los líderes (la lista de CWL, los premios, felicitaciones, las normas). No sale hasta que alguien le da a Enviar, o lo copia y lo pega.': 'What leaders prepare (the CWL roster, prizes, congratulations, the rules). Nothing goes out until someone hits Send, or copies and pastes it.',
+  'Lo que Heraldo manda solo (avisos de guerra y CWL, el parte diario, los videos). Aquí queda el historial; si uno falló, se puede reenviar.': 'What Heraldo sends on its own (war and CWL alerts, the daily report, videos). This is the history; if one failed, it can be resent.',
+  'Nada por aprobar.': 'Nothing to approve.',
+  'Sin notificaciones todavía.': 'No notifications yet.',
+  'Premios del mes': 'Prizes of the month',
+  'Felicitación': 'Congratulation',
+  'Aviso de CWL': 'CWL alert',
+  'Aviso de guerra': 'War alert',
+  'Parte de CWL': 'CWL report',
+  'Video de YouTube': 'YouTube video',
+  'Medallas de CWL': 'CWL medals',
 };
 
 const Ctx = createContext({ idioma: 'es', setIdioma: () => {}, t: (s) => s });

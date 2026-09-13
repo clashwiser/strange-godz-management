@@ -323,6 +323,12 @@ export default function Bonos({ d, demo = false, recargar }) {
         <span style={{ flex: 1 }} />
         <button className="fantasma" onClick={agregar}>+ {t('Premio')}</button>
         <button className="fantasma" onClick={guardar} disabled={ocupado}>{t('Guardar')}</button>
+        {/* El cartel lo dibuja el OS con los premios guardados: lo que
+            este sin guardar no sale. Se abre aparte para bajarlo o
+            compartirlo; Heraldo lo manda solo con /premios. */}
+        <a className="fantasma" href={demo ? '/api/cartel?demo=1' : `/api/cartel?mes=${mes}`} target="_blank" rel="noreferrer" title={t('El cartel de los premios, para compartir')}>
+          🖼 {t('Cartel del mes')}
+        </a>
         <button className="accion" onClick={publicar} disabled={ocupado}>
           {t('Publicar por Telegram')}
         </button>

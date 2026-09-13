@@ -1569,3 +1569,20 @@ html.lab-activo .idioma button, html.lab-activo .temas-caja { filter: saturate(.
 .tg-editor { flex-wrap: wrap; white-space: normal; gap: 6px; }
 .tg-editor .campo { margin-top: 0; }
 .tg-editor button { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+
+/* Un enlace con pinta de boton (el cartel de los premios). */
+a.fantasma { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+
+/* ---------- Mensajes: las dos bandejas ---------- */
+.bandejas { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+.bandejas .bandeja {
+  font-family: var(--fuente); font-weight: 700; font-size: 14px; letter-spacing: .4px;
+  color: var(--barra-texto); background: linear-gradient(180deg, var(--barra-a), var(--barra-b));
+  border: 2px solid var(--marco); border-bottom-width: 4px; border-radius: 10px; padding: 8px 14px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.bandejas .bandeja.on {
+  color: #fff; background: linear-gradient(180deg, var(--accion-a) 0%, var(--accion-b) 100%);
+  border-color: var(--accion-bord); -webkit-text-stroke: 0; text-shadow: 0 1px 0 rgba(0,0,0,.35);
+}
+.bandeja-num { background: #c0392b; color: #fff; border-radius: 999px; padding: 1px 8px; font-size: 12px; -webkit-text-stroke: 0; text-shadow: none; }
