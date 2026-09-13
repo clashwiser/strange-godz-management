@@ -11,30 +11,35 @@
 // propias; ni grid, ni emoji, ni imagenes relativas.
 
 import { ImageResponse } from 'next/og';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { admin } from '../../../lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
+export const maxDuration = 30;
 
 const ANCHO = 1080;
 const ALTO = 1620;
 
-// Las fuentes y el fondo viajan con la funcion (new URL + import.meta.url
-// los empaqueta): no dependen de la red ni de que esten publicados.
-const fuentes = Promise.all([
-  fetch(new URL('./LilitaOne.woff', import.meta.url)).then((r) => r.arrayBuffer()),
-  fetch(new URL('./OpenSans-600.woff', import.meta.url)).then((r) => r.arrayBuffer()),
-  fetch(new URL('./OpenSans-800.woff', import.meta.url)).then((r) => r.arrayBuffer()),
-]);
-const fondo = fetch(new URL('./cartel-fondo.jpg', import.meta.url))
-  .then((r) => r.arrayBuffer())
-  .then((b) => {
-    // A data URI: Satori no lee archivos, solo URLs o datos en linea.
-    let bin = '';
-    const bytes = new Uint8Array(b);
-    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-    return `data:image/jpeg;base64,${btoa(bin)}`;
-  });
+// Las fuentes y el fondo se leen del disco de la funcion (Node): van en
+// esta carpeta y next.config los incluye en el paquete (outputFileTracing).
+// En Edge no cabian: el limite del plan es 1 MB y Satori solo ya pesa casi eso.
+const CARPETA = path.join(process.cwd(), 'app', 'api', 'cartel');
+const leer = (nombre) => readFile(path.join(CARPETA, nombre));
+let cacheRecursos = null;
+function recursos() {
+  cacheRecursos ??= Promise.all([leer('LilitaOne.woff'), leer('OpenSans-600.woff'), leer('OpenSans-800.woff'), leer('cartel-fondo.jpg')]).then(
+    ([lilita, open600, open800, fondoJpg]) => ({
+      lilita,
+      open600,
+      open800,
+      // A data URI: Satori no lee archivos, solo URLs o datos en linea.
+      fondoUri: `data:image/jpeg;base64,${Buffer.from(fondoJpg).toString('base64')}`,
+    })
+  );
+  return cacheRecursos;
+}
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const nombreMes = (mes) => {
@@ -280,8 +285,7 @@ export async function GET(request) {
       .order('orden');
     premios = data ?? [];
   }
-  const [lilita, open600, open800] = await fuentes;
-  const fondoUri = await fondo;
+  const { lilita, open600, open800, fondoUri } = await recursos();
   return new ImageResponse(<Cartel mes={mes} premios={premios} fondoUri={fondoUri} />, {
     width: ANCHO,
     height: ALTO,
