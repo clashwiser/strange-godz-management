@@ -77,10 +77,39 @@ test('Heraldo: "¿estamos en guerra?" con la fase, las horas y el recordatorio d
   assert.match(mio, /Sin guerra: STRANGE WORLD/);
   assert.match(mio, /Cuba: registro de guerra privado/);
   const otro = textoGuerrasHeraldo(g, { mio: [], ahora });
-  assert.match(otro, /Los que están en guerra: donen el castillo/);
+  assert.match(otro, /Los de x300: donen el castillo/);
   const anotado = textoGuerrasHeraldo(g, { mio: ['#L9P88U'], castilloHoy: true, ahora });
   assert.match(anotado, /Tu castillo de hoy ya está anotado/);
   const nada = textoGuerrasHeraldo([{ clan: 'x300', estado: 'notInWar' }], { ahora });
   assert.match(nada, /ningún clan está en guerra/);
   assert.ok(!/castillo/.test(nada));
+});
+
+test('Heraldo: en el día de batalla el castillo ya cerró y el pie habla de los ataques', async () => {
+  const { textoGuerrasHeraldo } = await import('../web/lib/guerras.js');
+  const ahora = Date.parse('2026-09-13T12:30:00Z');
+  const batalla = {
+    clan: 'x300', estado: 'inWar', liga: false, rival: 'Canadian Elite', termina: '2026-09-14T02:48:02.000Z',
+    estrellas: { nosotros: 80, ellos: 77 },
+    faltan: [{ nombre: 'Zoe', tag: '#Z1', restantes: 2 }, { nombre: 'Cris', tag: '#L9P88U', restantes: 1 }],
+    miembros: ['#L9P88U', '#Z1', '#A1'],
+  };
+  const conAtaques = textoGuerrasHeraldo([batalla], { mio: ['#L9P88U'], ahora });
+  assert.match(conAtaques, /día de batalla.*quedan <b>14 h<\/b>.*faltan <b>2<\/b> por atacar/);
+  assert.match(conAtaques, /El castillo ya cerró.*te queda <b>1<\/b> ataque/);
+  assert.ok(!/donaste tu castillo/.test(conAtaques));
+  const yaAtaco = textoGuerrasHeraldo([batalla], { mio: ['#A1'], ahora });
+  assert.match(yaAtaco, /ya atacaste con todo ✅/);
+  const dosCuentas = textoGuerrasHeraldo([batalla], { mio: ['#L9P88U', '#Z1'], ahora });
+  assert.match(dosCuentas, /entre tus 2 cuentas te quedan <b>3<\/b> ataques/);
+  const otro = textoGuerrasHeraldo([batalla], { mio: [], ahora });
+  assert.match(otro, /Ya es día de batalla: el castillo cerró.*sin atacar/);
+  assert.ok(!/donen el castillo/.test(otro));
+  // CWL: se pelea la ronda de hoy y ya se puede donar para la siguiente.
+  const cwl = { ...batalla, liga: true, siguiente: { estado: 'preparation', rival: 'Blitz', empieza: '2026-09-14T02:48:02.000Z', faltan: [], miembros: ['#A1'] } };
+  const enLaSiguiente = textoGuerrasHeraldo([cwl], { mio: ['#A1'], ahora });
+  assert.match(enLaSiguiente, /¿Ya donaste tu castillo\?/);
+  assert.match(enLaSiguiente, /ya atacaste con todo/);
+  const nadie = textoGuerrasHeraldo([cwl], { mio: [], ahora });
+  assert.match(nadie, /Los de x300: donen el castillo/);
 });

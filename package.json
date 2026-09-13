@@ -25,6 +25,8 @@
     "sql:unir": "node --env-file-if-exists=.env src/jobs/unir-sql.js",
     "meta": "node --env-file-if-exists=.env src/jobs/meta.js",
     "pulso": "node --env-file-if-exists=.env src/jobs/pulso.js",
+    "mantenimiento": "node --env-file-if-exists=.env src/jobs/mantenimiento.js",
+    "anuncio": "node --env-file-if-exists=.env src/jobs/anuncio.js",
     "cerebro:latido": "node --env-file-if-exists=.env src/jobs/cerebro-latido.js",
     "cerebro:parte": "node --env-file-if-exists=.env src/jobs/cerebro-parte.js",
     "cierre": "node --env-file-if-exists=.env src/jobs/cierre-mensual.js",

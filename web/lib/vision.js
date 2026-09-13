@@ -31,6 +31,27 @@ export const visionConfigurada = Boolean(LLAVE && URL_BASE);
 
 const diaCuba = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
 
+/**
+ * Cuenta la llamada del dia y devuelve el total (ia_contar sube y devuelve
+ * en una sola operacion). El API de Supabase falla a ratos con un 504
+ * pasajero (13 sep 2026: una captura de /fc salio con "no puedo leer la
+ * captura" sin que la IA llegara a verla): se reintenta una vez y, si
+ * sigue caido, la llamada pasa sin contarse -Groq tiene su propio tope
+ * y un bot mudo es peor- y queda dicho en el log. -1 si no se pudo contar.
+ */
+export async function contarLlamada(admin) {
+  let r = await admin.rpc('ia_contar', { p_dia: diaCuba() });
+  if (r?.error) {
+    await new Promise((x) => setTimeout(x, 400));
+    r = await admin.rpc('ia_contar', { p_dia: diaCuba() });
+  }
+  if (r?.error) {
+    console.error(`[ia] ia_contar falló dos veces (${r.error.message}); sigo sin contar`);
+    return -1;
+  }
+  return Number(r?.data) || 0;
+}
+
 // Un fallo no cuenta como llamada (migracion 023). El builder de Supabase
 // tiene then pero no catch: se espera dentro de un try.
 async function contarFallo(admin) {
@@ -67,11 +88,19 @@ export function extraerJson(texto) {
  * @param {{ base64:string, mime?:string, instrucciones:string, max_tokens?:number, timeout?:number }} p
  */
 export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000 }) {
-  if (!visionConfigurada || !base64 || !instrucciones) return null;
-  if (!(await ajusteWeb(admin, 'ia_activa', true))) return null;
-
-  const { data: n, error } = await admin.rpc('ia_contar', { p_dia: diaCuba() });
-  if (error || Number(n) > TOPE_DIA) return null;
+  if (!visionConfigurada || !base64 || !instrucciones) {
+    console.error(`[vision] sin leer: ${!visionConfigurada ? 'falta IA_LLAVE o IA_URL' : !base64 ? 'sin imagen' : 'sin instrucciones'}`);
+    return null;
+  }
+  if (!(await ajusteWeb(admin, 'ia_activa', true))) {
+    console.log('[vision] la IA está apagada desde el panel');
+    return null;
+  }
+  const n = await contarLlamada(admin);
+  if (n > TOPE_DIA) {
+    console.error(`[vision] tope del día alcanzado (${n} > ${TOPE_DIA})`);
+    return null;
+  }
 
   const messages = [
     {
@@ -142,7 +171,10 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
       const texto = String(j?.choices?.[0]?.message?.content ?? '').trim();
       // Entero, o casi: es lo que un lider mira cuando una lectura no cuadra.
       console.log(`[vision] ${modelo}: ${texto.slice(0, 1500)}`);
-      if (!texto) return null;
+      if (!texto) {
+        console.error(`[vision] ${modelo} contestó vacío (finish_reason: ${j?.choices?.[0]?.finish_reason ?? '?'})`);
+        return null;
+      }
       return { texto, json: extraerJson(texto), modelo };
     } catch (e) {
       console.error(`[vision] ${modelo} fallo la llamada: ${e?.message ?? e}`);

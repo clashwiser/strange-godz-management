@@ -16,9 +16,9 @@ const normal = {
   clan: {
     stars: 21,
     members: [
-      { name: 'Axe', attacks: [{}, {}] },
-      { name: 'davinder', attacks: [{}] },
-      { name: 'Zoe' },
+      { name: 'Axe', tag: '#A1', attacks: [{}, {}] },
+      { name: 'davinder', tag: '#D1', attacks: [{}] },
+      { name: 'Zoe', tag: '#Z1' },
     ],
   },
   opponent: { name: 'Dragones Rojos', stars: 17 },
@@ -29,7 +29,7 @@ const liga = {
   teamSize: 15,
   startTime: '20260911T183000.000Z',
   endTime: '20260912T183000.000Z',
-  clan: { stars: 30, members: [{ name: 'Axe', attacks: [{}] }, { name: 'Zoe' }] },
+  clan: { stars: 30, members: [{ name: 'Axe', tag: '#A1', attacks: [{}] }, { name: 'Zoe', tag: '#Z1' }] },
   opponent: { name: 'Nakama', stars: 28 },
 };
 
@@ -45,9 +45,10 @@ test('guerra normal: 2 ataques por cabeza, faltan ordenados por lo que les queda
   assert.equal(r.rival, 'Dragones Rojos');
   assert.deepEqual(r.estrellas, { nosotros: 21, ellos: 17 });
   assert.deepEqual(r.faltan, [
-    { nombre: 'Zoe', restantes: 2 },
-    { nombre: 'davinder', restantes: 1 },
+    { nombre: 'Zoe', tag: '#Z1', restantes: 2 },
+    { nombre: 'davinder', tag: '#D1', restantes: 1 },
   ]);
+  assert.deepEqual(r.miembros, ['#A1', '#D1', '#Z1']);
   assert.equal(r.empieza, '2026-09-11T18:30:00.000Z');
 });
 
@@ -55,7 +56,7 @@ test('ronda de liga: sin attacksPerMember es 1 ataque por cabeza', () => {
   const r = resumirGuerra(liga);
   assert.equal(r.liga, true);
   assert.equal(r.porMiembro, 1);
-  assert.deepEqual(r.faltan, [{ nombre: 'Zoe', restantes: 1 }]);
+  assert.deepEqual(r.faltan, [{ nombre: 'Zoe', tag: '#Z1', restantes: 1 }]);
 });
 
 test('sin guerras abiertas el clan esta notInWar', () => {

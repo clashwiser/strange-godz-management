@@ -36,6 +36,7 @@ import { ajusteWeb, memoriaDeLideres, digestoMeta, websMeta, glosarioJuego, regl
 import { esPreguntaDeReglas } from './reglas.js';
 import { esPreguntaDeMeta } from './conocimiento.js';
 import { investigar } from './wiki.js';
+import { contarLlamada } from './vision.js';
 
 const LLAVE = process.env.GEMINI_API_KEY;
 const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
@@ -331,9 +332,9 @@ async function pensarSinBitacora(admin, quien, pregunta, nombre = null, { buscar
   if (!(await ajusteWeb(admin, 'ia_activa', true))) return null;
 
   // El tope propio, antes de gastar la llamada. ia_contar sube el contador
-  // y devuelve el nuevo en una sola operacion.
-  const { data: n, error } = await admin.rpc('ia_contar', { p_dia: diaCuba() });
-  if (error || Number(n) > TOPE_DIA) return null;
+  // y devuelve el nuevo en una sola operacion (con reintento: vision.js).
+  const n = await contarLlamada(admin);
+  if (n > TOPE_DIA) return null;
 
   const memoria = await memoriaDeLideres(admin);
 

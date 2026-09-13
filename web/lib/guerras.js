@@ -11,7 +11,7 @@ export function resumirGuerra(g) {
   // La guerra normal trae attacksPerMember (2); la de liga no lo trae: 1.
   const porMiembro = g.attacksPerMember ?? 1;
   const faltan = (g.clan?.members ?? [])
-    .map((m) => ({ nombre: m.name, restantes: porMiembro - (m.attacks?.length ?? 0) }))
+    .map((m) => ({ nombre: m.name, tag: m.tag, restantes: porMiembro - (m.attacks?.length ?? 0) }))
     .filter((m) => m.restantes > 0)
     .sort((a, b) => b.restantes - a.restantes || a.nombre.localeCompare(b.nombre));
   return {
@@ -67,20 +67,43 @@ export function textoGuerrasHeraldo(guerras, { esc = (s) => s, mio = [], castill
   }
   if (privados.length) l.push(`🔒 ${privados.join(' y ')}: registro de guerra privado, no lo veo.`);
 
-  // El castillo: a quien esta en una guerra abierta se le recuerda lo suyo;
-  // al resto, en general. Es lo que da puntos.
-  const enGuerra = activas.filter((g) => g.miembros?.some((t) => mio.includes(t)));
-  if (enGuerra.length) {
-    l.push('');
-    l.push(
+  // El pie. El castillo se dona solo en el dia de preparacion (en CWL, el de
+  // la ronda siguiente corre mientras se pelea la de hoy: `siguiente`); en
+  // el dia de batalla ya esta cerrado y lo que cuenta son los ataques. A
+  // quien esta en una guerra abierta se le dice lo suyo; al resto, en general.
+  const estaYo = (g) => g?.miembros?.some((t) => mio.includes(t));
+  const preparando = [
+    ...activas.filter((g) => g.estado === 'preparation'),
+    ...activas.filter((g) => g.siguiente?.estado === 'preparation').map((g) => ({ ...g.siguiente, clan: g.clan })),
+  ];
+  const peleando = activas.filter((g) => g.estado === 'inWar');
+  const pie = [];
+  if (preparando.some(estaYo)) {
+    pie.push(
       castilloHoy
         ? '🏰 Tu castillo de hoy ya está anotado. 📜'
         : `🏰 <b>¿Ya donaste tu castillo?</b> Llénale el del que está debajo de ti antes del día de batalla y mándame la captura del mapa con <code>/castillo</code>: ganas <b>10 puntos</b>.`
     );
-  } else if (activas.length) {
-    l.push('');
-    l.push(`🏰 Los que están en guerra: donen el castillo del de abajo y manden la captura con <code>/castillo</code>, que son <b>10 puntos</b>.`);
   }
+  const misBatallas = peleando.filter(estaYo);
+  if (misBatallas.length) {
+    const cuentas = new Set(misBatallas.flatMap((g) => g.miembros.filter((t) => mio.includes(t)))).size;
+    const quedan = misBatallas.flatMap((g) => g.faltan.filter((m) => mio.includes(m.tag))).reduce((n, m) => n + m.restantes, 0);
+    const tuyos = cuentas > 1 ? `entre tus ${cuentas} cuentas te` : 'te';
+    pie.push(
+      quedan
+        ? `⚔️ El castillo ya cerró; ahora lo que cuenta es atacar, y ${tuyos} ${quedan === 1 ? 'queda <b>1</b> ataque' : `quedan <b>${quedan}</b> ataques`}. No lo dejes para el final.`
+        : '⚔️ El castillo ya cerró, y tú ya atacaste con todo ✅.'
+    );
+  }
+  if (!pie.length && activas.length) {
+    pie.push(
+      preparando.length
+        ? `🏰 Los de ${preparando.map((g) => esc(g.clan)).join(' y ')}: donen el castillo del de abajo y manden la captura con <code>/castillo</code>, que son <b>10 puntos</b>.`
+        : `⚔️ Ya es día de batalla: el castillo cerró, ahora lo que cuenta es que nadie se quede sin atacar (/faltan).`
+    );
+  }
+  if (pie.length) l.push('', ...pie);
   return l.join('\n');
 }
 
