@@ -26,6 +26,7 @@ import { pedirPerfil } from '../../../lib/coc-perfil';
 import { ordenSoy, contestarSoy as contestarSoyLib, atenderBotonSoy } from '../../../lib/soy';
 import { ordenAsignar, atenderBotonAsignar, anotarUsuario } from '../../../lib/asignar';
 import { consultar } from '../../../lib/consulta';
+import { contactosDe, textoContactos } from '../../../lib/contactos';
 import { guerrasAbiertas } from '../../../lib/castillo-foto';
 import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
@@ -432,6 +433,9 @@ export function entender(texto) {
   // "cuanto llevo", "como voy yo", "mis estrellas"
   if (/(cuanto llevo|como voy|mis estrellas|mis stats|mis estadisticas|mis ataques|como ando|mis numeros)/.test(q))
     return { comando: 'yo', arg: '' };
+  // Los contactos de los lideres: Telegram y WhatsApp.
+  if (/(contacto|contactos|whatsapp|wasap|numero de (cris|carlos|deibis)|como (le |les )?escribo|hablar con (un lider|los lideres|cris|carlos|deibis)|quienes son los lideres|los lideres)/.test(q))
+    return { comando: 'contacto', arg: '' };
   // Los premios del mes (el plan); lo personal ("que premio me toca") es /cobro.
   if (/(premios|bonus|bonos|reparto del mes|que se gana|cuanto (se )?paga|que hay de premio)/.test(q) && !/(me toca|voy a|cuanto gano|mi premio|mi bonus)/.test(q))
     return { comando: 'premios', arg: '' };
@@ -553,6 +557,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/faltan — quién no ha atacado en la guerra de ahora\n` +
         `/estrellas — tabla de estrellas de la CWL, por clan\n` +
         `/premios — los premios del mes (también /bonus)\n` +
+        `/contacto — el Telegram y el WhatsApp de los líderes\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
         `/yo — tus estrellas y ataques de esta CWL
 ` +
@@ -649,6 +654,11 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     case 'bonus':
     case 'bonos':
       return await cmdPremios();
+    case 'contacto':
+    case 'contactos':
+    case 'lideres':
+      // Como localizar a los lideres: Telegram (abre el chat) y WhatsApp.
+      return textoContactos(await contactosDe(admin), esc);
     case 'jugador':
       return await cmdJugador(arg);
     case 'base':
@@ -956,7 +966,7 @@ const CADA_DIAS = 3;
 // dia que llega.
 const CUPO_GRUPO = 10;
 /** Lo que un miembro puede pedirle a Heraldo en privado. */
-const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'puntos', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
+const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'contacto', 'contactos', 'lideres', 'puntos', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>

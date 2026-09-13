@@ -879,6 +879,12 @@ export const EN = {
   'Bonos pagados': 'Paid bonuses',
   'Telegram de jugadores': 'Players\' Telegram',
   'Dueños': 'Owners',
+  // ---- Logs y Telegram de jugadores (sep 2026) ----
+  'Contactos de los líderes': 'Leaders\' contacts',
+  'Lo que contesta Heraldo a /contacto: el Telegram (abre el chat) y el enlace de WhatsApp de cada líder. El @ de Telegram o, si no tiene, su id numérico. Se guarda con el botón de arriba.': 'What Heraldo answers to /contacto: each leader\'s Telegram (opens the chat) and WhatsApp link. The Telegram @ or, without one, the numeric id. Saved with the button above.',
+  'Rol': 'Role',
+  'Id de Telegram': 'Telegram id',
+  'Añadir líder': 'Add leader',
 };
 
 const Ctx = createContext({ idioma: 'es', setIdioma: () => {}, t: (s) => s });

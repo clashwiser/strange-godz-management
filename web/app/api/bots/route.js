@@ -43,6 +43,7 @@ const BOTS = {
       { command: 'guerra', description: 'Qué clanes están en guerra ahora y cuánto falta' },
       { command: 'faltan', description: 'Quién no ha atacado en la guerra de ahora' },
       { command: 'premios', description: 'Los premios de este mes' },
+      { command: 'contacto', description: 'El Telegram y el WhatsApp de los líderes' },
       { command: 'asignar', description: '(líderes) Decir quién es alguien: contesta a su mensaje y /asignar Nombre' },
       { command: 'estrellas', description: 'Tabla de estrellas de la temporada' },
       { command: 'resumen', description: 'Estado de los clanes' },

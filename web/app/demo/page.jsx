@@ -201,6 +201,7 @@ const d = {
   ],
   config: [
     { clave: 'bot_nombre',      valor: 'Heraldo' },
+    { clave: 'contactos',       valor: [{ nombre: 'Cris', rol: 'Líder', telegram: '@YHLQMDLG2', tg_id: 742056647, whatsapp: 'https://wa.me/qr/WVEABIBOBC5DP1' }, { nombre: 'Carlos', rol: 'Líder', telegram: 'Pmc', tg_id: 8319208377, whatsapp: 'https://wa.me/qr/65KZOBJGV5YIM1' }, { nombre: 'Deibis', rol: 'Líder', telegram: '@LM10viscabarsa', tg_id: 1626048117, whatsapp: '' }] },
     { clave: 'bot_firma',       valor: '— Heraldo de Strange Godz' },
     { clave: 'alerta_umbrales', valor: [6, 3, 1] },
     { clave: 'alerta_cwl',      valor: true },

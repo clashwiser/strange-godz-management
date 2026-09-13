@@ -301,6 +301,46 @@ export default function Bots({ d, demo = false, recargar }) {
         </div>
       </div>
 
+      {/* ---------- Contactos de los lideres (/contacto) ---------- */}
+      <h2 className="sec">{t('Contactos de los líderes')}</h2>
+      <div className="card">
+        <p className="sub">
+          {t('Lo que contesta Heraldo a /contacto: el Telegram (abre el chat) y el enlace de WhatsApp de cada líder. El @ de Telegram o, si no tiene, su id numérico. Se guarda con el botón de arriba.')}
+        </p>
+        <div className="tabla-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>{t('Nombre')}</th>
+                <th>{t('Rol')}</th>
+                <th>Telegram (@)</th>
+                <th>{t('Id de Telegram')}</th>
+                <th>WhatsApp (wa.me)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(cfg.contactos ?? []).map((c, i) => {
+                const pon = (campo, valor) => set('contactos', (cfg.contactos ?? []).map((x, j) => (j === i ? { ...x, [campo]: valor } : x)));
+                return (
+                  <tr key={i}>
+                    <td><input className="campo campo-corto" style={{ marginTop: 0, width: 120 }} value={c.nombre ?? ''} onChange={(e) => pon('nombre', e.target.value)} /></td>
+                    <td><input className="campo campo-corto" style={{ marginTop: 0, width: 110 }} value={c.rol ?? ''} onChange={(e) => pon('rol', e.target.value)} /></td>
+                    <td><input className="campo campo-corto" style={{ marginTop: 0, width: 150 }} placeholder="@usuario" value={c.telegram ?? ''} onChange={(e) => pon('telegram', e.target.value)} /></td>
+                    <td><input className="campo campo-corto" style={{ marginTop: 0, width: 130 }} placeholder="742056647" value={c.tg_id ?? ''} onChange={(e) => pon('tg_id', e.target.value.replace(/\D/g, '') ? Number(e.target.value.replace(/\D/g, '')) : null)} /></td>
+                    <td><input className="campo" style={{ marginTop: 0, minWidth: 240 }} placeholder="https://wa.me/qr/…" value={c.whatsapp ?? ''} onChange={(e) => pon('whatsapp', e.target.value)} /></td>
+                    <td><button className="borrar" title={t('Quitar')} onClick={() => set('contactos', (cfg.contactos ?? []).filter((_, j) => j !== i))}>✕</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <button className="fantasma" style={{ marginTop: 8 }} onClick={() => set('contactos', [...(cfg.contactos ?? []), { nombre: '', rol: 'Líder', telegram: '', tg_id: null, whatsapp: '' }])}>
+          + {t('Añadir líder')}
+        </button>
+      </div>
+
       {/* ---------- Que avisa ---------- */}
       <h2 className="sec">{t('Qué avisa')}</h2>
       <div className="grid">
