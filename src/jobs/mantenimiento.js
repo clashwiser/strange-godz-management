@@ -17,15 +17,14 @@ import { grupoTelegram } from '../lib/config.js';
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SECO = process.argv.includes('--seco');
 
-// A lo que se va Valquiria mientras tanto: una cada vez, para que el
-// aviso no sea siempre el mismo.
+// A lo que se va Valquiria mientras tanto: en la foto le esta limpiando
+// la corneta a Heraldo con un trapito, asi que las frases van por ahi.
+// Una cada vez, para que el aviso no sea siempre el mismo.
 const VALQUIRIA_SE_VA = [
-  'a interrogar a la tostadora, que todavía no ha aceptado las normas',
-  'a afilar el hacha con el cuervo de supervisor',
-  'a pedirle el tag del jugador a las gallinas del pueblo',
-  'a practicar la cara de mala delante del espejo',
-  'a enseñarle al cuervo a decir «acepto las normas»',
-  'a hacerle la entrevista de ingreso al gato del vecino',
+  'a limpiarme la corneta con un trapito, que dice que suena mejor así',
+  'a sacarle brillo a mi corneta, que según ella suena a lata',
+  'a limpiarme la corneta, con el cuervo vigilando que no se la lleve nadie',
+  'a frotar la corneta con un trapito hasta que se vea en ella',
 ];
 
 const escoger = (lista) => lista[Math.floor(Math.random() * lista.length)];
