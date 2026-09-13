@@ -20,7 +20,9 @@ import { fotoDe } from '../../../lib/castillo-foto';
 import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
-import { tagsDe } from '../../../lib/vinculos';
+import { tagsDe, cuentasDe } from '../../../lib/vinculos';
+import { plano as planoNombre } from '../../../lib/nombres';
+import { pedirPerfil } from '../../../lib/coc-perfil';
 import { ordenSoy, contestarSoy as contestarSoyLib, atenderBotonSoy } from '../../../lib/soy';
 import { guerrasAbiertas } from '../../../lib/castillo-foto';
 import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
@@ -138,6 +140,8 @@ export async function POST(request) {
           .then((r) => r.json())
           .catch(() => ({ ok: false }));
       await atenderBotonSoy(admin, cq, { tg, esc });
+    } else if (String(cq.data ?? '').startsWith('base:')) {
+      await atenderBotonBase(cq);
     } else {
       await atenderBoton(admin, TOKEN, cq, 'heraldo');
     }
@@ -170,6 +174,32 @@ export async function POST(request) {
     // conversacion es la que sabe si lo esta esperando. Las respuestas con
     // botones ({texto, teclado}) salen por decirCon, que las entiende.
     if (msg.chat?.type === 'private') {
+      // Los de casa (presentados con /soy) pueden pedir aqui lo suyo: la
+      // base (que se entrega en privado a proposito), sus stats, su clan.
+      const deCasa = texto && (await tagsDe(admin, msg.from?.id)).length > 0;
+      if (deCasa) {
+        const quien = { id: msg.from?.id ?? chatId, nombre: msg.from?.first_name || msg.from?.username || null };
+        let comando = null;
+        let arg = '';
+        if (texto.startsWith('/')) {
+          const [crudo, ...resto] = texto.split(/\s+/);
+          comando = crudo.slice(1).split('@')[0].toLowerCase();
+          if (!comando && resto.length) comando = resto.shift().toLowerCase();
+          arg = resto.join(' ');
+        } else {
+          const leido = entender(texto);
+          if (leido && !['buscar', 'pensar'].includes(leido.comando)) ({ comando, arg } = leido);
+        }
+        if (comando && EN_PRIVADO.has(comando)) {
+          try {
+            const r = await ejecutar(comando, arg, quien, chatId);
+            if (r !== null) await responder(chatId, r);
+          } catch (e) {
+            await responder(chatId, `⚠️ Error: <code>${esc(e.message)}</code>`);
+          }
+          return Response.json({ ok: true });
+        }
+      }
       const r = await flujoSolicitud(admin, msg, texto, 'heraldo');
       if (r) await decirCon(TOKEN, chatId, r);
       return Response.json({ ok: true });
@@ -346,7 +376,7 @@ export function entender(texto) {
 
   // La base va primero: es lo que mas se pide, y "guerra" aparece tambien
   // en las frases de las otras intenciones.
-  if (/\b(base|bases|dise|layout|aldea)\b/.test(q)) return { comando: 'base', arg: q };
+  if (/\b(base|bases|dise|layout|aldeas?)\b/.test(q)) return { comando: 'base', arg: q };
   if (/(falta|sin atacar|no\s+(ha\s+|han\s+)?atac|quien debe|pendiente)/.test(q))
     return { comando: 'faltan', arg: '' };
   // "mejor" a secas no: "cual es el mejor ejercito" no pide la tabla.
@@ -362,8 +392,11 @@ export function entender(texto) {
     return { comando: 'miclan', arg: '' };
 
   // "cuanto llevo", "como voy yo", "mis estrellas"
-  if (/(cuanto llevo|como voy|mis estrellas|mis stats|mis ataques|como ando)/.test(q))
+  if (/(cuanto llevo|como voy|mis estrellas|mis stats|mis estadisticas|mis ataques|como ando|mis numeros)/.test(q))
     return { comando: 'yo', arg: '' };
+  // Los premios del mes (el plan); lo personal ("que premio me toca") es /cobro.
+  if (/(premios|reparto del mes|que se gana|cuanto (se )?paga|que hay de premio)/.test(q) && !/(me toca|voy a|cuanto gano|mi premio)/.test(q))
+    return { comando: 'premios', arg: '' };
   // "cuanto voy a cobrar", "que premio me toca"
   if (/(cuanto (voy a )?cobr|que premio|voy a ganar|me toca (algo|premio|dinero)|cuanto gano)/.test(q))
     return { comando: 'cobro', arg: '' };
@@ -480,7 +513,8 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/resumen — estado de los 3 clanes y de los jobs\n` +
         `/guerra — qué clanes están en guerra ahora y cuánto falta\n` +
         `/faltan — quién no ha atacado en la guerra de ahora\n` +
-        `/estrellas — tabla de estrellas de la temporada\n` +
+        `/estrellas — tabla de estrellas de la CWL, por clan\n` +
+        `/premios — los premios de este mes\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
         `/yo — tus estrellas y ataques de esta CWL
 ` +
@@ -572,11 +606,13 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return await cmdGuerra(quien);
     case 'estrellas':
       return await cmdEstrellas();
+    case 'premios':
+      return await cmdPremios();
     case 'jugador':
       return await cmdJugador(arg);
     case 'base':
     case 'bases':
-      return await cmdBase(arg, quien);
+      return await cmdBase(arg, quien, chatId);
     case 'soy':
       return await cmdSoy(arg, quien);
     case 'miclan':
@@ -738,40 +774,73 @@ const enCuantoTexto = (iso) => {
   return min >= 60 ? `${Math.round(min / 60)} h` : `${min} min`;
 };
 
+/**
+ * La tabla de estrellas de la CWL del mes, POR CLAN: los premios son por
+ * clan (1º, 2º, 3º de cada uno), asi que la tabla se lee por clan. Carlos
+ * lo pidio asi el 12 sep 2026.
+ */
 async function cmdEstrellas() {
   const { data: seasons } = await admin
     .from('cwl_seasons')
-    .select('id')
+    .select('id, clan_tag')
     .eq('temporada', temporadaActual());
   if (!seasons?.length) return 'No hay CWL registrada para este mes.';
 
-  const { data: wars } = await admin.from('cwl_wars').select('id').in('season_id', seasons.map((s) => s.id));
+  const { data: wars } = await admin.from('cwl_wars').select('id, season_id').in('season_id', seasons.map((x) => x.id));
   if (!wars?.length) return 'Todavía no hay rondas guardadas.';
 
-  const [{ data: ataques }, { data: players }] = await Promise.all([
-    admin.from('cwl_attacks').select('player_tag, estrellas, destruccion_pct').in('war_id', wars.map((w) => w.id)),
+  const [{ data: ataques }, { data: players }, { data: clans }] = await Promise.all([
+    admin.from('cwl_attacks').select('war_id, player_tag, estrellas, destruccion_pct').in('war_id', wars.map((w) => w.id)),
     admin.from('players').select('player_tag, nombre_actual'),
+    admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'),
   ]);
 
   const nombre = Object.fromEntries((players ?? []).map((p) => [p.player_tag, p.nombre_actual]));
-  const m = new Map();
+  const clanDeSeason = Object.fromEntries(seasons.map((x) => [x.id, x.clan_tag]));
+  const clanDeWar = Object.fromEntries(wars.map((w) => [w.id, clanDeSeason[w.season_id]]));
+  const nombreClan = Object.fromEntries((clans ?? []).map((c) => [c.clan_tag, c.nombre]));
+
+  // Por clan y jugador.
+  const porClan = new Map();
   for (const a of ataques ?? []) {
+    const clan = clanDeWar[a.war_id] ?? '?';
+    if (!porClan.has(clan)) porClan.set(clan, new Map());
+    const m = porClan.get(clan);
     const v = m.get(a.player_tag) ?? { e: 0, n: 0, d: 0 };
     v.e += a.estrellas ?? 0;
     v.d += Number(a.destruccion_pct ?? 0);
     v.n += 1;
     m.set(a.player_tag, v);
   }
+  if (!porClan.size) return 'Todavía no hay ataques registrados.';
 
-  const tabla = [...m.entries()]
-    .map(([tag, v]) => ({ nombre: nombre[tag] ?? tag, ...v, prom: v.n ? v.d / v.n : 0 }))
-    .sort((a, b) => b.e - a.e || b.prom - a.prom)
-    .slice(0, 25)
-    .map((p, i) => `${String(i + 1).padStart(2)}. ${p.e}★ ${p.prom.toFixed(0).padStart(3)}%  ${p.nombre}`);
+  const orden = (clans ?? []).map((c) => c.clan_tag).filter((t) => porClan.has(t)).concat([...porClan.keys()].filter((t) => !(clans ?? []).some((c) => c.clan_tag === t)));
+  const bloques = orden.map((clan) => {
+    const tabla = [...porClan.get(clan).entries()]
+      .map(([tag, v]) => ({ nombre: nombre[tag] ?? tag, ...v, prom: v.n ? v.d / v.n : 0 }))
+      .sort((a, b) => b.e - a.e || b.prom - a.prom)
+      .slice(0, 15)
+      .map((p, i) => `${String(i + 1).padStart(2)}. ${p.e}★ ${p.prom.toFixed(0).padStart(3)}%  ${p.nombre}`);
+    return `<b>${esc(nombreClan[clan] ?? clan)}</b>\n<pre>${esc(tabla.join('\n'))}</pre>`;
+  });
+  return `⭐ <b>Estrellas · ${temporadaActual()}</b> (por clan)\n\n${bloques.join('\n\n')}`;
+}
 
-  return tabla.length
-    ? `⭐ <b>Estrellas · ${temporadaActual()}</b>\n<pre>${esc(tabla.join('\n'))}</pre>`
-    : 'Todavía no hay ataques registrados.';
+/**
+ * /premios: el plan de premios del mes, tal como esta en la pestaña Bonos.
+ * "¿Cuáles son los premios de esta temporada?" se contesta con esto, no
+ * mandando a nadie a /reporte.
+ */
+async function cmdPremios() {
+  const mes = temporadaActual();
+  const { data: premios } = await admin.from('premios_plan').select('titulo, criterio, monto_usd, tipo').eq('mes', mes).eq('activo', true).order('orden');
+  if (!premios?.length) return `Los líderes todavía no publicaron los premios de ${mes}.`;
+  const TIPOS = { efectivo: null, pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
+  const lineas = premios.map((p) => {
+    const premio = p.tipo === 'efectivo' || !TIPOS[p.tipo] ? `$${Number(p.monto_usd)}` : TIPOS[p.tipo];
+    return `• <b>${esc(p.titulo)}</b> — ${premio}${p.criterio ? `\n   <i>${esc(p.criterio)}</i>` : ''}`;
+  });
+  return `🏆 <b>PREMIOS DE ${mes}</b>\n\n${lineas.join('\n')}\n\nSe entregan al cerrar el mes. Lo tuyo: /cobro.`;
 }
 
 async function cmdJugador(arg) {
@@ -837,6 +906,8 @@ const CADA_DIAS = 3;
 // una tarde. Esto reparte el pack a lo largo del mes en vez de quemarlo el
 // dia que llega.
 const CUPO_GRUPO = 10;
+/** Lo que un miembro puede pedirle a Heraldo en privado. */
+const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'puntos', 'soy', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
@@ -859,27 +930,87 @@ const fechaCorta = (dia) => `${Number(dia.slice(8, 10))}/${Number(dia.slice(5, 7
  * que pide dos al dia durante una semana ve catorce distintas, no la misma
  * tres veces.
  */
-async function cmdBase(arg, quien) {
+/**
+ * /base: una base del pack para UNA cuenta del juego.
+ *
+ * Carlos tiene seis cuentas y pidio seis bases: el limite (una cada tres
+ * dias) es por cuenta, no por persona, y la base va del ayuntamiento de esa
+ * cuenta. Con varias cuentas y sin decir cual, salen botones para elegir.
+ * Sin /soy, va por persona, como antes.
+ *
+ * La base se manda EN PRIVADO: el pack es pagado y en el grupo la copia
+ * cualquiera. En el grupo solo queda "te la mande por privado". Si nunca
+ * abrio el chat con Heraldo, Telegram no deja mandarsela: se le dice.
+ *
+ * @param {object} quien   { id, nombre }
+ * @param {number} chatId  donde lo pidio (privado si es igual a quien.id)
+ */
+async function cmdBase(arg, quien, chatId = null) {
   const texto = (arg || '').toLowerCase();
-  // El ayuntamiento vale si lleva "th"/"ayuntamiento" delante, o si es un
-  // numero suelto en rango de ayuntamiento. Sin lo segundo, "dame 2 bases"
-  // se leia como TH2 y no devolvia nada: el numero de la frase no siempre
-  // es un nivel.
   const conPrefijo = /(?:th|ayuntamiento)\s*(\d{1,2})/.exec(texto);
   const suelto = /\b(\d{1,2})\b/.exec(texto);
   const candidato = Number(conPrefijo?.[1] ?? suelto?.[1]);
-  const th = candidato >= 6 && candidato <= 20 ? candidato : null;
+  const thPedido = candidato >= 6 && candidato <= 20 ? candidato : null;
   const tipo = /guerra|war|cwl|wb/.test(texto) ? 'WB' : /aldea|home|hv/.test(texto) ? 'HV' : null;
 
+  // Sus cuentas, con el ayuntamiento de cada una (del ultimo snapshot; si
+  // no hay, del juego).
+  const cuentas = await cuentasConTH(quien.id);
+  let cuenta = null;
+  if (cuentas.length === 1) {
+    cuenta = cuentas[0];
+  } else if (cuentas.length > 1) {
+    // "¿Para cual?": por nombre en la frase, por ayuntamiento, o botones.
+    const resto = texto.replace(/(?:th|ayuntamiento)\s*\d{1,2}|\b\d{1,2}\b|guerra|war|cwl|wb|aldea|home|hv|base|bases|dame|una|para|la|de|mi|cuenta/g, ' ').trim();
+    const porNombre = resto.length >= 2 ? cuentas.filter((c) => planoNombre(c.nombre).includes(planoNombre(resto)) || planoNombre(resto).includes(planoNombre(c.nombre))) : [];
+    if (porNombre.length === 1) cuenta = porNombre[0];
+    else if (thPedido && cuentas.filter((c) => c.th === thPedido).length === 1) cuenta = cuentas.find((c) => c.th === thPedido);
+    else {
+      return {
+        texto: `¿Para cuál cuenta, ${esc(quien.nombre ?? 'mi hermano')}? Toca una${tipo ? ` (base de ${tipo === 'WB' ? 'guerra' : 'aldea'})` : ''}:`,
+        botones: [
+          ...cuentas.map((c) => [{ text: `${c.nombre}${c.th ? ` · TH${c.th}` : ''}`.slice(0, 40), callback_data: `base:${c.tag}:${tipo ?? '-'}:${quien.id}` }]),
+          [{ text: '✖️ Cerrar', callback_data: `base:x:-:${quien.id}` }],
+        ],
+      };
+    }
+  }
+  return await darBase({ quien, chatId, cuenta, th: thPedido ?? cuenta?.th ?? null, tipo });
+}
+
+/** Las cuentas de esta persona con su ayuntamiento: [{ tag, nombre, th }]. */
+async function cuentasConTH(tgId) {
+  const tags = await tagsDe(admin, tgId);
+  if (!tags.length) return [];
+  const [{ data: players }, { data: snaps }] = await Promise.all([
+    admin.from('players').select('player_tag, nombre_actual').in('player_tag', tags),
+    admin.from('snapshots').select('player_tag, th_level, fecha').in('player_tag', tags).order('fecha', { ascending: false }).limit(tags.length * 3),
+  ]);
+  const nombre = Object.fromEntries((players ?? []).map((p) => [p.player_tag, p.nombre_actual]));
+  const th = {};
+  for (const sn of snaps ?? []) if (th[sn.player_tag] == null && sn.th_level) th[sn.player_tag] = sn.th_level;
+  const cuentas = [];
+  for (const tag of tags) {
+    let nivel = th[tag] ?? null;
+    if (!nivel) nivel = (await pedirPerfil(tag))?.townHallLevel ?? null;
+    cuentas.push({ tag, nombre: nombre[tag] ?? tag, th: nivel });
+  }
+  return cuentas;
+}
+
+/**
+ * Elige la base, la anota y la manda en privado. Devuelve lo que se
+ * contesta DONDE se pidio.
+ */
+async function darBase({ quien, chatId, cuenta, th, tipo }) {
   const hoy = diaCuba();
-  // Su ultima base: si fue hace menos de CADA_DIAS dias, todavia no toca.
-  const { data: ultima, error: errCupo } = await admin
-    .from('base_pedidos')
-    .select('dia')
-    .eq('tg_user_id', quien.id)
-    .order('dia', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const enPrivado = chatId != null && String(chatId) === String(quien.id);
+  const quienEs = cuenta ? `<b>${esc(cuenta.nombre)}</b>` : 'tu';
+
+  // Su ultima base PARA ESTA CUENTA: si fue hace menos de CADA_DIAS dias, no toca.
+  let q = admin.from('base_pedidos').select('dia').eq('tg_user_id', quien.id).order('dia', { ascending: false }).limit(1);
+  q = cuenta ? q.eq('player_tag', cuenta.tag) : q.is('player_tag', null);
+  const { data: ultima, error: errCupo } = await q.maybeSingle();
   if (errCupo) throw errCupo;
   const llevaHoy = ultima?.dia === hoy ? 1 : 0;
   const proxima = ultima ? sumarDias(ultima.dia, CADA_DIAS) : null;
@@ -887,73 +1018,94 @@ async function cmdBase(arg, quien) {
 
   // El tope del grupo se mira ANTES que el personal: si el pack ya se
   // repartio hoy, da igual que a esta persona le quede la suya.
-  const { count: delGrupoHoy } = await admin
-    .from('base_pedidos')
-    .select('id', { count: 'exact', head: true })
-    .eq('dia', hoy);
-
+  const { count: delGrupoHoy } = await admin.from('base_pedidos').select('id', { count: 'exact', head: true }).eq('dia', hoy);
   if ((delGrupoHoy ?? 0) >= CUPO_GRUPO && (llevaHoy ?? 0) === 0) {
     return (
       `📜 Hoy ya se repartieron las <b>${CUPO_GRUPO} bases del día</b> entre todos, mi hermano.\n\n` +
       `Mañana hay ${CUPO_GRUPO} más. Pídela temprano.`
     );
   }
-
   if (!leToca) {
     const faltan = diasEntre(hoy, proxima);
     return (
-      `📜 Es <b>una base cada ${CADA_DIAS} días</b> por cabeza, pipo: la tuya fue el ${fechaCorta(ultima.dia)}.\n\n` +
-      `${faltan === 1 ? 'Mañana' : `El ${fechaCorta(proxima)}`} puedes pedir otra. Mientras, usa la que tienes.`
+      `📜 Es <b>una base cada ${CADA_DIAS} días</b> por cuenta, pipo: la de ${quienEs} fue el ${fechaCorta(ultima.dia)}.\n\n` +
+      `${faltan === 1 ? 'Mañana' : `El ${fechaCorta(proxima)}`} puedes pedir otra. Mientras, usa la que tienes.` +
+      (cuenta ? `\n\nSi es para otra cuenta tuya, dime <code>/base</code> y elígela.` : '')
     );
   }
 
-  let q = admin.from('bases').select('id, url, th, tipo, etiqueta, nota, preview');
-  if (th) q = q.eq('th', th);
-  if (tipo) q = q.eq('tipo', tipo);
-  const { data: todas, error } = await q;
+  let qb = admin.from('bases').select('id, url, th, tipo, etiqueta, nota, preview');
+  if (th) qb = qb.eq('th', th);
+  if (tipo) qb = qb.eq('tipo', tipo);
+  const { data: todas, error } = await qb;
   if (error) throw error;
-
   if (!todas?.length) {
-    const filtro = [th ? `TH${th}` : null, tipo === 'WB' ? 'de guerra' : tipo === 'HV' ? 'de aldea' : null]
-      .filter(Boolean)
-      .join(' ');
+    const filtro = [th ? `TH${th}` : null, tipo === 'WB' ? 'de guerra' : tipo === 'HV' ? 'de aldea' : null].filter(Boolean).join(' ');
     return `No tengo ninguna base ${esc(filtro)} en el pack.\nPrueba <code>/base</code> a secas.`;
   }
 
-  // Las que esta persona ya vio, para no repetirselas mientras haya nuevas.
-  const { data: vistas } = await admin
-    .from('base_pedidos')
-    .select('base_id')
-    .eq('tg_user_id', quien.id);
+  // Las que esta cuenta ya vio, para no repetirselas mientras haya nuevas.
+  let qv = admin.from('base_pedidos').select('base_id').eq('tg_user_id', quien.id);
+  qv = cuenta ? qv.eq('player_tag', cuenta.tag) : qv;
+  const { data: vistas } = await qv;
   const yaVio = new Set((vistas ?? []).map((v) => v.base_id));
   const nuevas = todas.filter((b) => !yaVio.has(b.id));
   const saco = nuevas.length ? nuevas : todas;
-
   const base = saco[Math.floor(Math.random() * saco.length)];
 
-  await admin.from('base_pedidos').insert({
-    tg_user_id: quien.id,
-    tg_nombre: quien.nombre ?? null,
-    base_id: base.id,
-    dia: hoy,
-  });
-
-  // Sin recordarle el cupo al final. Cada mensaje diciendo "mañana hay otra"
-  // es publicidad del limite: pone el foco en lo que NO puede pedir en vez
-  // de en la base que acaba de recibir. El limite ya se dice cuando toca,
-  // que es al llegar a el.
   const pie =
     `🏰 <b>TH${base.th ?? '?'} · ${base.tipo === 'WB' ? 'guerra' : 'aldea'}</b>` +
+    (cuenta ? ` · para ${quienEs}` : '') +
     (base.etiqueta ? ` · ${esc(base.etiqueta)}` : '') +
     (base.nota ? `\n\n🛡 <i>${esc(base.nota)}</i>` : '') +
     `\n\n<a href="${esc(base.url)}">Abrir en el juego</a>` +
     `\n\n${cierreBase()}`;
+  const entrega = base.preview ? { foto: `${SITIO}${base.preview}`, pie } : pie;
 
-  // Con miniatura si el pack la trae; los packs de solo texto no la tienen.
-  if (base.preview) {
-    return { foto: `${SITIO}${base.preview}`, pie };
+  // En privado se entrega ahi mismo; desde el grupo, se manda al privado y
+  // en el grupo queda solo la constancia. Si Telegram no deja (nunca abrio
+  // el chat), no se anota nada y se le dice que lo abra.
+  if (!enPrivado) {
+    const idPrivado = await responder(quien.id, entrega);
+    if (!idPrivado) {
+      return (
+        `📩 Te la mando por privado, ${esc(quien.nombre ?? 'mi hermano')}, que el pack es pagado y aquí la copia cualquiera. ` +
+        `Pero todavía no me has abierto el chat: entra en @Strange_godz_heraldo_bot, toca <b>Start</b> y pídemela otra vez.`
+      );
+    }
   }
-  return pie;
+  await admin.from('base_pedidos').insert({ tg_user_id: quien.id, tg_nombre: quien.nombre ?? null, base_id: base.id, dia: hoy, player_tag: cuenta?.tag ?? null });
+  if (enPrivado) return entrega;
+  return `📩 Te mandé por privado la base <b>TH${base.th ?? '?'} · ${base.tipo === 'WB' ? 'guerra' : 'aldea'}</b>${cuenta ? ` para ${quienEs}` : ''}. Móntala y no la compartas: el pack es pagado.`;
+}
+
+/** Un boton "base:<tag>:<tipo>:<uid>" tocado: la base para esa cuenta. */
+async function atenderBotonBase(cq) {
+  const [, tag, tipoCrudo, uidCrudo] = String(cq.data ?? '').split(':');
+  const uid = Number(uidCrudo);
+  const chatId = cq.message?.chat?.id;
+  const tg = (metodo, cuerpo) =>
+    fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(8000) })
+      .then((r) => r.json())
+      .catch(() => ({ ok: false }));
+  if (uid !== cq.from?.id) {
+    await tg('answerCallbackQuery', { callback_query_id: cq.id, text: 'Ese menú es de otra persona, asere. Escribe /base y te sale el tuyo.' });
+    return;
+  }
+  await tg('answerCallbackQuery', { callback_query_id: cq.id });
+  const editar = (texto, botones = null) =>
+    tg('editMessageText', { chat_id: chatId, message_id: cq.message?.message_id, text: texto, parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: { inline_keyboard: botones ?? [] } });
+  if (tag === 'x') return await editar('Listo. Cuando quieras, /base.');
+  const quien = { id: uid, nombre: cq.from.first_name || cq.from.username || null };
+  const cuenta = (await cuentasConTH(uid)).find((c) => c.tag === tag);
+  if (!cuenta) return await editar('Esa cuenta ya no está atada a ti. Escribe /base otra vez.');
+  const r = await darBase({ quien, chatId, cuenta, th: cuenta.th ?? null, tipo: tipoCrudo === '-' ? null : tipoCrudo });
+  // En privado la base ya salio como mensaje aparte (foto); el menu se cierra.
+  if (typeof r === 'object' && r?.foto) {
+    await responder(chatId, r);
+    return await editar(`Ahí va la de <b>${esc(cuenta.nombre)}</b>.`);
+  }
+  await editar(typeof r === 'string' ? r : r?.pie ?? r?.texto ?? 'Listo.');
 }
 
 /**

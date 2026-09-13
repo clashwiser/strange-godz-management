@@ -3,7 +3,7 @@
 --  INSTALACION COMPLETA EN UN SOLO PASO
 --
 --  Pegar TODO este archivo en el SQL Editor de Supabase y darle Run.
---  Es la union de los 32 archivos de sql/ en el orden correcto; el orden
+--  Es la union de los 33 archivos de sql/ en el orden correcto; el orden
 --  importa porque cada uno se apoya en tablas del anterior.
 --
 --  Se puede correr dos veces sin romper nada: todo va con
@@ -2034,3 +2034,21 @@ create table if not exists soy_pendientes (
 
 alter table soy_pendientes enable row level security;
 -- Sin politicas: la usa solo el webhook con la service_role.
+
+
+-- ####################################################################
+-- ##  033_base_pedidos_cuenta.sql
+-- ####################################################################
+
+-- =====================================================================
+-- Las bases se piden por CUENTA, no por persona
+-- Ejecutar DESPUES de 032_tg_vinculos_varias.sql
+-- =====================================================================
+--
+-- Carlos tiene seis cuentas y pidio seis bases; el limite (una cada tres
+-- dias) era por persona de Telegram. Ahora cada pedido lleva la cuenta del
+-- juego para la que es, y el limite y el "no me la repitas" van por cuenta.
+-- Sin cuenta (quien no se presento con /soy) sigue siendo por persona.
+
+alter table base_pedidos add column if not exists player_tag text;
+create index if not exists idx_base_pedidos_cuenta on base_pedidos (tg_user_id, player_tag, dia);

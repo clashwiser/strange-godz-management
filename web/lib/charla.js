@@ -150,12 +150,12 @@ const CHARLA = [
     patron:
       /\b(otra|otro|una mas|uno mas|dame mas|solo una|nada mas una|tacaño|tacano|avaro|rata|porfa|por favor dame|ando pobre)\b/,
     respuestas: [
-      'Una por cabeza al día, mi hermano, como el pan de la bodega. Mañana hay otra.',
-      'Esa es la regla y a mí no me la cambian. Mañana temprano.',
+      'Una cada tres días por cuenta, mi hermano, como el pan de la bodega. Si tienes más cuentas, /base y eliges.',
+      'Esa es la regla y a mí no me la cambian: una cada tres días por cuenta.',
       'Ya te di la tuya, socio. El pack se paga y se cuida.',
-      'Con una alcanza. Móntala bien y no hace falta más.',
-      'Mañana a primera hora estoy aquí con otra. Palabra de heraldo. 📜',
-      'Ni que fuera pan con croqueta, asere. Una al día.',
+      'Con una alcanza. Úsala bien y no hace falta más.',
+      'Una cada tres días por cuenta. En tres días estoy aquí con otra. Palabra de heraldo. 📜',
+      'Ni que fuera pan con croqueta, asere. Una cada tres días por cuenta.',
     ],
   },
 
