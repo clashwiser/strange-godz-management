@@ -40,6 +40,7 @@ export const EXPLICA = {
   propuestas: 'Cuando alguien en el grupo contesta a un mensaje de un bot con "no, eso está mal…", el cerebro lo anota como lección propuesta. Aquí se completa qué frase la dispara y qué debe responder, y se aprueba. Nada se aprende sin un líder.',
   probar: 'Escribe algo como lo diría alguien del grupo y mira qué contestaría cada bot con las lecciones que hay.',
   digesto: 'Rehacer el digesto ahora, sin esperar a las 6 horas: vuelve a leer los canales y los feeds y guarda el resumen que usa la IA.',
+  logs: 'Cada cambio que alguien guarda en el panel (premios, lista CWL, clanes, bases, ajustes, lecciones, Telegram de jugadores…) queda apuntado con quién lo hizo, cuándo y qué cambió. Lo escribe la base sola: no se puede olvidar ni borrar desde aquí.',
 };
 
 export function Info({ clave, texto, titulo }) {

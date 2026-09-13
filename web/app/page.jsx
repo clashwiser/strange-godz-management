@@ -16,6 +16,8 @@ import { AvisoHuella, GestorHuellas } from './huella';
 import Bonos from './bonos';
 import Heraldo from './heraldo';
 import Instalar from './instalar';
+import Logs from './logs';
+import TelegramDe from './telegram-jugador';
 import { SelectorIdioma, useT } from './idioma';
 
 const TABS = [
@@ -30,6 +32,7 @@ const TABS = [
   ['bonos', 'Bonos'],
   ['reglas', 'Reglas'],
   ['bots', 'Bots'],
+  ['logs', 'Logs'],
   ['cerebro', 'Cerebro'],
 ];
 
@@ -62,7 +65,7 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc, cast, ret] =
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc, cast, ret, vinc, tgu] =
         await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
@@ -99,6 +102,10 @@ export default function Panel() {
         // Los castillos avisados este mes y los retos cumplidos: los puntos del mes (Bonos).
         supabase.from('castillos').select('*').eq('temporada', temporada).order('creado_en', { ascending: false }),
         supabase.from('retos').select('*').eq('temporada', temporada).order('creado_en', { ascending: false }),
+        // Quien es quien en Telegram (columna Telegram de Jugadores), y la
+        // gente apuntada del grupo para poder elegirla.
+        supabase.from('tg_vinculos').select('tg_user_id, player_tag, tg_nombre, principal'),
+        supabase.from('tg_usuarios').select('tg_user_id, username, nombre'),
       ]);
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
@@ -177,6 +184,8 @@ export default function Panel() {
         bases: bases.data ?? [],
         bonos: bonos.data ?? [],
         premiosPlan: plan.data ?? [],
+        vinculos: vinc.data ?? [],
+        tgUsuarios: tgu.data ?? [],
         fechaSnap: ultimo?.fecha ?? null,
       });
     } catch (e) {
@@ -271,7 +280,7 @@ export default function Panel() {
             <CWL d={d} />
           </>
         )}
-        {d && tab === 'jugadores' && <Jugadores d={d} />}
+        {d && tab === 'jugadores' && <Jugadores d={d} recargar={cargar} />}
         {d && tab === 'mensajes' && <Mensajes d={d} recargar={cargar} />}
         {d && tab === 'salud' && <Salud d={d} />}
         {d && tab === 'solicitudes' && <Solicitudes d={d} recargar={cargar} />}
@@ -279,6 +288,7 @@ export default function Panel() {
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
         {d && tab === 'reglas' && <ReglasTab d={d} recargar={cargar} />}
         {d && tab === 'cerebro' && <Cerebro d={d} recargar={cargar} />}
+        {d && tab === 'logs' && <Logs />}
         {d && tab === 'bots' && (
           <>
             {/* La gestion completa vive aca; el empujon de la cabecera solo
@@ -746,7 +756,7 @@ export function CWL({ d }) {
 }
 
 // ------------------------------------------------------------ Jugadores
-export function Jugadores({ d }) {
+export function Jugadores({ d, recargar }) {
   const t = useT();
   const [q, setQ] = useState('');
   const nombre = useMemo(
@@ -754,17 +764,23 @@ export function Jugadores({ d }) {
     [d.players]
   );
   const clanDe = useMemo(
-    () => Object.fromEntries(d.clans.map((c) => [c.clan_tag, `${c.nombre} (${c.escuadra})`])),
+    () => Object.fromEntries(d.clans.map((c) => [c.clan_tag, c.escuadra ? `${c.nombre} (${c.escuadra})` : c.nombre])),
     [d.clans]
   );
+
+  // El Telegram de cada cuenta, para buscar tambien por ahi ("pmc").
+  const telegramDe = useMemo(() => {
+    const persona = Object.fromEntries((d.tgUsuarios ?? []).map((u) => [u.tg_user_id, `${u.nombre ?? ''} ${u.username ?? ''}`]));
+    return Object.fromEntries((d.vinculos ?? []).map((v) => [v.player_tag, `${persona[v.tg_user_id] ?? ''} ${v.tg_nombre ?? ''}`.toLowerCase()]));
+  }, [d.vinculos, d.tgUsuarios]);
 
   const filas = useMemo(() => {
     const t = q.trim().toLowerCase();
     return d.snaps
       .map((s) => ({ ...s, nombre: nombre[s.player_tag] ?? s.player_tag }))
-      .filter((s) => !t || s.nombre.toLowerCase().includes(t) || s.player_tag.toLowerCase().includes(t))
+      .filter((s) => !t || s.nombre.toLowerCase().includes(t) || s.player_tag.toLowerCase().includes(t) || (telegramDe[s.player_tag] ?? '').includes(t))
       .sort((a, b) => (b.trofeos ?? 0) - (a.trofeos ?? 0));
-  }, [d.snaps, nombre, q]);
+  }, [d.snaps, nombre, q, telegramDe]);
 
   if (!d.snaps.length) return <p className="vacio">{t('Sin snapshots todavía. Corre')} <code>npm run snapshot</code>.</p>;
 
@@ -793,6 +809,7 @@ export function Jugadores({ d }) {
               <th>{t('Liga')}</th>
               <th className="num">{t('Estrellas guerra')}</th>
               <th className="num">{t('Donaciones')}</th>
+              <th>Telegram</th>
             </tr>
           </thead>
           <tbody>
@@ -805,6 +822,11 @@ export function Jugadores({ d }) {
                 <td>{s.liga ?? '—'}</td>
                 <td className="num">{s.war_stars ?? '—'}</td>
                 <td className="num">{s.donaciones ?? '—'}</td>
+                <td>
+                  {/* Quien es en Telegram, y el lapiz para cambiarlo. Sin
+                      recargar (la demo) solo se enseña. */}
+                  <TelegramDe playerTag={s.player_tag} d={d} recargar={recargar} />
+                </td>
               </tr>
             ))}
           </tbody>

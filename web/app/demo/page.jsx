@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { Resumen, CWL, Jugadores, Mensajes } from '../page';
+import Logs from '../logs';
 import GrupoCWL from '../grupo-cwl';
 import Alineacion from '../alineacion';
 import SelectorTema from '../temas';
@@ -28,6 +29,17 @@ const d = {
     { clan_tag: '#228QU9Q8',  nombre: 'Olympus',                  escuadra: 'C', orden: 3, cwl_tamano: 15, proposito: 'trofeos' },
     { clan_tag: '#JUYP2PL',   nombre: 'Cuban Pirates ⚓️',          orden: 4, cwl_tamano: 15, proposito: 'trofeos' },
     { clan_tag: '#2Q0P0P2JU', nombre: 'Cuba',                     orden: 5, cwl_tamano: 15 },
+  ],
+  // Quien es quien en Telegram (columna Telegram de Jugadores).
+  vinculos: [
+    { tg_user_id: 742056647, player_tag: '#P1', tg_nombre: 'YHLQMDLG', principal: true },
+    { tg_user_id: 8319208377, player_tag: '#P2', tg_nombre: 'Pmc', principal: true },
+    { tg_user_id: 1626048117, player_tag: '#P3', tg_nombre: "Assassin's Creed", principal: true },
+  ],
+  tgUsuarios: [
+    { tg_user_id: 742056647, username: 'YHLQMDLG2', nombre: 'YHLQMDLG' },
+    { tg_user_id: 8319208377, username: null, nombre: 'Pmc' },
+    { tg_user_id: 1626048117, username: 'LM10viscabarsa', nombre: "Assassin's Creed" },
   ],
   players: [
     { player_tag: '#P1', nombre_actual: 'Cris' },
@@ -235,6 +247,7 @@ const TABS = [
   ['bonos', 'Bonos'],
   ['reglas', 'Reglas'],
   ['bots', 'Bots'],
+  ['logs', 'Logs'],
   ['cerebro', 'Cerebro'],
 ];
 
@@ -280,6 +293,7 @@ export default function Demo() {
           </>
         )}
         {tab === 'jugadores' && <Jugadores d={d} />}
+        {tab === 'logs' && <Logs demo />}
         {tab === 'salud' && <Salud d={d} />}
         {tab === 'solicitudes' && <Solicitudes d={d} demo />}
         {tab === 'mensajes' && <Mensajes d={d} recargar={() => {}} />}

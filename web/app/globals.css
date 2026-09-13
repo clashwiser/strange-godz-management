@@ -1549,3 +1549,23 @@ html.lab-activo .idioma button, html.lab-activo .temas-caja { filter: saturate(.
   .lab-mundo .lab-nota { right: 44px; }
   .lab-mundo .lab-info-escena { left: 44px; }
 }
+
+/* ---------- Logs: quien cambio que ---------- */
+.logs-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0 14px; }
+.logs-dia { margin-top: 12px; }
+.logs-dia h3 { text-transform: capitalize; }
+.logs-lista { list-style: none; margin: 0; padding: 0; }
+.logs-fila { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid rgba(0,0,0,.08); font-size: 14px; line-height: 1.45; }
+.logs-fila:last-child { border-bottom: 0; }
+.logs-fila.sistema { opacity: .72; }
+.logs-hora { flex: 0 0 48px; font-variant-numeric: tabular-nums; color: var(--tenue); }
+.logs-texto { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.logs-tabla { font-weight: 700; color: var(--oro-hondo, inherit); }
+.logs-cambio code { font-size: .9em; }
+/* La columna Telegram de la lista de jugadores. */
+.tg-celda { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tg-lapiz { border: 0; background: transparent; cursor: pointer; color: var(--tenue); font-size: 15px; padding: 0 4px; line-height: 1; }
+.tg-lapiz:hover { color: var(--texto); }
+.tg-editor { flex-wrap: wrap; white-space: normal; gap: 6px; }
+.tg-editor .campo { margin-top: 0; }
+.tg-editor button { min-height: 32px; padding: 4px 10px; font-size: 13px; }
