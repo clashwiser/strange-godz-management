@@ -43,6 +43,7 @@ const BOTS = {
       { command: 'guerra', description: 'Qué clanes están en guerra ahora y cuánto falta' },
       { command: 'faltan', description: 'Quién no ha atacado en la guerra de ahora' },
       { command: 'bonus', description: 'Los bonos (premios) de este mes' },
+      { command: 'asignar', description: '(líderes) Decir quién es alguien: contesta a su mensaje y /asignar Nombre' },
       { command: 'estrellas', description: 'Tabla de estrellas de la temporada' },
       { command: 'resumen', description: 'Estado de los clanes' },
       { command: 'soy', description: 'Quién eres en el juego: elige de la lista, o /soy Fulano, o /soy #TuTag' },

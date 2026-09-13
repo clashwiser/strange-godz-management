@@ -38,21 +38,53 @@ async function usuarioPorNombre(admin, username) {
   return data ? { id: data.tg_user_id, nombre: data.nombre, username: data.username } : null;
 }
 
+const persona = (u) => (u && !u.is_bot ? { id: u.id, nombre: u.first_name || u.username || String(u.id) } : null);
+
 /**
- * A quien va dirigido el /asignar: la persona a la que se contesta, o la
- * mencionada (por @usuario o por nombre sin @, que Telegram manda como
- * text_mention con el id). Devuelve { id, nombre } o null.
+ * A quien va dirigido el /asignar, en este orden:
+ *   - la persona a la que se contesta;
+ *   - si se contesta a un aviso de "Fulano entro al grupo", ese Fulano;
+ *   - si se contesta a la bienvenida de Valquiria (o de Heraldo), la
+ *     persona mencionada en ella (el recien llegado, que aun no escribio);
+ *   - una mencion en el propio mensaje: por nombre elegido del desplegable
+ *     (text_mention, trae el id) o por @usuario (apuntado en tg_usuarios);
+ *   - un nombre suelto delante del comando ("Erick /asignar"), si solo hay
+ *     un apuntado que se llame asi.
+ * Devuelve { id, nombre, quitar } (quitar = lo que sobra del texto) o null.
  */
 export async function objetivoDe(admin, msg) {
-  const r = msg?.reply_to_message?.from;
-  if (r && !r.is_bot) return { id: r.id, nombre: r.first_name || r.username || String(r.id) };
+  const r = msg?.reply_to_message;
+  if (r) {
+    const directo = persona(r.from);
+    if (directo) return directo;
+    const entro = persona((r.new_chat_members ?? [])[0]);
+    if (entro) return entro;
+    for (const e of r.entities ?? r.caption_entities ?? []) {
+      const p = e.type === 'text_mention' ? persona(e.user) : null;
+      if (p) return p;
+    }
+    for (const e of r.entities ?? []) {
+      if (e.type === 'mention') {
+        const u = await usuarioPorNombre(admin, String(r.text ?? '').slice(e.offset, e.offset + e.length));
+        if (u) return { id: u.id, nombre: u.nombre || `@${u.username}` };
+      }
+    }
+  }
   for (const e of msg?.entities ?? []) {
-    if (e.type === 'text_mention' && e.user && !e.user.is_bot) return { id: e.user.id, nombre: e.user.first_name || String(e.user.id) };
+    const p = e.type === 'text_mention' ? persona(e.user) : null;
+    if (p) return { ...p, quitar: String(msg.text ?? '').slice(e.offset, e.offset + e.length) };
   }
   const m = /@([A-Za-z0-9_]{4,})/.exec(msg?.text ?? '');
   if (m) {
     const u = await usuarioPorNombre(admin, m[1]);
-    if (u) return { id: u.id, nombre: u.nombre || `@${u.username}` };
+    if (u) return { id: u.id, nombre: u.nombre || `@${u.username}`, quitar: m[0] };
+  }
+  // "Erick /asignar Drakon": el nombre delante del comando, si es uno solo.
+  const cmd = (msg?.entities ?? []).find((e) => e.type === 'bot_command');
+  const delante = cmd && cmd.offset > 0 ? String(msg.text ?? '').slice(0, cmd.offset).trim() : '';
+  if (delante && delante.length <= 40) {
+    const { data } = await admin.from('tg_usuarios').select('tg_user_id, nombre, username').ilike('nombre', delante).limit(2);
+    if (data?.length === 1) return { id: data[0].tg_user_id, nombre: data[0].nombre, quitar: delante };
   }
   return null;
 }
@@ -90,8 +122,8 @@ const mencion = (o, esc) => `<a href="tg://user?id=${o.id}">${esc(o.nombre)}</a>
 
 const TEXTO = {
   sinObjetivo:
-    'Dime a quién, mi hermano: contesta al mensaje de la persona (o menciónala) y escribe <code>/asignar Nombre</code>, ' +
-    '<code>/asignar #Tag</code>, o <code>/asignar</code> a secas para elegir de la lista.',
+    'Dime a quién, mi hermano: <b>contesta a un mensaje de la persona</b> (vale el aviso de que entró o la bienvenida de Valquiria) ' +
+    'o <b>menciónala</b> (escribe @ y elígela), y pon <code>/asignar Nombre</code>, <code>/asignar #Tag</code>, o <code>/asignar</code> a secas para elegir de la lista.',
   elegirClan: (o, esc) => `¿Quién es ${mencion(o, esc)} en el juego? Toca su clan y luego su nombre:`,
   elegirMiembro: (clan, o, esc) => `<b>${clan}</b> — toca la cuenta de ${mencion(o, esc)}:`,
   sinMiembros: (clan) => `Ahora mismo no puedo leer la lista de <b>${clan}</b>. Prueba en un rato, o dame el tag: <code>/asignar #Tag</code>.`,
@@ -133,15 +165,10 @@ export async function ordenAsignar(admin, { arg, msg, quien, esc }) {
   const objetivo = await objetivoDe(admin, msg);
   if (!objetivo) return TEXTO.sinObjetivo;
   const lider = quien.id;
-  // Lo escrito, sin la mencion si iba en el texto.
-  let texto = String(arg ?? '').replace(/@[A-Za-z0-9_]{4,}/g, ' ').trim();
-  if (msg?.entities?.some((e) => e.type === 'text_mention')) {
-    // La mencion sin @ va como texto normal: se quita por su nombre.
-    for (const e of msg.entities.filter((x) => x.type === 'text_mention')) {
-      const trozo = String(msg.text ?? '').slice(e.offset, e.offset + e.length);
-      texto = texto.replace(trozo, ' ').trim();
-    }
-  }
+  // Lo escrito, sin la mencion o el nombre con que se señalo a la persona.
+  let texto = String(arg ?? '');
+  if (objetivo.quitar) texto = texto.replace(objetivo.quitar, ' ');
+  texto = texto.replace(/@[A-Za-z0-9_]{4,}/g, ' ').replace(/\s+/g, ' ').trim();
 
   if (/^(quitar|quita|borrar|borra|nada|ninguna)$/i.test(texto)) {
     const antes = await tagsDe(admin, objetivo.id);

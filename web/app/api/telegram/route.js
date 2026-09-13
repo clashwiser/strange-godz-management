@@ -245,6 +245,9 @@ async function atenderMensaje(request, update, msg, chatId, texto) {
   // la que recibe-. Heraldo solo la da si ella no esta configurada: dos
   // saludos seguidos es ruido, y ninguno es peor.
   if (msg.new_chat_members?.length) {
+    // Apuntados desde que entran: asi un lider puede decir "/asignar
+    // @erick ..." o "Erick /asignar" antes de que Erick escriba nada.
+    for (const u of msg.new_chat_members) await anotarUsuario(admin, u);
     if (!process.env.RECLUTA_BOT_TOKEN) await darBienvenida(chatId, msg.new_chat_members);
     return Response.json({ ok: true });
   }
@@ -292,6 +295,7 @@ async function atenderMensaje(request, update, msg, chatId, texto) {
   let comando;
   let arg;
 
+  const cmdEnt = (msg.entities ?? []).find((e) => e.type === 'bot_command');
   if (texto.startsWith('/')) {
     // "/jugador@x300bot Cris" -> comando "jugador", argumento "Cris"
     const [crudo, ...resto] = texto.split(/\s+/);
@@ -299,6 +303,11 @@ async function atenderMensaje(request, update, msg, chatId, texto) {
     // "/ soy Drakon": el telefono mete un espacio despues de la barra.
     if (!comando && resto.length) comando = resto.shift().toLowerCase();
     arg = resto.join(' ');
+  } else if (cmdEnt && cmdEnt.offset > 0) {
+    // "Erick /asignar Drakon", "@erick /asignar": el comando va despues de
+    // la mencion. Lo de delante queda en el argumento (asignar.js lo lee).
+    comando = texto.slice(cmdEnt.offset + 1, cmdEnt.offset + cmdEnt.length).split('@')[0].toLowerCase();
+    arg = `${texto.slice(0, cmdEnt.offset)} ${texto.slice(cmdEnt.offset + cmdEnt.length)}`.replace(/\s+/g, ' ').trim();
   } else {
     // Sin barra: nadie escribe comandos, la gente pregunta.
     //
