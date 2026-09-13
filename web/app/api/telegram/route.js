@@ -24,6 +24,7 @@ import { tagsDe, cuentasDe } from '../../../lib/vinculos';
 import { plano as planoNombre } from '../../../lib/nombres';
 import { pedirPerfil } from '../../../lib/coc-perfil';
 import { ordenSoy, contestarSoy as contestarSoyLib, atenderBotonSoy } from '../../../lib/soy';
+import { ordenAsignar, atenderBotonAsignar, anotarUsuario } from '../../../lib/asignar';
 import { guerrasAbiertas } from '../../../lib/castillo-foto';
 import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
@@ -160,6 +161,17 @@ async function atenderCallback(cq) {
       await atenderBotonSoy(admin, cq, { tg, esc });
   } else if (String(cq.data ?? '').startsWith('base:')) {
     await atenderBotonBase(cq);
+  } else if (String(cq.data ?? '').startsWith('asg:')) {
+    const tg = (metodo, cuerpo) =>
+      fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo),
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => r.json())
+        .catch(() => ({ ok: false }));
+    await atenderBotonAsignar(admin, cq, { tg, esc });
   } else {
     await atenderBoton(admin, TOKEN, cq, 'heraldo');
   }
@@ -205,7 +217,7 @@ async function atenderMensaje(request, update, msg, chatId, texto) {
         }
         if (comando && EN_PRIVADO.has(comando)) {
           try {
-            const r = await ejecutar(comando, arg, quien, chatId);
+            const r = await ejecutar(comando, arg, quien, chatId, msg);
             if (r !== null) await responder(chatId, r);
           } catch (e) {
             await responder(chatId, `⚠️ Error: <code>${esc(e.message)}</code>`);
@@ -273,6 +285,9 @@ async function atenderMensaje(request, update, msg, chatId, texto) {
     id: msg.from?.id ?? chatId,
     nombre: msg.from?.first_name || msg.from?.username || null,
   };
+  // Se apunta quien escribe (id, @usuario, nombre): es lo que permite que
+  // un lider diga "/asignar @fulano Drakon" (asignar.js).
+  anotarUsuario(admin, msg.from);
 
   let comando;
   let arg;
@@ -362,7 +377,7 @@ async function atenderMensaje(request, update, msg, chatId, texto) {
   try {
     // null = el comando ya contesto por su cuenta (el castillo, que
     // necesita el id del mensaje que manda).
-    const r = await ejecutar(comando, arg, quien, chatId);
+    const r = await ejecutar(comando, arg, quien, chatId, msg);
     if (r !== null) await responder(chatId, r);
   } catch (e) {
     await responder(chatId, `⚠️ Error: <code>${esc(e.message)}</code>`);
@@ -516,7 +531,7 @@ async function darBienvenida(chatId, nuevos) {
 }
 
 // ------------------------------------------------------------- Comandos
-async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = null) {
+async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = null, msg = null) {
   switch (comando) {
     case 'start':
     case 'ayuda':
@@ -535,7 +550,8 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 ` +
         `/miclan — a qué clan te toca ir esta CWL
 ` +
-        `/soy — quién eres en el juego: solo te sale la lista para tocar tu nombre; o /soy TuNombre, o /soy #TuTag (una vez por cuenta)
+        `/soy — quién eres en el juego: solo te sale la lista para tocar tu nombre; o /soy TuNombre, o /soy #TuTag (una vez por cuenta)\n` +
+        `/asignar — (líderes) contesta al mensaje de alguien y dime quién es: /asignar Nombre, /asignar #Tag, o a secas para elegir de la lista
 ` +
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini (una cada 3 días)\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
@@ -630,6 +646,12 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return await cmdBase(arg, quien, chatId);
     case 'soy':
       return await cmdSoy(arg, quien);
+    case 'asignar':
+    case 'asigna': {
+      // Solo administradores del grupo: es decir quien es quien por otro.
+      if (!(await esAdminDelGrupo(quien.id))) return 'Eso es de los líderes, mi hermano. Tú preséntate con /soy.';
+      return await ordenAsignar(admin, { arg, msg, quien, esc });
+    }
     case 'miclan':
       return await cmdMiClan(quien);
     case 'yo':
@@ -922,7 +944,7 @@ const CADA_DIAS = 3;
 // dia que llega.
 const CUPO_GRUPO = 10;
 /** Lo que un miembro puede pedirle a Heraldo en privado. */
-const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'puntos', 'soy', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
+const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'puntos', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
