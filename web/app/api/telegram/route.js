@@ -129,7 +129,25 @@ export async function POST(request) {
   // "las dos") o el de aceptar las normas (en privado).
   if (update.callback_query) {
     const cq = update.callback_query;
-    if (String(cq.data ?? '').startsWith('soy:')) {
+    try {
+      await atenderCallback(cq);
+    } catch (e) {
+      console.error(`[boton] ${e.message}`);
+    }
+    return Response.json({ ok: true });
+  }
+
+  const msg = update.message ?? update.edited_message;
+  const chatId = msg?.chat?.id;
+  const texto = (msg?.text || '').trim();
+
+  if (!chatId) return Response.json({ ok: true });
+  return await atenderMensaje(request, update, msg, chatId, texto);
+}
+
+/** Un boton tocado en un mensaje de Heraldo, por su prefijo. */
+async function atenderCallback(cq) {
+  if (String(cq.data ?? '').startsWith('soy:')) {
       const tg = (metodo, cuerpo) =>
         fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
           method: 'POST',
@@ -140,20 +158,15 @@ export async function POST(request) {
           .then((r) => r.json())
           .catch(() => ({ ok: false }));
       await atenderBotonSoy(admin, cq, { tg, esc });
-    } else if (String(cq.data ?? '').startsWith('base:')) {
-      await atenderBotonBase(cq);
-    } else {
-      await atenderBoton(admin, TOKEN, cq, 'heraldo');
-    }
-    return Response.json({ ok: true });
+  } else if (String(cq.data ?? '').startsWith('base:')) {
+    await atenderBotonBase(cq);
+  } else {
+    await atenderBoton(admin, TOKEN, cq, 'heraldo');
   }
+}
 
-  const msg = update.message ?? update.edited_message;
-  const chatId = msg?.chat?.id;
-  const texto = (msg?.text || '').trim();
-
-  if (!chatId) return Response.json({ ok: true });
-
+/** Un mensaje (texto, foto, aviso de servicio). Lo de siempre. */
+async function atenderMensaje(request, update, msg, chatId, texto) {
   // Los chats permitidos AHORA: los del env, mas el grupo si cambio de id
   // (Telegram lo convierte en supergrupo y le cambia el id; ver grupo.js).
   const permitidos = await chatsPermitidos(admin);
@@ -176,7 +189,7 @@ export async function POST(request) {
     if (msg.chat?.type === 'private') {
       // Los de casa (presentados con /soy) pueden pedir aqui lo suyo: la
       // base (que se entrega en privado a proposito), sus stats, su clan.
-      const deCasa = texto && (await tagsDe(admin, msg.from?.id)).length > 0;
+      const deCasa = texto && (await tagsDe(admin, msg.from?.id).catch(() => [])).length > 0;
       if (deCasa) {
         const quien = { id: msg.from?.id ?? chatId, nombre: msg.from?.first_name || msg.from?.username || null };
         let comando = null;
@@ -395,7 +408,7 @@ export function entender(texto) {
   if (/(cuanto llevo|como voy|mis estrellas|mis stats|mis estadisticas|mis ataques|como ando|mis numeros)/.test(q))
     return { comando: 'yo', arg: '' };
   // Los premios del mes (el plan); lo personal ("que premio me toca") es /cobro.
-  if (/(premios|reparto del mes|que se gana|cuanto (se )?paga|que hay de premio)/.test(q) && !/(me toca|voy a|cuanto gano|mi premio)/.test(q))
+  if (/(premios|bonus|bonos|reparto del mes|que se gana|cuanto (se )?paga|que hay de premio)/.test(q) && !/(me toca|voy a|cuanto gano|mi premio|mi bonus)/.test(q))
     return { comando: 'premios', arg: '' };
   // "cuanto voy a cobrar", "que premio me toca"
   if (/(cuanto (voy a )?cobr|que premio|voy a ganar|me toca (algo|premio|dinero)|cuanto gano)/.test(q))
@@ -514,7 +527,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/guerra — qué clanes están en guerra ahora y cuánto falta\n` +
         `/faltan — quién no ha atacado en la guerra de ahora\n` +
         `/estrellas — tabla de estrellas de la CWL, por clan\n` +
-        `/premios — los premios de este mes\n` +
+        `/bonus — los premios (bonos) de este mes\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
         `/yo — tus estrellas y ataques de esta CWL
 ` +
@@ -607,6 +620,8 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     case 'estrellas':
       return await cmdEstrellas();
     case 'premios':
+    case 'bonus':
+    case 'bonos':
       return await cmdPremios();
     case 'jugador':
       return await cmdJugador(arg);
@@ -840,7 +855,7 @@ async function cmdPremios() {
     const premio = p.tipo === 'efectivo' || !TIPOS[p.tipo] ? `$${Number(p.monto_usd)}` : TIPOS[p.tipo];
     return `• <b>${esc(p.titulo)}</b> — ${premio}${p.criterio ? `\n   <i>${esc(p.criterio)}</i>` : ''}`;
   });
-  return `🏆 <b>PREMIOS DE ${mes}</b>\n\n${lineas.join('\n')}\n\nSe entregan al cerrar el mes. Lo tuyo: /cobro.`;
+  return `🏆 <b>BONOS DE ${mes}</b> · ${premios.length} premios\n\n${lineas.join('\n')}\n\nSe entregan al cerrar el mes. Cómo vas tú: /cobro.`;
 }
 
 async function cmdJugador(arg) {
@@ -907,7 +922,7 @@ const CADA_DIAS = 3;
 // dia que llega.
 const CUPO_GRUPO = 10;
 /** Lo que un miembro puede pedirle a Heraldo en privado. */
-const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'puntos', 'soy', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
+const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'puntos', 'soy', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
@@ -1005,7 +1020,7 @@ async function cuentasConTH(tgId) {
 async function darBase({ quien, chatId, cuenta, th, tipo }) {
   const hoy = diaCuba();
   const enPrivado = chatId != null && String(chatId) === String(quien.id);
-  const quienEs = cuenta ? `<b>${esc(cuenta.nombre)}</b>` : 'tu';
+  const quienEs = cuenta ? `<b>${esc(cuenta.nombre)}</b>` : null;
 
   // Su ultima base PARA ESTA CUENTA: si fue hace menos de CADA_DIAS dias, no toca.
   let q = admin.from('base_pedidos').select('dia').eq('tg_user_id', quien.id).order('dia', { ascending: false }).limit(1);
@@ -1028,7 +1043,7 @@ async function darBase({ quien, chatId, cuenta, th, tipo }) {
   if (!leToca) {
     const faltan = diasEntre(hoy, proxima);
     return (
-      `📜 Es <b>una base cada ${CADA_DIAS} días</b> por cuenta, pipo: la de ${quienEs} fue el ${fechaCorta(ultima.dia)}.\n\n` +
+      `📜 Es <b>una base cada ${CADA_DIAS} días</b> por cuenta, pipo: ${quienEs ? `la de ${quienEs}` : 'la tuya'} fue el ${fechaCorta(ultima.dia)}.\n\n` +
       `${faltan === 1 ? 'Mañana' : `El ${fechaCorta(proxima)}`} puedes pedir otra. Mientras, usa la que tienes.` +
       (cuenta ? `\n\nSi es para otra cuenta tuya, dime <code>/base</code> y elígela.` : '')
     );
