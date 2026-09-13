@@ -42,7 +42,7 @@ const BOTS = {
       { command: 'base', description: 'Una base del pack, por privado (una cada 3 días por cuenta)' },
       { command: 'guerra', description: 'Qué clanes están en guerra ahora y cuánto falta' },
       { command: 'faltan', description: 'Quién no ha atacado en la guerra de ahora' },
-      { command: 'bonus', description: 'Los bonos (premios) de este mes' },
+      { command: 'premios', description: 'Los premios de este mes' },
       { command: 'asignar', description: '(líderes) Decir quién es alguien: contesta a su mensaje y /asignar Nombre' },
       { command: 'estrellas', description: 'Tabla de estrellas de la temporada' },
       { command: 'resumen', description: 'Estado de los clanes' },

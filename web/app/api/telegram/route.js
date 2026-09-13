@@ -552,7 +552,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/guerra — qué clanes están en guerra ahora y cuánto falta\n` +
         `/faltan — quién no ha atacado en la guerra de ahora\n` +
         `/estrellas — tabla de estrellas de la CWL, por clan\n` +
-        `/bonus — los premios (bonos) de este mes\n` +
+        `/premios — los premios del mes (también /bonus)\n` +
         `/jugador &lt;nombre&gt; — ficha de un jugador\n` +
         `/yo — tus estrellas y ataques de esta CWL
 ` +
@@ -889,7 +889,7 @@ async function cmdPremios() {
     const premio = p.tipo === 'efectivo' || !TIPOS[p.tipo] ? `$${Number(p.monto_usd)}` : TIPOS[p.tipo];
     return `• <b>${esc(p.titulo)}</b> — ${premio}${p.criterio ? `\n   <i>${esc(p.criterio)}</i>` : ''}`;
   });
-  return `🏆 <b>BONOS DE ${mes}</b> · ${premios.length} premios\n\n${lineas.join('\n')}\n\nSe entregan al cerrar el mes. Cómo vas tú: /cobro.`;
+  return `🏆 <b>PREMIOS DE ${mes}</b> · ${premios.length}\n\n${lineas.join('\n')}\n\nSe entregan al cerrar el mes. Cómo vas tú: /cobro.`;
 }
 
 async function cmdJugador(arg) {
