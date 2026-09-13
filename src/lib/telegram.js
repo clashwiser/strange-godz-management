@@ -5,7 +5,7 @@
 // Crear un grupo con los 3 lideres, meter al bot, y sacar el chat_id con:
 //   https://api.telegram.org/bot<TOKEN>/getUpdates
 
-import { ajuste } from './config.js';
+import { ajuste, grupoTelegram } from './config.js';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -135,7 +135,7 @@ export async function avisar(texto, { silencioso = false, pose = null, menciones
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: CHAT_ID,
+          chat_id: await grupoTelegram(),
           parse_mode: 'HTML',
           disable_notification: silencioso,
           ...cuerpo,

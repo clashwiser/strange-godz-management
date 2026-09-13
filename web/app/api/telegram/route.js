@@ -72,6 +72,15 @@ const SITIO = (process.env.SITIO_URL || 'https://strange-godz-management.vercel.
  */
 async function responder(chatId, respuesta) {
   const conFoto = respuesta && typeof respuesta === 'object' && respuesta.foto;
+  // Una imagen que dibuja el propio OS (el cartel de los premios) tarda
+  // unos segundos en salir del horno y Telegram, si se la damos por URL, se
+  // cansa de esperar ("failed to get HTTP URL content"). Se baja aqui y se
+  // sube como archivo.
+  if (conFoto && String(respuesta.foto).startsWith(`${SITIO}/api/`)) {
+    const subida = await subirFoto(chatId, respuesta.foto, respuesta.pie);
+    if (subida) return subida;
+    return await responder(chatId, respuesta.pie);
+  }
   // {texto, botones}: botones dentro del mensaje (inline_keyboard), como
   // los del /soy. Lo que se toca llega como callback_query.
   const conBotones = respuesta && typeof respuesta === 'object' && respuesta.texto;
@@ -102,6 +111,27 @@ async function responder(chatId, respuesta) {
   // El id del mensaje mandado, para poder reconocer una respuesta a el.
   const j = await res.json().catch(() => null);
   return j?.result?.message_id ?? null;
+}
+
+/** Baja una imagen y la manda como archivo (multipart). Devuelve el id del mensaje, o null. */
+async function subirFoto(chatId, url, pie) {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(50_000) });
+    if (!r.ok) return null;
+    const png = await r.arrayBuffer();
+    const fd = new FormData();
+    fd.append('chat_id', String(chatId));
+    if (pie) {
+      fd.append('caption', pie);
+      fd.append('parse_mode', 'HTML');
+    }
+    fd.append('photo', new Blob([png], { type: 'image/png' }), 'cartel.png');
+    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+    const j = await res.json().catch(() => null);
+    return j?.ok ? (j.result?.message_id ?? true) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request) {

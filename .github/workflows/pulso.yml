@@ -1,0 +1,38 @@
+name: Pulso
+
+# Cada cinco minutos (GitHub lo corre cuando puede; a veces diez tarde):
+#   - Heraldo avisa cuando la guerra esta por empezar (~10 min antes).
+#   - Valquiria pregunta a los lideres por los miembros nuevos de los clanes.
+# Ver src/jobs/pulso.js. En un repo publico los minutos de Actions son
+# ilimitados; el job tarda menos de un minuto.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: pulso
+  cancel-in-progress: false
+
+jobs:
+  pulso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    env:
+      COC_TOKEN: ${{ secrets.COC_TOKEN }}
+      COC_BASE_URL: ${{ vars.COC_BASE_URL }}
+      CLAN_TAGS: ${{ secrets.CLAN_TAGS }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      RECLUTA_BOT_TOKEN: ${{ secrets.RECLUTA_BOT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run pulso

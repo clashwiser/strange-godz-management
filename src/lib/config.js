@@ -115,6 +115,23 @@ export async function valorDe(clave, porDefecto = null) {
   return v === undefined || v === null ? porDefecto : v;
 }
 
+/**
+ * El id del grupo de Telegram que vale AHORA. Telegram le cambia el id a un
+ * grupo cuando lo convierte en supergrupo (paso el 12 sep 2026) y el
+ * secreto TELEGRAM_CHAT_ID de GitHub se queda viejo hasta que alguien lo
+ * cambie a mano: por eso manda config.telegram_grupo_id, que escribe el
+ * webhook al ver la migracion (web/lib/grupo.js). Sin eso, el env.
+ */
+export async function grupoTelegram() {
+  const delEnv = (process.env.TELEGRAM_CHAT_ID || '')
+    .split(',')
+    .map((x) => x.trim())
+    .find((x) => x.startsWith('-')) ?? null;
+  const migrado = await valorDe('telegram_grupo_id', null);
+  const limpio = migrado == null ? null : String(migrado).replace(/"/g, '').trim();
+  return limpio || delEnv;
+}
+
 /** Lo que dice un job cuando lo apagaron desde el panel. */
 export function apagado(clave) {
   console.log(`  apagado desde el panel (${clave})`);
