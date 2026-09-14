@@ -91,6 +91,11 @@ async function coc(ruta, { crudo = false } = {}) {
 
 const tagUrl = (t) => encodeURIComponent(String(t ?? '').trim().toUpperCase().replace(/^#?/, '#'));
 
+/** El clan tal cual lo da la API (/clans/{tag}), o null. */
+export async function clanDe(clanTag) {
+  return coc(`/clans/${tagUrl(clanTag)}`);
+}
+
 /**
  * La guerra en curso del clan, con NUESTRO clan siempre en `clan`. Primero
  * la guerra normal; si el clan esta en liga, la guerra de la ronda en

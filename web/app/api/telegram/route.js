@@ -28,9 +28,10 @@ import { ordenAsignar, atenderBotonAsignar, anotarUsuario } from '../../../lib/a
 import { consultar } from '../../../lib/consulta';
 import { contactosDe, textoContactos } from '../../../lib/contactos';
 import { atenderBotonNuevo } from '../../../lib/nuevos';
-import { guerrasAbiertas } from '../../../lib/castillo-foto';
+import { guerrasAbiertas, clanDe } from '../../../lib/castillo-foto';
 import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
 import { estadoDeLiga, tituloEstrellas, mesDe, temporadaAnterior } from '../../../lib/liga-estado';
+import { textoResumenClanes } from '../../../lib/resumen-clanes';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
 import { avisarALideres } from '../../../lib/bots-salud';
 
@@ -586,7 +587,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     case 'help':
       return (
         `<b>x300 · bot de líderes</b>\n\n` +
-        `/resumen — estado de los 3 clanes y de los jobs\n` +
+        `/resumen — los clanes ahora: miembros, copas, liga, racha y guerra\n` +
         `/guerra — qué clanes están en guerra ahora y cuánto falta\n` +
         `/faltan — quién no ha atacado en la guerra de ahora\n` +
         `/estrellas — tabla de estrellas de la CWL, por clan\n` +
@@ -678,6 +679,11 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 
     case 'resumen':
       return await cmdResumen();
+    case 'sistema':
+      // Lo de dentro (jobs, snapshots, bandeja): de los lideres, y en privado.
+      if (!(await esAdminDelGrupo(quien.id))) return 'Eso es de los líderes, mi hermano. Prueba /resumen.';
+      if (chatId && chatId < 0) return 'Eso te lo digo en privado: escríbeme /sistema por ahí.';
+      return await cmdSistema();
     case 'faltan':
       return await cmdFaltan();
     case 'guerra':
@@ -735,7 +741,26 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
   }
 }
 
+/**
+ * /resumen: los clanes como los ve un jugador. La API del juego para cada
+ * clan (miembros, copas, liga, racha) y la guerra de ahora (cache de
+ * guerras.js). Nada de jobs ni de bandejas: eso es /sistema.
+ */
 async function cmdResumen() {
+  const clans = await consultar(() => admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'), 'clanes');
+  if (!clans?.length) return 'No hay clanes cargados en el panel.';
+  const [apis, guerras] = await Promise.all([
+    Promise.all(clans.map((c) => clanDe(c.clan_tag))),
+    guerrasDeLaAlianza(admin, guerrasAbiertas).catch(() => []),
+  ]);
+  const guerraDe = (tag) => (guerras ?? []).find((g) => String(g.tag).toUpperCase() === String(tag).toUpperCase()) ?? null;
+  return textoResumenClanes(
+    clans.map((c, i) => ({ nombre: c.nombre, api: apis[i], guerra: guerraDe(c.clan_tag) })),
+    { esc }
+  );
+}
+
+async function cmdSistema() {
   const [{ data: clans }, { data: snapUlt }, { data: jobs }, { data: pend }] = await Promise.all([
     admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'),
     admin.from('snapshots').select('fecha').order('fecha', { ascending: false }).limit(1),
@@ -764,7 +789,7 @@ async function cmdResumen() {
   }
 
   return (
-    `<b>Resumen x300</b>\n\n` +
+    `<b>Sistema · Strange Godz</b>\n\n` +
     (lineas.length ? lineas.join('\n') : '  (sin clanes cargados)') +
     `\n\n<b>Último snapshot:</b> ${fecha ?? '—'}\n` +
     `<b>Mensajes por enviar:</b> ${pend?.length ?? 0}\n\n` +
@@ -1016,7 +1041,7 @@ const CADA_DIAS = 3;
 // dia que llega.
 const CUPO_GRUPO = 10;
 /** Lo que un miembro puede pedirle a Heraldo en privado. */
-const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'contacto', 'contactos', 'lideres', 'puntos', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen']);
+const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'contacto', 'contactos', 'lideres', 'puntos', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen', 'sistema']);
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
