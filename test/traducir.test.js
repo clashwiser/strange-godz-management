@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { conBotonTraducir, markupTraducir, sinBotonTraducir, BOTON_TRADUCIR, atenderBotonTraducir } from '../web/lib/traducir.js';
-import { yaVisto, olvidarVistos } from '../web/lib/webhook.js';
+import { yaVisto, olvidarVistos, esViejo } from '../web/lib/webhook.js';
 
 test('el boton va al final si el texto lo merece, y una sola vez', () => {
   assert.equal(conBotonTraducir(null, 'ok 👍'), null);
@@ -50,4 +50,11 @@ test('un update repetido se reconoce; uno nuevo no', () => {
   assert.equal(yaVisto(100), true);
   assert.equal(yaVisto(101), false);
   assert.equal(yaVisto(undefined), false);
+});
+
+test('un mensaje entregado media hora tarde es viejo; uno de hace un minuto no', () => {
+  const ahora = Date.parse('2026-09-14T13:59:00Z');
+  assert.equal(esViejo({ date: Math.floor(Date.parse('2026-09-14T13:27:00Z') / 1000) }, ahora), true);
+  assert.equal(esViejo({ date: Math.floor(Date.parse('2026-09-14T13:58:00Z') / 1000) }, ahora), false);
+  assert.equal(esViejo({}, ahora), false);
 });

@@ -25,7 +25,7 @@
 
 import { after } from 'next/server';
 import { admin } from '../../../lib/supabase-admin';
-import { yaVisto } from '../../../lib/webhook';
+import { yaVisto, esViejo } from '../../../lib/webhook';
 import { atenderBotonTraducir } from '../../../lib/traducir';
 import { traducir } from '../../../lib/pensar';
 import { flujoSolicitud, decirCon, decirConVideo, escribiendo, esc, esAdminDelGrupo, atenderBoton } from '../../../lib/solicitud';
@@ -109,6 +109,10 @@ async function atender(update) {
   const msg = update.message ?? update.edited_message;
   const chatId = msg?.chat?.id;
   if (!chatId) return Response.json({ ok: true });
+  if (esViejo(msg)) {
+    console.log(`[webhook] mensaje de hace ${Math.round((Date.now() / 1000 - msg.date) / 60)} min: se ignora`);
+    return Response.json({ ok: true });
+  }
   const texto = (msg.text || '').trim();
 
   // ---- En privado: la puerta ----

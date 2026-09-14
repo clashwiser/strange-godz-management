@@ -34,3 +34,17 @@ export function yaVisto(updateId) {
 export function olvidarVistos() {
   vistos.clear();
 }
+
+/**
+ * Un mensaje que Telegram entrega tarde (lo guardo mientras el webhook
+ * estuvo caido y lo reenvio media hora despues, como paso el 14 sep 2026
+ * con los /soy y /yo de un recien llegado) no se contesta: a esa hora ya
+ * nadie lo espera y parece que el bot se volvio loco. `date` viene en
+ * segundos.
+ */
+export const VIEJO_MIN = 10;
+export function esViejo(msg, ahora = Date.now()) {
+  const fecha = Number(msg?.date);
+  if (!fecha) return false;
+  return ahora - fecha * 1000 > VIEJO_MIN * 60_000;
+}

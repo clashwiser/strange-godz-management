@@ -10,7 +10,7 @@
 
 import { after } from 'next/server';
 import { admin } from '../../../lib/supabase-admin';
-import { yaVisto } from '../../../lib/webhook';
+import { yaVisto, esViejo } from '../../../lib/webhook';
 import { markupTraducir, atenderBotonTraducir } from '../../../lib/traducir';
 import { traducir } from '../../../lib/pensar';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
@@ -193,6 +193,10 @@ async function atender(update) {
   const texto = (msg?.text || '').trim();
 
   if (!chatId) return;
+  if (esViejo(msg)) {
+    console.log(`[webhook] mensaje de hace ${Math.round((Date.now() / 1000 - msg.date) / 60)} min: se ignora`);
+    return;
+  }
   await atenderMensaje(null, update, msg, chatId, texto);
 }
 
