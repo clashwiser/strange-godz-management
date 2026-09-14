@@ -30,6 +30,7 @@ import { contactosDe, textoContactos } from '../../../lib/contactos';
 import { atenderBotonNuevo } from '../../../lib/nuevos';
 import { guerrasAbiertas } from '../../../lib/castillo-foto';
 import { guerrasDeLaAlianza, textoGuerrasHeraldo } from '../../../lib/guerras';
+import { estadoDeLiga, tituloEstrellas, mesDe, temporadaAnterior } from '../../../lib/liga-estado';
 import { chatsPermitidos, migracionDe, anotarMigracion, AVISO_MIGRACION } from '../../../lib/grupo';
 import { avisarALideres } from '../../../lib/bots-salud';
 
@@ -874,14 +875,26 @@ const enCuantoTexto = (iso) => {
  * lo pidio asi el 12 sep 2026.
  */
 async function cmdEstrellas() {
-  const { data: seasons } = await admin
-    .from('cwl_seasons')
-    .select('id, clan_tag')
-    .eq('temporada', temporadaActual());
-  if (!seasons?.length) return 'No hay CWL registrada para este mes.';
-
-  const { data: wars } = await admin.from('cwl_wars').select('id, season_id').in('season_id', seasons.map((x) => x.id));
-  if (!wars?.length) return 'Todavía no hay rondas guardadas.';
+  // La liga de este mes; si todavia no empezo (sin temporada o sin
+  // rondas), la del mes pasado, y se dice que la de este mes esta pendiente.
+  const ligaDe = async (temporada) => {
+    const seasons = await consultar(() => admin.from('cwl_seasons').select('id, clan_tag').eq('temporada', temporada), 'temporadas');
+    if (!seasons?.length) return { seasons: [], wars: [] };
+    const wars = await consultar(() => admin.from('cwl_wars').select('id, season_id, ronda, estado').in('season_id', seasons.map((x) => x.id)), 'rondas');
+    return { seasons, wars: wars ?? [] };
+  };
+  let temporada = temporadaActual();
+  let { seasons, wars } = await ligaDe(temporada);
+  let nota = '';
+  if (!wars.length) {
+    const anterior = temporadaAnterior(temporada);
+    nota = `\n\nLa liga de ${mesDe(temporada)} está pendiente: todavía no empieza. Esto es lo de ${mesDe(anterior)}.`;
+    temporada = anterior;
+    ({ seasons, wars } = await ligaDe(temporada));
+  }
+  if (!seasons.length) return 'No hay CWL registrada, ni de este mes ni del pasado.';
+  if (!wars.length) return 'Todavía no hay rondas guardadas.';
+  const estado = estadoDeLiga(wars) ?? 'pendiente';
 
   // Con reintento y error visible: una vez salio la tabla con tags en vez
   // de nombres porque la consulta de jugadores fallo en silencio.
@@ -919,7 +932,7 @@ async function cmdEstrellas() {
       .map((p, i) => `${String(i + 1).padStart(2)}. ${p.e}★ ${p.prom.toFixed(0).padStart(3)}%  ${p.nombre}`);
     return `<b>${esc(nombreClan[clan] ?? clan)}</b>\n<pre>${esc(tabla.join('\n'))}</pre>`;
   });
-  return `⭐ <b>Estrellas · ${temporadaActual()}</b> (por clan)\n\n${bloques.join('\n\n')}`;
+  return `${tituloEstrellas(temporada, estado)}\n\n${bloques.join('\n\n')}${nota}`;
 }
 
 /**

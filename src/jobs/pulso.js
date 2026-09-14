@@ -4,6 +4,8 @@
 //
 // Dos cosas, las dos en vivo por la API de Clash:
 //
+//   0. La guerra normal que se acabo: a los lideres, que lancen otra
+//      (src/lib/guerra-texto.js). Solo guerra normal, no CWL.
 //   1. La guerra que esta por empezar. Cuando faltan ~10 minutos para el
 //      dia de batalla (guerra normal o ronda de liga), Heraldo lo grita en
 //      el grupo: "x300: la guerra contra Canadian Elite empieza en 10
@@ -27,6 +29,7 @@ import { getClan, getCurrentWar, getLeagueGroup, getLeagueWar, parseCocDate, opc
 import { clanes, grupoTelegram } from '../lib/config.js';
 import { encolar, negrita } from '../lib/outbox.js';
 import { db, chk, correrJob } from '../lib/db.js';
+import { textoFinGuerra } from '../lib/guerra-texto.js';
 import { miniaturasYoutube } from '../lib/telegram.js';
 import { textoYaEmpezo } from '../../web/lib/youtube-texto.js';
 import { directosProgramados, decidirDirectos, olvidarDirectos } from '../../web/lib/youtube-directos.js';
@@ -75,10 +78,44 @@ function textoEmpieza(nombreClan, rival, minutos, ronda) {
   return `⚔️ ${negrita(nombreClan)}: ¡empezó ${que}! 🔥\n\nA atacar temprano, que aquí los ataques no se dejan sin usar.`;
 }
 
+/**
+ * La guerra normal que acaba de terminar, o null. `warEnded` se queda en
+ * la API hasta que se lanza otra, asi que solo cuenta la que termino hace
+ * menos de FIN_VENTANA_MIN minutos: al estrenar esto no se avisa de una
+ * guerra vieja, y la clave (fin de esa guerra) evita repetirlo cada 5 min.
+ */
+const FIN_VENTANA_MIN = 90;
+function guerraRecienTerminada(normal) {
+  if (normal?.state !== 'warEnded') return null;
+  const fin = parseCocDate(normal.endTime);
+  if (!fin) return null;
+  const hace = -minutosHasta(fin);
+  return hace >= 0 && hace <= FIN_VENTANA_MIN ? normal : null;
+}
+
+async function avisarFinDeGuerra(clanTag, normal, admins) {
+  const g = guerraRecienTerminada(normal);
+  if (!g) return 0;
+  const nuevo = await encolar({
+    tipo: 'guerra_termino',
+    cuerpo: textoFinGuerra({
+      nombre: g.clan?.name ?? clanTag,
+      rival: g.opponent?.name ?? '?',
+      nosotros: g.clan?.stars ?? 0,
+      ellos: g.opponent?.stars ?? 0,
+      destruccionNos: g.clan?.destructionPercentage ?? 0,
+      destruccionEllos: g.opponent?.destructionPercentage ?? 0,
+    }),
+    clave: `guerra-termino:${clanTag}:${g.endTime}`,
+    // Los lideres, mencionados: es a ellos a quienes les toca lanzar.
+    menciones: admins.map((u) => ({ id: u.id, nombre: u.first_name || u.username || 'líder' })),
+  });
+  return nuevo ? 1 : 0;
+}
+
 /** Guerra normal o ronda de liga en preparacion (con nuestro clan en `clan`). */
-async function guerrasPorEmpezar(clanTag) {
+async function guerrasPorEmpezar(clanTag, normal) {
   const abiertas = [];
-  const normal = await opcional(getCurrentWar(clanTag));
   if (normal?.state === 'preparation' || normal?.state === 'inWar') abiertas.push({ guerra: normal, ronda: null });
   const grupo = await opcional(getLeagueGroup(clanTag));
   const rondas = (grupo?.rounds ?? []).filter((r) => (r.warTags ?? []).some((t) => t && t !== '#0'));
@@ -100,8 +137,14 @@ async function guerrasPorEmpezar(clanTag) {
 
 async function avisarGuerras(lista) {
   let avisos = 0;
+  let admins = null;
   for (const c of lista) {
-    for (const { guerra, ronda } of await guerrasPorEmpezar(c.clan_tag)) {
+    const normal = await opcional(getCurrentWar(c.clan_tag));
+    if (guerraRecienTerminada(normal)) {
+      if (!admins) admins = GRUPO ? await lideres() : [];
+      avisos += await avisarFinDeGuerra(c.clan_tag, normal, admins);
+    }
+    for (const { guerra, ronda } of await guerrasPorEmpezar(c.clan_tag, normal)) {
       const empieza = parseCocDate(guerra.startTime);
       if (!empieza) continue;
       const min = minutosHasta(empieza);

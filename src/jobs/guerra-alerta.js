@@ -23,9 +23,10 @@
 
 import { getClan, getCurrentWar, parseCocDate, opcional } from '../lib/coc.js';
 import { clanes, horasHasta, ajuste, apagado } from '../lib/config.js';
-import { encolar, negrita, mono } from '../lib/outbox.js';
+import { encolar, negrita } from '../lib/outbox.js';
 import { correrJob } from '../lib/db.js';
 import { mencionesDe } from '../lib/menciones.js';
+import { bloqueAlerta } from '../lib/guerra-texto.js';
 
 // Mismos umbrales que la CWL. Ascendente: hay que devolver el MAS CHICO que
 // todavia contiene a `horas`; al reves, todo lo menor a 6h daba 6 y los
@@ -46,7 +47,7 @@ await correrJob('alerta_guerra', async () => {
   let masUrgente = Infinity;
   const tagsFlojos = [];
 
-  for (const { clan_tag, escuadra } of await clanes()) {
+  for (const { clan_tag } of await clanes()) {
     const w = await opcional(getCurrentWar(clan_tag));
     if (!w) {
       console.log(`  ${clan_tag}: sin guerra visible (registro privado o sin datos)`);
@@ -90,12 +91,18 @@ await correrJob('alerta_guerra', async () => {
       .map((m) => `#${String(m.mapPosition ?? 0).padStart(2)} ${m.name} — ${porCabeza - m.hechos}`)
       .join('\n');
 
+    // Sin "(escuadra X)": la escuadra es cosa de la CWL, no de esta guerra.
     bloques.push(
-      `${negrita(clan?.name || clan_tag)}  (escuadra ${escuadra})\n` +
-        `Contra ${w.opponent?.name ?? '—'} · cierra en ${negrita(restan.toFixed(1) + 'h')}\n` +
-        `Van ${w.clan?.stars ?? 0}★ contra ${w.opponent?.stars ?? 0}★ · ` +
-        `faltan ${negrita(sinUsar)} ataques:\n` +
-        mono(lista)
+      bloqueAlerta({
+        nombre: clan?.name || clan_tag,
+        rival: w.opponent?.name ?? '—',
+        restan,
+        nosotros: w.clan?.stars ?? 0,
+        ellos: w.opponent?.stars ?? 0,
+        max: (w.teamSize ?? 0) * 3,
+        sinUsar,
+        lista,
+      })
     );
   }
 
