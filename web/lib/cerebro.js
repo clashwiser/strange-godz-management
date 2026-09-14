@@ -106,9 +106,16 @@ export async function medirSalud(admin) {
         admin.from('bitacora').select('id, creado_en, bot, modo, nombre, texto').order('creado_en', { ascending: false }).limit(40),
       ]);
 
+      // La ultima corrida de cada job, y si la anterior tambien fallo: un
+      // tropiezo suelto (Supabase con un 504 pasajero) no es lo mismo que
+      // un job roto, que falla dos veces seguidas.
       const ultimos = new Map();
-      for (const j of jobs.data ?? []) if (!ultimos.has(j.job)) ultimos.set(j.job, j);
-      const listaJobs = [...ultimos.values()].map((j) => ({ ...j, hace: horasDesde(j.started_at) }));
+      const anteriores = new Map();
+      for (const j of jobs.data ?? []) {
+        if (!ultimos.has(j.job)) ultimos.set(j.job, j);
+        else if (!anteriores.has(j.job)) anteriores.set(j.job, j);
+      }
+      const listaJobs = [...ultimos.values()].map((j) => ({ ...j, hace: horasDesde(j.started_at), anteriorOk: anteriores.get(j.job)?.ok ?? null }));
 
       const config = Object.fromEntries((cfg.data ?? []).map((c) => [c.clave, c.valor]));
       const digest = config.meta_digest ?? null;
@@ -158,15 +165,38 @@ export async function medirSalud(admin) {
   pon('clash', 'API de Clash', clash.ok, clash.ok ? `${clash.ms} ms` : clash.error, clash.clan ? `${clash.clan} · ${clash.miembros} miembros` : 'por el proxy de RoyaleAPI', 15);
   pon('ia', 'IA (Groq)', ia.ok && ia.configurada, ia.ok ? (ia.configurada ? ia.texto : 'sin llave en este entorno') : ia.error, ia.vision ? `visión: ${ia.vision}` : ia.medible ? 'sin modelo de visión' : '', ia.medible === false && ia.ok ? 0 : 10);
 
-  const okBot = (x) => Boolean(x && !x.error && x.webhook?.ok && !x.webhook?.ultimoError);
-  const detBot = (x) => (!x ? 'sin datos' : x.error ? x.error : x.webhook?.ok ? (x.webhook.ultimoError ? `último error: ${x.webhook.ultimoError}` : 'webhook conectado') : 'webhook mal apuntado');
+  // Telegram guarda el ULTIMO error del webhook hasta que otro lo
+  // sustituya, aunque haya pasado un dia y todo vaya bien: un error de hace
+  // mas de media hora sin nada pendiente es historia, no una falla.
+  const errBotHace = (x) => (x?.webhook?.ultimoErrorEn ? (Date.now() - Date.parse(x.webhook.ultimoErrorEn)) / 3600000 : null);
+  const errBotVivo = (x) => Boolean(x?.webhook?.ultimoError) && (errBotHace(x) == null || errBotHace(x) <= 0.5 || (x.webhook.pendientes ?? 0) > 0);
+  const okBot = (x) => Boolean(x && !x.error && x.webhook?.ok && !errBotVivo(x));
+  const hace = (h) => (h == null ? '' : h < 1 ? `hace ${Math.max(1, Math.round(h * 60))} min` : `hace ${Math.round(h)} h`);
+  const detBot = (x) =>
+    !x ? 'sin datos'
+    : x.error ? x.error
+    : !x.webhook?.ok ? 'webhook mal apuntado'
+    : errBotVivo(x) ? `último error ${hace(errBotHace(x))}: ${x.webhook.ultimoError}`
+    : x.webhook.ultimoError ? `webhook conectado · último error ${hace(errBotHace(x))}: ${x.webhook.ultimoError}`
+    : 'webhook conectado';
   const subBot = (x) => (x?.usuario ? `@${x.usuario} · ${x.enGrupo ? 'en el grupo' : 'fuera del grupo'} · ${x.webhook?.pendientes ?? 0} pendientes` : '');
   pon('heraldo', 'Heraldo', okBot(heraldo), detBot(heraldo), subBot(heraldo), heraldo?.configurado === false ? 0 : 10);
   pon('valquiria', 'Valquiria', okBot(valquiria), detBot(valquiria), subBot(valquiria), valquiria?.configurado === false ? 0 : 5);
 
   const d = datos.ok ? datos : null;
-  const jobsMal = (d?.jobs ?? []).filter((j) => j.ok === false);
-  pon('jobs', 'Jobs (GitHub Actions)', d && jobsMal.length === 0, !d ? datos.error : jobsMal.length ? `${jobsMal.length} con error: ${jobsMal.map((j) => j.job).join(', ')}` : `${d.jobs.length} jobs, todos bien`, 'los robots de fondo: sincronizar, avisar, cerrar el mes', 15);
+  // Un job falla de verdad si fallo dos veces seguidas o hace menos de 3 h;
+  // un tropiezo suelto de hace horas se dice, pero no baja la salud.
+  const fallados = (d?.jobs ?? []).filter((j) => j.ok === false);
+  const jobsMal = fallados.filter((j) => j.anteriorOk === false || (j.hace != null && j.hace <= 3));
+  const tropiezos = fallados.filter((j) => !jobsMal.includes(j));
+  const detJobs = !d
+    ? datos.error
+    : jobsMal.length
+      ? `${jobsMal.length} con error: ${jobsMal.map((j) => j.job).join(', ')}`
+      : tropiezos.length
+        ? `${d.jobs.length} jobs · ${tropiezos.map((j) => `${j.job} tropezó ${hace(j.hace)}`).join(', ')} (reintenta solo)`
+        : `${d.jobs.length} jobs, todos bien`;
+  pon('jobs', 'Jobs (GitHub Actions)', d && jobsMal.length === 0, detJobs, 'los robots de fondo: sincronizar, avisar, cerrar el mes', 15);
   pon('snapshot', 'Datos de los jugadores', d?.snapshot?.hace != null && d.snapshot.hace <= 36, d?.snapshot?.fecha ? `último snapshot ${d.snapshot.fecha}` : 'sin snapshots', d?.snapshot?.hace != null ? `hace ${d.snapshot.hace} h` : '', 10);
   pon('meta', 'Digesto del meta', d?.meta?.hace != null && d.meta.hace <= 72, d?.meta ? `${d.meta.videos ?? '?'} videos · ${d.meta.articulos ?? '?'} artículos` : 'sin digesto', d?.meta?.hace != null ? `hace ${d.meta.hace} h` : '', 5);
   pon('outbox', 'Bandeja de salida', d && (d.outbox ?? 0) < 10, `${d?.outbox ?? '?'} pendientes`, 'avisos por mandar', 5);
