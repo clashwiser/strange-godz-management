@@ -9,6 +9,13 @@ import { createClient } from '@supabase/supabase-js';
 // "supabaseUrl is required", tumbando el despliegue entero.
 let cliente = null;
 
+const TIMEOUT_MS = 10_000;
+const conTimeout = (url, opciones = {}) => {
+  const propio = AbortSignal.timeout(TIMEOUT_MS);
+  const signal = opciones.signal ? AbortSignal.any([opciones.signal, propio]) : propio;
+  return fetch(url, { ...opciones, signal });
+};
+
 function obtener() {
   if (cliente) return cliente;
 
@@ -18,8 +25,13 @@ function obtener() {
     throw new Error('Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Vercel');
   }
 
+  // Con timeout: el 14 sep 2026 Supabase estuvo caido unos minutos y cada
+  // consulta se quedo colgada hasta que Vercel mato la funcion (30-60 s);
+  // Telegram reenvio los updates y el grupo vio bienvenidas repetidas.
+  // Mejor un error a los 10 s, que consulta.js reintenta o hace visible.
   cliente = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: conTimeout },
   });
   return cliente;
 }

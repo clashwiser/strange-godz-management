@@ -590,6 +590,33 @@ function anotar(modelo, texto) {
 }
 
 /**
+ * Traduce un mensaje de los bots al ingles (el boton "🌐 English",
+ * traducir.js). Sin personaje: solo la traduccion, con sus saltos de linea
+ * y emojis. Null si no hay IA, esta apagada o fallo.
+ */
+export async function traducir(admin, texto, idioma = 'English') {
+  if (MOTOR !== 'openai' || !String(texto ?? '').trim()) return null;
+  if (!(await ajusteWeb(admin, 'ia_activa', true))) return null;
+  const n = await contarLlamada(admin);
+  if (n > TOPE_DIA) return null;
+  const modelo = await elegirModeloCompat();
+  if (!modelo) return null;
+  const messages = [
+    {
+      role: 'system',
+      content: `Translate the user's message into ${idioma}. It is a message from a Clash of Clans clan bot written in Cuban Spanish. Keep the line breaks, the emojis, the numbers, the player and clan names, the commands starting with / and the links exactly as they are. Output ONLY the translation, no notes, no quotes.`,
+    },
+    { role: 'user', content: String(texto).slice(0, 3000) },
+  ];
+  const r = await llamarCompat(modelo, messages, { max_tokens: 900, timeout: 20000, crudo: true });
+  if (!r?.texto) {
+    await contarFallo(admin);
+    return null;
+  }
+  return r.texto.trim();
+}
+
+/**
  * Deja la respuesta lista para Telegram en modo HTML: sin markdown que
  * saldria como asteriscos sueltos, sin enlaces ni citas [1] de la
  * busqueda, sin etiquetas que Telegram no acepta, y sin pasarse de largo

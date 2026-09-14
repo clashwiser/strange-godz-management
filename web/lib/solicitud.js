@@ -36,6 +36,7 @@ import { pensar, thDe } from './pensar.js';
 import { esPreguntaDelJuego } from './conocimiento.js';
 import { leccionPara, reglasDelClan } from './entrenamiento.js';
 import { grupoActual } from './grupo.js';
+import { conBotonTraducir, markupTraducir } from './traducir.js';
 import { admin as db } from './supabase-admin.js';
 
 const HERALDO = process.env.TELEGRAM_BOT_TOKEN;
@@ -228,11 +229,11 @@ export async function decirCon(token, chatId, respuesta) {
   // del teclado del telefono; al tocarlo manda ese texto) y los botones EN
   // el mensaje (botones: inline_keyboard; con callback_data o con url).
   // Telegram solo admite uno de los dos por mensaje.
-  const markup = botones
-    ? { inline_keyboard: botones }
-    : teclado
-      ? { keyboard: teclado.map((fila) => fila.map((t) => ({ text: t }))), one_time_keyboard: true, resize_keyboard: true }
-      : { remove_keyboard: true };
+  // Con el boton "🌐 English" al final si el texto lo merece (traducir.js);
+  // con teclado de respuesta no cabe (Telegram admite uno solo por mensaje).
+  const markup = teclado
+    ? { keyboard: teclado.map((fila) => fila.map((t) => ({ text: t }))), one_time_keyboard: true, resize_keyboard: true }
+    : (conBotonTraducir(botones, texto) ? { inline_keyboard: conBotonTraducir(botones, texto) } : { remove_keyboard: true });
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -289,7 +290,7 @@ export async function decirConVideo(token, chatId, urlVideo, pie) {
       const r = await fetch(`https://api.telegram.org/bot${token}/sendAnimation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, animation: urlVideo, caption: pie, parse_mode: 'HTML' }),
+        body: JSON.stringify({ chat_id: chatId, animation: urlVideo, caption: pie, parse_mode: 'HTML', ...markupTraducir(null, pie) }),
       });
       if (r.ok) return true;
     } catch {

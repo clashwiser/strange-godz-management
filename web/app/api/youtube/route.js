@@ -21,6 +21,7 @@ import { admin } from '../../../lib/supabase-admin';
 import { ajusteWeb } from '../../../lib/entrenamiento';
 import { tituloDeEntrada, directoDe, textoVideo } from '../../../lib/youtube-texto';
 import { anotarDirectoProgramado } from '../../../lib/youtube-directos';
+import { markupTraducir } from '../../../lib/traducir';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,7 +83,7 @@ export async function POST(request) {
 
   const xml = await request.text().catch(() => '');
   // Interruptor de la pestaña Bots: apagado, ni se anota ni se anuncia.
-  if (!(await ajusteWeb(admin, 'avisos_youtube', true))) return new Response('', { status: 204 });
+  if (!(await ajusteWeb(admin, 'avisos_youtube', true))) return new Response(null, { status: 204 });
 
   const videoId = etiqueta(xml, 'yt:videoId');
   const canalId = etiqueta(xml, 'yt:channelId');
@@ -92,12 +93,12 @@ export async function POST(request) {
   let empieza = null;
 
   // Un aviso sin video es un borrado o un cambio de titulo: se ignora.
-  if (!videoId || !canalId) return new Response('', { status: 204 });
+  if (!videoId || !canalId) return new Response(null, { status: 204 });
 
   const canal = CANALES[canalId];
   if (!canal) {
     console.log(`[youtube] aviso de un canal que no seguimos: ${canalId}`);
-    return new Response('', { status: 204 });
+    return new Response(null, { status: 204 });
   }
 
   // Contra un aviso falsificado: este endpoint es publico y no lleva
@@ -116,14 +117,14 @@ export async function POST(request) {
       const real = item?.snippet;
       if (!real || real.channelId !== canalId) {
         console.log(`[youtube] ${videoId} no existe o no es de ${canalId}`);
-        return new Response('', { status: 204 });
+        return new Response(null, { status: 204 });
       }
       // El titulo de la API manda: es el que se ve en YouTube.
       if (real.title) titulo = real.title;
       ({ directo, empieza } = directoDe(item));
     } catch (e) {
       console.log(`[youtube] no se pudo verificar ${videoId}: ${e.message}`);
-      return new Response('', { status: 204 });
+      return new Response(null, { status: 204 });
     }
   }
 
@@ -144,10 +145,10 @@ export async function POST(request) {
 
   if (error) {
     console.log(`[youtube] error guardando: ${error.message}`);
-    return new Response('', { status: 204 });
+    return new Response(null, { status: 204 });
   }
   // Ya estaba: lo anuncio el cron o un aviso repetido del hub.
-  if (!data?.length) return new Response('', { status: 204 });
+  if (!data?.length) return new Response(null, { status: 204 });
 
   // Un directo programado se apunta para que el pulso avise cuando empiece.
   if (directo === 'upcoming') {
@@ -170,7 +171,7 @@ export async function POST(request) {
     const r = await fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: CHAT_ID, parse_mode: 'HTML', ...extra }),
+      body: JSON.stringify({ chat_id: CHAT_ID, parse_mode: 'HTML', ...markupTraducir(null, cuerpo), ...extra }),
     }).catch(() => null);
     if (r?.ok) {
       salio = true;
@@ -188,5 +189,5 @@ export async function POST(request) {
   }
 
   console.log(`[youtube] ${salio ? 'anunciado' : 'NO anunciado'} ${videoId} de ${canal.nombre}`);
-  return new Response('', { status: 204 });
+  return new Response(null, { status: 204 });
 }

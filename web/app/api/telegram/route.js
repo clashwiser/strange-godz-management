@@ -8,7 +8,11 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_SECRET_TOKEN, TELEGRAM_CHAT_ID
 
+import { after } from 'next/server';
 import { admin } from '../../../lib/supabase-admin';
+import { yaVisto } from '../../../lib/webhook';
+import { markupTraducir, atenderBotonTraducir } from '../../../lib/traducir';
+import { traducir } from '../../../lib/pensar';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 import { flujoSolicitud, decirCon, escribiendo, esAdminDelGrupo, atenderBoton } from '../../../lib/solicitud';
 import { pensar, thDe } from '../../../lib/pensar';
@@ -87,14 +91,15 @@ async function responder(chatId, respuesta) {
   // {texto, botones}: botones dentro del mensaje (inline_keyboard), como
   // los del /soy. Lo que se toca llega como callback_query.
   const conBotones = respuesta && typeof respuesta === 'object' && respuesta.texto;
+  // Y el boton "🌐 English" al final, si el texto lo merece (traducir.js).
   const cuerpo = conFoto
-    ? { chat_id: chatId, photo: respuesta.foto, caption: respuesta.pie, parse_mode: 'HTML' }
+    ? { chat_id: chatId, photo: respuesta.foto, caption: respuesta.pie, parse_mode: 'HTML', ...markupTraducir(null, respuesta.pie) }
     : {
         chat_id: chatId,
         text: conBotones ? respuesta.texto : String(respuesta),
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
-        ...(conBotones && respuesta.botones ? { reply_markup: { inline_keyboard: respuesta.botones } } : {}),
+        ...markupTraducir(conBotones ? respuesta.botones : null, conBotones ? respuesta.texto : String(respuesta)),
       };
 
   const res = await fetch(
@@ -127,6 +132,8 @@ async function subirFoto(chatId, url, pie) {
     if (pie) {
       fd.append('caption', pie);
       fd.append('parse_mode', 'HTML');
+      const markup = markupTraducir(null, pie).reply_markup;
+      if (markup) fd.append('reply_markup', JSON.stringify(markup));
     }
     fd.append('photo', new Blob([png], { type: 'image/png' }), 'cartel.png');
     const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
@@ -161,6 +168,14 @@ export async function POST(request) {
     return Response.json({ ok: true });
   }
 
+  // Se contesta 200 YA y se atiende despues; y un update repetido (Telegram
+  // reenvia si tardamos) se ignora. Ver webhook.js.
+  if (yaVisto(update.update_id)) return Response.json({ ok: true });
+  after(() => atender(update).catch((e) => console.error(`[webhook] ${e.message}`)));
+  return Response.json({ ok: true });
+}
+
+async function atender(update) {
   // Un boton tocado en un mensaje suyo: los del /soy (elegir clan, nombre,
   // "las dos") o el de aceptar las normas (en privado).
   if (update.callback_query) {
@@ -170,15 +185,15 @@ export async function POST(request) {
     } catch (e) {
       console.error(`[boton] ${e.message}`);
     }
-    return Response.json({ ok: true });
+    return;
   }
 
   const msg = update.message ?? update.edited_message;
   const chatId = msg?.chat?.id;
   const texto = (msg?.text || '').trim();
 
-  if (!chatId) return Response.json({ ok: true });
-  return await atenderMensaje(request, update, msg, chatId, texto);
+  if (!chatId) return;
+  await atenderMensaje(null, update, msg, chatId, texto);
 }
 
 /** Un boton tocado en un mensaje de Heraldo, por su prefijo. */
@@ -198,6 +213,8 @@ async function atenderCallback(cq) {
     await atenderBotonBase(cq);
   } else if (String(cq.data ?? '').startsWith('nm:')) {
     await atenderBotonNuevo(admin, TOKEN, cq);
+  } else if (String(cq.data ?? '').startsWith('tr:')) {
+    await atenderBotonTraducir(TOKEN, cq, (t) => traducir(admin, t));
   } else if (String(cq.data ?? '').startsWith('asg:')) {
     const tg = (metodo, cuerpo) =>
       fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {

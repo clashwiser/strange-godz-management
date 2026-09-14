@@ -6,6 +6,7 @@
 //   https://api.telegram.org/bot<TOKEN>/getUpdates
 
 import { ajuste, grupoTelegram } from './config.js';
+import { markupTraducir } from '../../web/lib/traducir.js';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -138,6 +139,8 @@ export async function avisar(texto, { silencioso = false, pose = null, menciones
           chat_id: await grupoTelegram(),
           parse_mode: 'HTML',
           disable_notification: silencioso,
+          // El boton "🌐 English" (traducir.js): lo atiende el webhook de Heraldo.
+          ...markupTraducir(null, html),
           ...cuerpo,
         }),
         signal: AbortSignal.timeout(15000),

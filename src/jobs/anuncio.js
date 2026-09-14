@@ -9,6 +9,7 @@
 
 import { readFileSync } from 'node:fs';
 import { grupoTelegram } from '../lib/config.js';
+import { markupTraducir } from '../../web/lib/traducir.js';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const args = process.argv.slice(2);
@@ -29,7 +30,7 @@ async function mandar() {
   const r = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: Number(grupo), text: texto, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }),
+    body: JSON.stringify({ chat_id: Number(grupo), text: texto, parse_mode: 'HTML', link_preview_options: { is_disabled: true }, ...markupTraducir(null, texto) }),
     signal: AbortSignal.timeout(20000),
   }).then((x) => x.json());
   if (!r.ok) throw new Error(`Telegram: ${r.description}`);

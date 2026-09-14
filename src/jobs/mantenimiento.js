@@ -13,6 +13,7 @@
 
 import { readFileSync } from 'node:fs';
 import { grupoTelegram } from '../lib/config.js';
+import { markupTraducir } from '../../web/lib/traducir.js';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SECO = process.argv.includes('--seco');
@@ -52,6 +53,7 @@ async function mandar() {
   cuerpo.append('chat_id', String(grupo));
   cuerpo.append('caption', texto);
   cuerpo.append('parse_mode', 'HTML');
+  cuerpo.append('reply_markup', JSON.stringify(markupTraducir(null, texto).reply_markup));
   cuerpo.append('photo', new Blob([foto], { type: 'image/jpeg' }), 'taller.jpg');
   const r = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: cuerpo, signal: AbortSignal.timeout(30000) }).then((x) => x.json());
   if (!r.ok) throw new Error(`Telegram: ${r.description}`);

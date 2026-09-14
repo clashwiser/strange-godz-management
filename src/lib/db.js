@@ -11,7 +11,16 @@ if (!URL || !KEY) {
   throw new Error('Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno');
 }
 
+// Con timeout: una consulta colgada no debe comerse el job entero.
+const TIMEOUT_MS = 20_000;
+const conTimeout = (url, opciones = {}) => {
+  const propio = AbortSignal.timeout(TIMEOUT_MS);
+  const signal = opciones.signal ? AbortSignal.any([opciones.signal, propio]) : propio;
+  return fetch(url, { ...opciones, signal });
+};
+
 export const db = createClient(URL, KEY, {
+  global: { fetch: conTimeout },
   auth: { persistSession: false, autoRefreshToken: false },
 });
 

@@ -23,7 +23,11 @@
 //   RECLUTA_BOT_TOKEN      el token del bot (BotFather)
 //   RECLUTA_SECRET_TOKEN   uno inventado, el mismo que lleva el webhook
 
+import { after } from 'next/server';
 import { admin } from '../../../lib/supabase-admin';
+import { yaVisto } from '../../../lib/webhook';
+import { atenderBotonTraducir } from '../../../lib/traducir';
+import { traducir } from '../../../lib/pensar';
 import { flujoSolicitud, decirCon, decirConVideo, escribiendo, esc, esAdminDelGrupo, atenderBoton } from '../../../lib/solicitud';
 import {
   entenderValquiria,
@@ -79,12 +83,22 @@ export async function POST(request) {
     return Response.json({ ok: true });
   }
 
-  // Un boton tocado en un mensaje suyo: aceptar las normas, o decir si un
-  // miembro nuevo del clan es de casa o de visita (src/jobs/pulso.js).
+  // Se contesta 200 YA y se atiende despues; y un update repetido (Telegram
+  // reenvia si tardamos) se ignora. Ver webhook.js.
+  if (yaVisto(update.update_id)) return Response.json({ ok: true });
+  after(() => atender(update).catch((e) => console.error(`[webhook] ${e.message}`)));
+  return Response.json({ ok: true });
+}
+
+async function atender(update) {
+  // Un boton tocado en un mensaje suyo: aceptar las normas, decir si un
+  // miembro nuevo del clan es de casa o de visita (src/jobs/pulso.js), o
+  // traducir el mensaje al ingles.
   if (update.callback_query) {
     const cq = update.callback_query;
     try {
       if (String(cq.data ?? '').startsWith('nm:')) await atenderBotonNuevo(admin, TOKEN, cq);
+      else if (String(cq.data ?? '').startsWith('tr:')) await atenderBotonTraducir(TOKEN, cq, (t) => traducir(admin, t));
       else await atenderBoton(admin, TOKEN, cq, 'recluta');
     } catch (e) {
       console.error(`[boton] ${e.message}`);
