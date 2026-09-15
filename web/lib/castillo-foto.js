@@ -305,35 +305,32 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     };
   }
 
-  let tag = null;
-  let guerra = null;
-  let sitio = null;
+  // TODAS las cuentas que estan en el mapa de una guerra: con varias
+  // cuentas en la misma guerra (Cris tiene dos en x300) la foto puede ser
+  // del castillo de abajo de cualquiera. Antes se cogia la primera y la
+  // foto de la segunda cuenta salia como "no distingo el castillo de X".
+  const sitios = [];
   let hayGuerra = false;
+  const guerrasPorClan = new Map();
   for (const candidato of tags) {
     const perfil = await pedirPerfil(candidato);
     const clanTag = perfil?.clan?.tag;
-    const g = clanTag ? await guerraDe(clanTag) : null;
+    if (!clanTag) continue;
+    if (!guerrasPorClan.has(clanTag)) guerrasPorClan.set(clanTag, await guerraDe(clanTag));
+    const g = guerrasPorClan.get(clanTag);
     if (!g) continue;
     hayGuerra = true;
     const s = castilloDeAbajo(g, candidato);
-    if (!s) continue;
-    tag = candidato;
-    guerra = g;
-    sitio = s;
-    break;
+    if (s) sitios.push({ tag: candidato, guerra: g, sitio: s });
   }
   if (!hayGuerra) {
     await anota('foto: sin guerra en curso en la API');
     return { texto: `📷 No encuentro una guerra en curso para tu clan, ${quien}, así que no puedo cruzar la foto. ${MANUAL}`, verificado: false };
   }
-  if (!sitio) {
+  if (!sitios.length) {
     await anota('foto: no esta en el mapa de esta guerra');
     return { texto: `📷 No te veo en el mapa de esta guerra, ${quien}. Si estás fuera de la alineación, no hay castillo que donar. ${MANUAL}`, verificado: false };
   }
-  // La cuenta que dono, por si la fila se anoto con la principal.
-  if (fila.player_tag !== tag) await admin.from('castillos').update({ player_tag: tag }).eq('id', fila.id);
-  const { abajo } = sitio;
-  const quienAbajo = `<b>${esc(abajo.nombre)}</b> (#${abajo.posicion})`;
 
   const foto = fotoDe(msg);
   const imagen = foto ? await bajarFoto(token, foto) : null;
@@ -342,7 +339,22 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
   }
 
   const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_MAPA });
-  const fallo = juzgar({ lectura, abajo, oponente: guerra.opponent?.name, propio: guerra.clan?.name });
+  // Se juzga contra el castillo de abajo de cada cuenta y se queda el mejor
+  // veredicto: lleno, si no incompleto, si no lo que sea de la principal.
+  const RANGO = { lleno: 3, incompleto: 2 };
+  let mejor = null;
+  for (const c of sitios) {
+    const f = juzgar({ lectura, abajo: c.sitio.abajo, oponente: c.guerra.opponent?.name, propio: c.guerra.clan?.name });
+    const rango = RANGO[f.veredicto] ?? 1;
+    if (!mejor || rango > mejor.rango) mejor = { ...c, fallo: f, rango };
+  }
+  const { tag, guerra, sitio, fallo } = mejor;
+  // La cuenta que dono, por si la fila se anoto con la principal.
+  if (fila.player_tag !== tag) await admin.from('castillos').update({ player_tag: tag }).eq('id', fila.id);
+  const { abajo } = sitio;
+  const quienAbajo = `<b>${esc(abajo.nombre)}</b> (#${abajo.posicion})`;
+  // Para el "no lo veo": todos los castillos que valdrian, no solo uno.
+  const losDeAbajo = sitios.map((c) => `<b>${esc(c.sitio.abajo.nombre)}</b> (#${c.sitio.abajo.posicion})`).join(' o ');
 
   switch (fallo.veredicto) {
     case 'lleno': {
@@ -380,9 +392,9 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         verificado: false,
       };
     case 'no_se_ve':
-      await anota(`foto: no se distingue el castillo de ${abajo.nombre}`);
+      await anota(`foto: no se distingue el castillo de ${sitios.map((c) => c.sitio.abajo.nombre).join(' / ')}`);
       return {
-        texto: `📷 En la foto no distingo el castillo de ${quienAbajo}, que es el de abajo de ${quien}. Manda una captura del mapa de guerra donde se lea su nombre y el castillo (N/M). ${MANUAL}`,
+        texto: `📷 En la foto no distingo el castillo de ${losDeAbajo}, que es el de abajo de ${quien}. Manda una captura del mapa de guerra donde se lea su nombre y el castillo (N/M). ${MANUAL}`,
         verificado: false,
       };
     default:

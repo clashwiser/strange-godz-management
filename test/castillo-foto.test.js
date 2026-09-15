@@ -41,6 +41,26 @@ test('parecidos: nombres leidos por OCR con un fallo o un simbolo de menos', () 
   assert.equal(parecidos('Caro', 'Carlos'), true); // contiene; aceptable en un mapa de 15
   assert.equal(parecidos('Beto', 'Caro'), false);
   assert.equal(parecidos('', 'Caro'), false);
+  // El alfabeto "tachado": el juego lo pinta como letras normales y asi lo lee el modelo.
+  assert.equal(parecidos('ØVERHAMMER', '꧁Ø︎VɆⱤⱧ₳₥₥ɆⱤ꧂'), true);
+  assert.equal(parecidos('OVERHAMMER', '꧁Ø︎VɆⱤⱧ₳₥₥ɆⱤ꧂'), true);
+});
+
+test('juzgar: la ventana de abajo con un nombre de letras tachadas (la foto de Cris del 14 sep)', () => {
+  const l = lectura({
+    es_mapa_de_guerra: true,
+    fase: 'preparacion',
+    clan_enemigo: 'CHRISTIAN ARMY',
+    bases: [
+      { posicion: 1, nombre: '★(K)(I)(N)(G)★', tropas: 0, capacidad: 55, ventana: false },
+      { posicion: 4, nombre: "Assassin's Cred", tropas: 0, capacidad: 55, ventana: false },
+      { posicion: 3, nombre: 'ØVERHAMMER', tropas: 55, capacidad: 55, ventana: true },
+    ],
+    tropas_donadas: [{ tropa: 'Arquera', cantidad: 1, nivel: 14 }, { tropa: 'Bruja', cantidad: 4, nivel: 4 }],
+  });
+  const r = juzgar({ lectura: l, abajo: { posicion: 3, nombre: '꧁Ø︎VɆⱤⱧ₳₥₥ɆⱤ꧂' }, oponente: 'Christian Army', propio: 'x300' });
+  assert.equal(r.veredicto, 'lleno');
+  assert.equal(r.tropas, 55);
 });
 
 const lectura = (json) => ({ json });
