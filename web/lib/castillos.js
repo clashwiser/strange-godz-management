@@ -65,34 +65,47 @@ export async function anotarCastillo(admin, { tgId, nombre, texto }) {
   const temporada = temporadaDe();
   const hoy = diaCuba();
 
-  const { data: deHoy } = await admin
-    .from('castillos')
-    .select('id, verificado, puntos, player_tag, mensaje_bot_id')
-    .eq('tg_user_id', tgId)
-    .gte('creado_en', `${hoy}T00:00:00-04:00`)
-    .limit(1)
-    .maybeSingle();
-  if (deHoy) {
+  // Cada cuenta suma por separado (lo pidio Cris el 14 sep 2026): una fila
+  // por cuenta y por dia. Si hay una de hoy sin confirmar, es esa; si todas
+  // las cuentas ya tienen la suya confirmada, no hay mas que anotar.
+  const [{ data: deHoy }, { data: vinculos }] = await Promise.all([
+    admin
+      .from('castillos')
+      .select('id, verificado, puntos, player_tag, mensaje_bot_id')
+      .eq('tg_user_id', tgId)
+      .gte('creado_en', `${hoy}T00:00:00-04:00`)
+      .order('creado_en', { ascending: false }),
+    admin.from('tg_vinculos').select('player_tag').eq('tg_user_id', tgId).order('principal', { ascending: false }),
+  ]);
+  const cuentas = (vinculos ?? []).map((v) => v.player_tag).filter(Boolean);
+  const pendiente = (deHoy ?? []).find((c) => !c.verificado);
+  if (pendiente) {
     return {
-      id: deHoy.id,
+      id: pendiente.id,
       existente: true,
-      fila: { ...deHoy, tg_user_id: tgId, nombre },
-      texto: deHoy.verificado
-        ? `Ya tengo tu castillo de hoy anotado y confirmado, ${nombre} (+${deHoy.puntos}). Mañana otro. 📜`
-        : `Ya tengo tu castillo de hoy anotado, ${nombre}; en cuanto un líder lo confirme suman los puntos. 📜`,
+      fila: { ...pendiente, tg_user_id: tgId, nombre },
+      texto: `Ya tengo tu castillo de hoy anotado, ${nombre}; en cuanto un líder lo confirme suman los puntos. 📜`,
+    };
+  }
+  const confirmadas = new Set((deHoy ?? []).filter((c) => c.verificado).map((c) => c.player_tag));
+  const libres = cuentas.filter((t) => !confirmadas.has(t));
+  if ((deHoy ?? []).length && (!cuentas.length || !libres.length)) {
+    const puntos = (deHoy ?? []).reduce((s, c) => s + (c.puntos ?? 0), 0);
+    return {
+      id: deHoy[0].id,
+      existente: true,
+      fila: { ...deHoy[0], tg_user_id: tgId, nombre },
+      texto:
+        cuentas.length > 1
+          ? `Ya tienes confirmado el castillo de hoy de tus ${cuentas.length} cuentas, ${nombre} (+${puntos}). Mañana otra vez. 📜`
+          : `Ya tengo tu castillo de hoy anotado y confirmado, ${nombre} (+${puntos}). Mañana otro. 📜`,
     };
   }
 
   // Quien es en el juego, si se presento con /soy: para que el lider sepa
-  // que castillo mirar. Con varias cuentas, la principal; la foto del
-  // castillo ya mira cual de ellas esta en el mapa (castillo-foto.js).
-  const { data: vinculo } = await admin
-    .from('tg_vinculos')
-    .select('player_tag')
-    .eq('tg_user_id', tgId)
-    .order('principal', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // que castillo mirar. Con varias cuentas, la primera que no tenga el de
+  // hoy; la foto del castillo ya mira cual de ellas esta en el mapa.
+  const vinculo = libres.length ? { player_tag: libres[0] } : null;
 
   const { data: fila, error } = await admin
     .from('castillos')

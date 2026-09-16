@@ -46,10 +46,28 @@ export const planoLaxo = (s) => plano(s).replace(/[013457]/g, (d) => DIGITOS_LET
  * (con al menos tres letras) o difieren en un par de letras: "Assasins"
  * leido por el OCR es "Assassins".
  */
+/**
+ * Para nombres que plano deja vacios -chinos, arabes, cirilico puro-: lo
+ * mismo pero conservando las letras de cualquier alfabeto. El 14 sep 2026
+ * el rival era «龙之城», el modelo leyo «龙之城», los dos quedaban en "" y
+ * Heraldo dijo "esa captura parece de otra guerra".
+ */
+export const crudo = (s) =>
+  String(s ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+
 export function parecidos(a, b) {
-  const x = plano(a);
-  const y = plano(b);
-  if (!x || !y) return false;
+  let x = plano(a);
+  let y = plano(b);
+  if (!x || !y) {
+    x = crudo(a);
+    y = crudo(b);
+    if (!x || !y) return false;
+    if (x === y) return true;
+    return x.length >= 2 && y.length >= 2 && (x.includes(y) || y.includes(x));
+  }
   if (x === y) return true;
   if (x.length >= 3 && y.length >= 3 && (x.includes(y) || y.includes(x))) return true;
   if (Math.abs(x.length - y.length) > 2) return false;

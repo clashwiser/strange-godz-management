@@ -20,7 +20,7 @@
 
 import { leerImagen } from './vision.js';
 import { pedirPerfil } from './coc-perfil.js';
-import { PUNTOS_CASTILLO } from './castillos.js';
+import { PUNTOS_CASTILLO, temporadaDe } from './castillos.js';
 import { plano, parecidos } from './nombres.js';
 
 const BASE = process.env.COC_BASE_URL || 'https://cocproxy.royaleapi.dev/v1';
@@ -283,11 +283,20 @@ const MANUAL = 'Mientras, un líder puede confirmarlo contestando ✅ a este men
  * @param {{ token:string, msg:object, fila:object, quien:string }} p  fila: la de castillos; quien: nombre ya escapado
  */
 export async function verificarCastilloConFoto(admin, { token, msg, fila, quien }) {
-  if (fila.verificado) return { texto: `Ese castillo ya estaba confirmado, ${quien} (+${fila.puntos}). 📜`, verificado: true };
-
   const anota = async (nota) => {
     await admin.from('castillos').update({ nota: String(nota).slice(0, 200) }).eq('id', fila.id);
   };
+
+  // Las cuentas que YA tienen el castillo de hoy confirmado no cuentan
+  // otra vez: cada cuenta suma una vez al dia.
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
+  const { data: confirmadosHoy } = await admin
+    .from('castillos')
+    .select('id, player_tag, puntos')
+    .eq('tg_user_id', fila.tg_user_id)
+    .eq('verificado', true)
+    .gte('creado_en', `${hoy}T00:00:00-04:00`);
+  const yaConfirmadas = new Set((confirmadosHoy ?? []).map((c) => c.player_tag).filter(Boolean));
 
   // Quien es en el juego: sin /soy no hay con que cruzar la foto. Con
   // varias cuentas se prueba cada una: la que este en el mapa de una
@@ -297,7 +306,18 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     .select('player_tag')
     .eq('tg_user_id', fila.tg_user_id)
     .order('principal', { ascending: false });
-  const tags = [...new Set([fila.player_tag, ...(vinculos ?? []).map((v) => v.player_tag)].filter(Boolean))];
+  const todas = [...new Set([fila.player_tag, ...(vinculos ?? []).map((v) => v.player_tag)].filter(Boolean))];
+  const tags = todas.filter((t) => !yaConfirmadas.has(t));
+  if (todas.length && !tags.length) {
+    const puntos = (confirmadosHoy ?? []).reduce((s, c) => s + (c.puntos ?? 0), 0);
+    return {
+      texto:
+        todas.length > 1
+          ? `Ya tienes confirmado el castillo de hoy de tus ${todas.length} cuentas, ${quien} (+${puntos}). Mañana otra vez. 📜`
+          : `Ese castillo ya estaba confirmado, ${quien} (+${puntos}). 📜`,
+      verificado: true,
+    };
+  }
   if (!tags.length) {
     return {
       texto: `📷 Recibí la foto, ${quien}, pero no sé quién eres en el juego. Preséntate con <code>/soy TuNombre</code> y vuelve a mandarla. ${MANUAL}`,
@@ -349,8 +369,21 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     if (!mejor || rango > mejor.rango) mejor = { ...c, fallo: f, rango };
   }
   const { tag, guerra, sitio, fallo } = mejor;
-  // La cuenta que dono, por si la fila se anoto con la principal.
-  if (fila.player_tag !== tag) await admin.from('castillos').update({ player_tag: tag }).eq('id', fila.id);
+  // La fila que se confirma: la del aviso si esta libre. Si esa ya es de
+  // otra cuenta confirmada hoy, para esta cuenta se abre una nueva, pero
+  // solo si la foto vale (lleno): un intento fallido no deja filas sueltas.
+  if (fila.verificado && fallo.veredicto === 'lleno') {
+    const { data: nueva } = await admin
+      .from('castillos')
+      .insert({ temporada: temporadaDe(), tg_user_id: fila.tg_user_id, player_tag: tag, nombre: fila.nombre ?? quien, mensaje: 'foto (otra cuenta)' })
+      .select('id')
+      .single();
+    if (!nueva) return { texto: `📷 No pude anotar el castillo de tu otra cuenta, ${quien}. Díselo a un líder.`, verificado: false };
+    fila = { ...fila, id: nueva.id, player_tag: tag, verificado: false, puntos: 0 };
+  } else if (!fila.verificado && fila.player_tag !== tag) {
+    // La cuenta que dono, por si la fila se anoto con la principal.
+    await admin.from('castillos').update({ player_tag: tag }).eq('id', fila.id);
+  }
   const { abajo } = sitio;
   const quienAbajo = `<b>${esc(abajo.nombre)}</b> (#${abajo.posicion})`;
   // Para el "no lo veo": todos los castillos que valdrian, no solo uno.

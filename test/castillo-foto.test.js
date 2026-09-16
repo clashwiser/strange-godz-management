@@ -44,6 +44,18 @@ test('parecidos: nombres leidos por OCR con un fallo o un simbolo de menos', () 
   // El alfabeto "tachado": el juego lo pinta como letras normales y asi lo lee el modelo.
   assert.equal(parecidos('ØVERHAMMER', '꧁Ø︎VɆⱤⱧ₳₥₥ɆⱤ꧂'), true);
   assert.equal(parecidos('OVERHAMMER', '꧁Ø︎VɆⱤⱧ₳₥₥ɆⱤ꧂'), true);
+  // Nombres que no son latinos: el rival «龙之城» (14 sep 2026) se leia igual y aun asi "otra guerra".
+  assert.equal(parecidos('龙之城', '龙之城'), true);
+  assert.equal(parecidos('龙之城 ', '龙之城'), true);
+  assert.equal(parecidos('龙之城', '北方狼'), false);
+  assert.equal(parecidos('龙之城', 'x300'), false);
+});
+
+test('juzgar: el rival chino leido igual no es "otra guerra"', () => {
+  const l = lectura({ es_mapa_de_guerra: true, clan_enemigo: '龙之城', bases: [{ posicion: 9, nombre: 'DRAKON', tropas: 55, capacidad: 55, ventana: true }] });
+  const r = juzgar({ lectura: l, abajo: { posicion: 9, nombre: 'DR∆K⚫️N' }, oponente: '龙之城', propio: 'x300' });
+  assert.equal(r.veredicto, 'lleno');
+  assert.equal(juzgar({ lectura: l, abajo: { posicion: 9, nombre: 'DR∆K⚫️N' }, oponente: '北方狼', propio: 'x300' }).veredicto, 'otra_guerra');
 });
 
 test('juzgar: la ventana de abajo con un nombre de letras tachadas (la foto de Cris del 14 sep)', () => {
