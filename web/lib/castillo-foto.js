@@ -168,6 +168,20 @@ export function castilloDeAbajo(guerra, playerTag) {
 
 // ---------- Lo que se le pide al modelo ----------
 
+/** Los nombres de la lista, sin la seña entre parentesis, en minusculas. */
+const NOMBRE_LISTA = (s) => String(s).replace(/\s*\(.*\)\s*$/, '').trim();
+const nombresValidos = () => new Set([...TROPAS_CASTILLO.tropas, ...TROPAS_CASTILLO.hechizos, ...TROPAS_CASTILLO.asedio].map((s) => NOMBRE_LISTA(s).toLowerCase()));
+
+/** El nombre tal como va en la lista, o null si el modelo dijo algo que no existe aqui. */
+export function tropaValida(nombre) {
+  const q = String(nombre ?? '').replace(/\s*\(.*\)\s*$/, '').trim().toLowerCase();
+  if (!q) return null;
+  for (const s of [...TROPAS_CASTILLO.tropas, ...TROPAS_CASTILLO.hechizos, ...TROPAS_CASTILLO.asedio]) {
+    if (NOMBRE_LISTA(s).toLowerCase() === q) return NOMBRE_LISTA(s);
+  }
+  return null;
+}
+
 // Lo que se puede donar a un castillo del clan. El modelo NO sabe los
 // nombres de las tropas de Clash of Clans: sin esta lista leyo "Dark
 // Wizard" y "Royal Giant" (de Clash Royale) donde habia Headhunters y un
@@ -180,9 +194,9 @@ export const TROPAS_CASTILLO = {
     'Miner (con pala y casco)', 'Electro Dragon', 'Yeti (blanco peludo)', 'Dragon Rider', 'Electro Titan', 'Root Rider (sobre una raíz)', 'Thrower (gigante que lanza lanzas)',
     'Minion (murciélago azul)', 'Hog Rider (sobre un jabalí)', 'Valkyrie (pelirroja con hacha)', 'Golem (de piedra)', 'Witch (túnica morada, invoca esqueletos)', 'Lava Hound',
     'Bowler (lanza una bola de piedra)', 'Ice Golem', 'Headhunter (mujer de pelo morado, cerbatana/lanza, fondo morado)', 'Apprentice Warden', 'Druid (anciano de verde con cuernos)',
-    'Furnace (un horno de piedra con fuego dentro: no es una persona)', 'Ruin Witch',
+    'Furnace (un horno de piedra oscuro y achaparrado con la boca llena de fuego naranja, sin cara ni cuerpo: no es una persona)', 'Ruin Witch',
     'Super Barbarian', 'Super Archer', 'Super Giant', 'Sneaky Goblin', 'Super Wall Breaker', 'Rocket Balloon', 'Super Wizard', 'Super Dragon', 'Inferno Dragon', 'Super Minion',
-    'Super Hog Rider', 'Super Valkyrie', 'Super Witch', 'Ice Hound', 'Super Bowler', 'Super Miner', 'Super Yeti',
+    'Super Hog Rider', 'Super Valkyrie', 'Super Witch (bruja grande de morado con sombrero enorme; sí es una persona)', 'Ice Hound', 'Super Bowler', 'Super Miner', 'Super Yeti',
   ],
   hechizos: ['Lightning Spell', 'Healing Spell', 'Rage Spell', 'Jump Spell', 'Freeze Spell', 'Clone Spell', 'Invisibility Spell', 'Recall Spell', 'Revive Spell', 'Overgrowth Spell', 'Ice Block Spell', 'Totem Spell', 'Poison Spell', 'Earthquake Spell', 'Haste Spell', 'Skeleton Spell', 'Bat Spell'],
   asedio: ['Wall Wrecker', 'Battle Blimp', 'Stone Slammer', 'Siege Barracks', 'Log Launcher', 'Flame Flinger', 'Battle Drill', 'Troop Launcher', 'Sky Wagon'],
@@ -205,7 +219,8 @@ Devuelve SOLO un objeto JSON con esta forma, compacto (en una sola línea, sin e
   "bases": [
     { "posicion": número de la base o null, "nombre": "nombre del jugador tal como se lee", "tropas": número o null, "capacidad": número o null, "ventana": true si es la base de la ventana de abajo, false si es una etiqueta del mapa }
   ],
-  "tropas_donadas": [ { "tropa": "nombre si lo reconoces, o null", "cantidad": número o null, "nivel": número o null } ]
+  "tropas_donadas": [ { "tropa": "nombre si lo reconoces, o null", "cantidad": número o null, "nivel": número o null } ],
+  "pedido": "el mensaje que el jugador escribió debajo de su nombre en la ventana de abajo pidiendo tropas, tal cual, o null"
 }
 
 Reglas:
@@ -216,6 +231,8 @@ Reglas:
 - Si la imagen no es del juego o no es el mapa de guerra, devuelve {"es_mapa_de_guerra": false, "fase": "desconocida", "clan_enemigo": null, "bases": [], "tropas_donadas": []}.
 
 Las tropas donadas (los iconos de la ventana de abajo, con "xN" encima y el nivel en un número pequeño en la esquina) SOLO pueden ser de esta lista de Clash of Clans; escribe el nombre en inglés tal como está aquí, sin lo que va entre paréntesis (eso es una seña para reconocer el dibujo). Si un icono no encaja claramente con ninguno, pon "tropa": null. Este juego NO tiene Royal Giant, Dark Prince, Mini P.E.K.K.A, Musketeer, Knight ni Mega Knight (eso es Clash Royale): nunca uses esos nombres.
+Las versiones "Super" son raras en un castillo: solo di "Super X" si el icono es claramente el súper (más grande, con brillo dorado); si dudas entre Archer y Super Archer, es Archer. Un nivel alto (12 o más) es señal de tropa normal, no súper.
+Pista importante: debajo del nombre del jugador, en la ventana de abajo, suele haber un mensaje escrito por él pidiendo tropas (por ejemplo "2 Furnace 1 HH", "solo brujas y arqueras", "I need reinforcements"). Léelo y devuélvelo en "pedido". Lo donado casi siempre es lo que pidió: si un icono te deja dudas, usa ese texto para decidir ("HH" es Headhunter; "brujas" es Witch; "arqueras" es Archer; "furnace" u "horno" es Furnace; "edrag" es Electro Dragon; "valks" es Valkyrie).
 ${LISTA_TROPAS}`;
 
 // ---------- El juicio ----------
@@ -268,6 +285,7 @@ export function juzgar({ lectura, abajo, oponente, propio = null }) {
   // Solo las tropas que reconocio: un "?" en el mensaje del grupo no
   // aporta nada, y si no reconocio ninguna, no se lista nada.
   const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : [])
+    .map((t) => (t ? { ...t, tropa: tropaValida(t.tropa) } : null))
     .filter((t) => t && t.tropa)
     .map((t) => `${numero(t.cantidad) ?? '?'}× ${t.tropa}${numero(t.nivel) != null ? ` n${numero(t.nivel)}` : ''}`)
     .join(', ');
@@ -481,11 +499,14 @@ export async function leerMapaDePrueba(admin, { token, msg }) {
   const bases = (Array.isArray(j.bases) ? j.bases : [])
     .map((b) => `${b.posicion ?? '?'} ${esc(b.nombre ?? '?')} ${b.tropas ?? '?'}/${b.capacidad ?? '?'}${b.ventana ? ' (ventana)' : ''}`)
     .join(' · ');
-  const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : []).map((t) => `${t.cantidad ?? '?'}× ${esc(t.tropa ?? '?')} n${t.nivel ?? '?'}`).join(', ');
+  const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : [])
+    .map((t) => `${t.cantidad ?? '?'}× ${esc(tropaValida(t.tropa) ?? (t.tropa ? `${t.tropa} (no existe, se descarta)` : '?'))} n${t.nivel ?? '?'}`)
+    .join(', ');
   return (
     `🔍 <b>Prueba de lectura (mapa de guerra)</b> · ${esc(lectura.modelo)}\n` +
     `¿Mapa de guerra? ${j.es_mapa_de_guerra ? 'sí' : 'no'} · fase: ${esc(j.fase ?? '?')} · rival leído: ${esc(j.clan_enemigo ?? '—')}\n` +
     `Bases: ${bases || '—'}\n` +
+    `Pedido leído: ${esc(j.pedido ?? '—')}\n` +
     `Tropas donadas: ${donado || '—'}`
   );
 }

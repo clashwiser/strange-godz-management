@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDe, castilloDeAbajo, parecidos, juzgar } from '../web/lib/castillo-foto.js';
+import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida } from '../web/lib/castillo-foto.js';
 import { extraerJson } from '../web/lib/vision.js';
 
 const guerra = {
@@ -143,4 +143,14 @@ test('extraerJson: el objeto aunque venga envuelto', () => {
   assert.deepEqual(extraerJson('Aquí va:\n```json\n{"a": 1}\n```'), { a: 1 });
   assert.equal(extraerJson('sin nada'), null);
   assert.equal(extraerJson('{roto'), null);
+});
+
+test('las tropas donadas: solo nombres de Clash of Clans; lo de Clash Royale se descarta', () => {
+  assert.equal(tropaValida('Headhunter'), 'Headhunter');
+  assert.equal(tropaValida('super witch'), 'Super Witch');
+  assert.equal(tropaValida('Dark Wizard'), null);
+  assert.equal(tropaValida('Royal Giant'), null);
+  assert.equal(tropaValida(null), null);
+  const l = lectura({ es_mapa_de_guerra: true, clan_enemigo: 'Rival', bases: [{ posicion: 2, nombre: 'Beto', tropas: 55, capacidad: 55, ventana: true }], tropas_donadas: [{ tropa: 'Archer', cantidad: 7, nivel: 14 }, { tropa: 'Dark Wizard', cantidad: 5, nivel: 4 }, { tropa: 'Furnace', cantidad: 1, nivel: 4 }] });
+  assert.equal(juzgar({ lectura: l, abajo, oponente: 'Rival' }).donado, '7× Archer n14, 1× Furnace n4');
 });
