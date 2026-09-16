@@ -235,6 +235,65 @@ Las versiones "Super" son raras en un castillo: solo di "Super X" si el icono es
 Pista importante: debajo del nombre del jugador, en la ventana de abajo, suele haber un mensaje escrito por él pidiendo tropas (por ejemplo "2 Furnace 1 HH", "solo brujas y arqueras", "I need reinforcements"). Léelo y devuélvelo en "pedido". Lo donado casi siempre es lo que pidió: si un icono te deja dudas, usa ese texto para decidir ("HH" es Headhunter; "brujas" es Witch; "arqueras" es Archer; "furnace" u "horno" es Furnace; "edrag" es Electro Dragon; "valks" es Valkyrie).
 ${LISTA_TROPAS}`;
 
+/**
+ * Segunda pasada, solo para las tropas: la mitad de abajo de la captura
+ * (donde esta la ventana de donacion) recortada y ampliada al doble. En la
+ * captura entera los iconos quedan de 40 px y el modelo confunde
+ * Headhunter con Witch y Furnace con Super Witch (16 sep 2026); ampliados
+ * los distingue. Cuesta otra llamada, asi que solo se hace cuando la foto
+ * ya valio (lleno) o en la prueba de lectura.
+ */
+export const INSTRUCCIONES_TROPAS = `Esta imagen es la parte de abajo de una captura del mapa de guerra de Clash of Clans, ampliada: la ventana de donación de una base aliada. En ella se ve el número y el nombre de la base, debajo un mensaje escrito por el jugador pidiendo tropas, una barra "N/M" junto al botón "Donate", y los iconos de las tropas donadas, cada uno con "xN" (la cantidad) encima y el nivel en un número pequeño en la esquina.
+
+Devuelve SOLO un objeto JSON compacto, sin comentarios:
+{"pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
+
+Identifica cada icono SOLO con esta lista de Clash of Clans (nombre en inglés tal como está, sin lo que va entre paréntesis, que es una seña del dibujo). Si un icono no encaja claramente con ninguno, pon "tropa": null. No existen aquí Royal Giant, Dark Prince, Mini P.E.K.K.A, Musketeer ni Mega Knight (eso es Clash Royale).
+Las versiones "Super" son raras en un castillo: solo si el icono es claramente el súper (más grande, con brillo dorado); entre Archer y Super Archer, es Archer. Nivel 12 o más es tropa normal.
+El pedido del jugador es una pista fuerte: "HH" es Headhunter, "brujas" es Witch, "arqueras" es Archer, "furnace" u "horno" es Furnace, "IG" es Ice Golem, "edrag" es Electro Dragon, "valks" es Valkyrie. Fíjate bien: Headhunter es una mujer joven de pelo morado con una lanza corta, sobre fondo morado; Witch es una hechicera encapuchada de morado oscuro con bastón y calaveras verdes; Furnace es un horno de piedra con fuego, sin cara.
+${LISTA_TROPAS}`;
+
+async function recortarVentana(base64) {
+  try {
+    // webpackIgnore: este modulo lo importa tambien el panel (por retos.js,
+    // por unas constantes) y webpack intentaria meter sharp en el bundle
+    // del navegador. En el servidor se carga de node_modules tal cual.
+    const sharp = (await import(/* webpackIgnore: true */ 'sharp')).default;
+    const img = sharp(Buffer.from(base64, 'base64'));
+    const { width, height } = await img.metadata();
+    if (!width || !height) return null;
+    const top = Math.round(height * 0.5);
+    const out = await img
+      .extract({ left: 0, top, width, height: height - top })
+      .resize({ width: Math.min(width * 2, 2400), kernel: 'lanczos3' })
+      .jpeg({ quality: 88 })
+      .toBuffer();
+    return { base64: out.toString('base64'), mime: 'image/jpeg' };
+  } catch (e) {
+    console.error(`[castillo] no pude recortar la ventana: ${e?.message ?? e}`);
+    return null;
+  }
+}
+
+/** Las tropas de la segunda pasada, o null si no se pudo. */
+export async function leerTropasAmpliadas(admin, imagen) {
+  const recorte = await recortarVentana(imagen.base64);
+  if (!recorte) return null;
+  const lectura = await leerImagen(admin, { base64: recorte.base64, mime: recorte.mime, instrucciones: INSTRUCCIONES_TROPAS, max_tokens: 350 });
+  const j = lectura?.json;
+  if (!j || !Array.isArray(j.tropas_donadas) || !j.tropas_donadas.length) return null;
+  return j;
+}
+
+/** "7× Archer n14, 5× Headhunter n4": solo las que reconocio y existen. */
+export function textoDonado(j) {
+  return (Array.isArray(j?.tropas_donadas) ? j.tropas_donadas : [])
+    .map((t) => (t ? { ...t, tropa: tropaValida(t.tropa) } : null))
+    .filter((t) => t && t.tropa)
+    .map((t) => `${numero(t.cantidad) ?? '?'}× ${t.tropa}${numero(t.nivel) != null ? ` n${numero(t.nivel)}` : ''}`)
+    .join(', ');
+}
+
 // ---------- El juicio ----------
 
 // Los nombres, con sus adornos («ΛVΞNTUS» es AVENTUS), se comparan con lo
@@ -284,11 +343,7 @@ export function juzgar({ lectura, abajo, oponente, propio = null }) {
   if (tropas == null || capacidad == null || capacidad === 0) return { veredicto: 'no_se_ve', leido: base.nombre };
   // Solo las tropas que reconocio: un "?" en el mensaje del grupo no
   // aporta nada, y si no reconocio ninguna, no se lista nada.
-  const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : [])
-    .map((t) => (t ? { ...t, tropa: tropaValida(t.tropa) } : null))
-    .filter((t) => t && t.tropa)
-    .map((t) => `${numero(t.cantidad) ?? '?'}× ${t.tropa}${numero(t.nivel) != null ? ` n${numero(t.nivel)}` : ''}`)
-    .join(', ');
+  const donado = textoDonado(j);
   if (tropas >= capacidad) return { veredicto: 'lleno', tropas, capacidad, leido: base.nombre, donado };
   return { veredicto: 'incompleto', tropas, capacidad, leido: base.nombre, donado };
 }
@@ -446,10 +501,14 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         .update({ verificado: true, puntos: PUNTOS_CASTILLO, verificado_por: 'Heraldo (foto)' })
         .eq('id', fila.id);
       await anota(`foto: ${abajo.nombre} ${fallo.tropas}/${fallo.capacidad}`);
+      // Las tropas, con la ventana ampliada: si la segunda pasada falla,
+      // se quedan las de la primera.
+      const ampliadas = await leerTropasAmpliadas(admin, imagen);
+      const donado = ampliadas ? textoDonado(ampliadas) : fallo.donado;
       return {
         texto:
           `✅ Foto verificada: el castillo de ${quienAbajo}, el de abajo de ${quien}, está ${fallo.tropas}/${fallo.capacidad}` +
-          (fallo.donado ? ` (${esc(fallo.donado)})` : '') +
+          (donado ? ` (${esc(donado)})` : '') +
           `. +${PUNTOS_CASTILLO} puntos este mes. 📜`,
         verificado: true,
       };
@@ -499,14 +558,17 @@ export async function leerMapaDePrueba(admin, { token, msg }) {
   const bases = (Array.isArray(j.bases) ? j.bases : [])
     .map((b) => `${b.posicion ?? '?'} ${esc(b.nombre ?? '?')} ${b.tropas ?? '?'}/${b.capacidad ?? '?'}${b.ventana ? ' (ventana)' : ''}`)
     .join(' · ');
-  const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : [])
-    .map((t) => `${t.cantidad ?? '?'}× ${esc(tropaValida(t.tropa) ?? (t.tropa ? `${t.tropa} (no existe, se descarta)` : '?'))} n${t.nivel ?? '?'}`)
-    .join(', ');
+  const listar = (x) =>
+    (Array.isArray(x?.tropas_donadas) ? x.tropas_donadas : [])
+      .map((t) => `${t.cantidad ?? '?'}× ${esc(tropaValida(t.tropa) ?? (t.tropa ? `${t.tropa} (no existe, se descarta)` : '?'))} n${t.nivel ?? '?'}`)
+      .join(', ');
+  const ampliadas = await leerTropasAmpliadas(admin, imagen);
   return (
     `🔍 <b>Prueba de lectura (mapa de guerra)</b> · ${esc(lectura.modelo)}\n` +
     `¿Mapa de guerra? ${j.es_mapa_de_guerra ? 'sí' : 'no'} · fase: ${esc(j.fase ?? '?')} · rival leído: ${esc(j.clan_enemigo ?? '—')}\n` +
     `Bases: ${bases || '—'}\n` +
-    `Pedido leído: ${esc(j.pedido ?? '—')}\n` +
-    `Tropas donadas: ${donado || '—'}`
+    `Pedido leído: ${esc(ampliadas?.pedido ?? j.pedido ?? '—')}\n` +
+    `Tropas (captura entera): ${listar(j) || '—'}\n` +
+    `Tropas (ventana ampliada): ${ampliadas ? listar(ampliadas) || '—' : 'no se pudo'}`
   );
 }
