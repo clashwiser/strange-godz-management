@@ -275,13 +275,13 @@ async function recortarVentana(base64) {
   }
 }
 
-/** Las tropas de la segunda pasada, o null si no se pudo. */
+/** Las tropas de la segunda pasada; si no se pudo, { error: 'recorte' | 'lectura' }. */
 export async function leerTropasAmpliadas(admin, imagen) {
   const recorte = await recortarVentana(imagen.base64);
-  if (!recorte) return null;
+  if (!recorte) return { error: 'recorte' };
   const lectura = await leerImagen(admin, { base64: recorte.base64, mime: recorte.mime, instrucciones: INSTRUCCIONES_TROPAS, max_tokens: 350 });
   const j = lectura?.json;
-  if (!j || !Array.isArray(j.tropas_donadas) || !j.tropas_donadas.length) return null;
+  if (!j || !Array.isArray(j.tropas_donadas) || !j.tropas_donadas.length) return { error: 'lectura' };
   return j;
 }
 
@@ -504,7 +504,7 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
       // Las tropas, con la ventana ampliada: si la segunda pasada falla,
       // se quedan las de la primera.
       const ampliadas = await leerTropasAmpliadas(admin, imagen);
-      const donado = ampliadas ? textoDonado(ampliadas) : fallo.donado;
+      const donado = ampliadas && !ampliadas.error ? textoDonado(ampliadas) : fallo.donado;
       return {
         texto:
           `✅ Foto verificada: el castillo de ${quienAbajo}, el de abajo de ${quien}, está ${fallo.tropas}/${fallo.capacidad}` +
@@ -567,8 +567,8 @@ export async function leerMapaDePrueba(admin, { token, msg }) {
     `🔍 <b>Prueba de lectura (mapa de guerra)</b> · ${esc(lectura.modelo)}\n` +
     `¿Mapa de guerra? ${j.es_mapa_de_guerra ? 'sí' : 'no'} · fase: ${esc(j.fase ?? '?')} · rival leído: ${esc(j.clan_enemigo ?? '—')}\n` +
     `Bases: ${bases || '—'}\n` +
-    `Pedido leído: ${esc(ampliadas?.pedido ?? j.pedido ?? '—')}\n` +
+    `Pedido leído: ${esc((!ampliadas?.error && ampliadas?.pedido) || j.pedido || '—')}\n` +
     `Tropas (captura entera): ${listar(j) || '—'}\n` +
-    `Tropas (ventana ampliada): ${ampliadas ? listar(ampliadas) || '—' : 'no se pudo'}`
+    `Tropas (ventana ampliada): ${ampliadas?.error ? `no se pudo (${ampliadas.error})` : listar(ampliadas) || '—'}`
   );
 }
