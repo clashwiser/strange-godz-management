@@ -168,6 +168,31 @@ export function castilloDeAbajo(guerra, playerTag) {
 
 // ---------- Lo que se le pide al modelo ----------
 
+// Lo que se puede donar a un castillo del clan. El modelo NO sabe los
+// nombres de las tropas de Clash of Clans: sin esta lista leyo "Dark
+// Wizard" y "Royal Giant" (de Clash Royale) donde habia Headhunters y un
+// Furnace (15 sep 2026). Con la lista cerrada delante, y una seña de las que
+// se confunden, acierta mas y, si no encaja, deja null en vez de inventar.
+export const TROPAS_CASTILLO = {
+  tropas: [
+    'Barbarian (hombre rubio con espada)', 'Archer (mujer de pelo rosa con arco)', 'Giant (gigante barbudo naranja)', 'Goblin (verde con saco)', 'Wall Breaker (esqueleto con bomba)',
+    'Balloon (globo con esqueleto)', 'Wizard (túnica azul, bola de fuego)', 'Healer (ángel con alas)', 'Dragon', 'P.E.K.K.A (robot con armadura y espada)', 'Baby Dragon',
+    'Miner (con pala y casco)', 'Electro Dragon', 'Yeti (blanco peludo)', 'Dragon Rider', 'Electro Titan', 'Root Rider (sobre una raíz)', 'Thrower (gigante que lanza lanzas)',
+    'Minion (murciélago azul)', 'Hog Rider (sobre un jabalí)', 'Valkyrie (pelirroja con hacha)', 'Golem (de piedra)', 'Witch (túnica morada, invoca esqueletos)', 'Lava Hound',
+    'Bowler (lanza una bola de piedra)', 'Ice Golem', 'Headhunter (mujer de pelo morado, cerbatana/lanza, fondo morado)', 'Apprentice Warden', 'Druid (anciano de verde con cuernos)',
+    'Furnace (un horno de piedra con fuego dentro: no es una persona)', 'Ruin Witch',
+    'Super Barbarian', 'Super Archer', 'Super Giant', 'Sneaky Goblin', 'Super Wall Breaker', 'Rocket Balloon', 'Super Wizard', 'Super Dragon', 'Inferno Dragon', 'Super Minion',
+    'Super Hog Rider', 'Super Valkyrie', 'Super Witch', 'Ice Hound', 'Super Bowler', 'Super Miner', 'Super Yeti',
+  ],
+  hechizos: ['Lightning Spell', 'Healing Spell', 'Rage Spell', 'Jump Spell', 'Freeze Spell', 'Clone Spell', 'Invisibility Spell', 'Recall Spell', 'Revive Spell', 'Overgrowth Spell', 'Ice Block Spell', 'Totem Spell', 'Poison Spell', 'Earthquake Spell', 'Haste Spell', 'Skeleton Spell', 'Bat Spell'],
+  asedio: ['Wall Wrecker', 'Battle Blimp', 'Stone Slammer', 'Siege Barracks', 'Log Launcher', 'Flame Flinger', 'Battle Drill', 'Troop Launcher', 'Sky Wagon'],
+};
+
+const LISTA_TROPAS =
+  `Tropas: ${TROPAS_CASTILLO.tropas.join(', ')}.\n` +
+  `Hechizos: ${TROPAS_CASTILLO.hechizos.join(', ')}.\n` +
+  `Máquinas de asedio: ${TROPAS_CASTILLO.asedio.join(', ')}.`;
+
 export const INSTRUCCIONES_MAPA = `Esta imagen debería ser una captura de pantalla de Clash of Clans con el mapa de una guerra de clanes, en el lado de las bases aliadas.
 
 Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), una barra con "N/M" junto al botón "Donate", un botón "Scout" y las tropas donadas con su cantidad ("x1") y su nivel.
@@ -188,7 +213,10 @@ Reglas:
 - "tropas" es el número de la izquierda de la barra "N/M"; "capacidad", el de la derecha. Si solo se lee uno, pon el otro en null.
 - Copia los nombres letra a letra, con sus símbolos. No traduzcas nada.
 - Si algo no se lee con claridad, pon null. No adivines ni completes con lo que sería normal.
-- Si la imagen no es del juego o no es el mapa de guerra, devuelve {"es_mapa_de_guerra": false, "fase": "desconocida", "clan_enemigo": null, "bases": [], "tropas_donadas": []}.`;
+- Si la imagen no es del juego o no es el mapa de guerra, devuelve {"es_mapa_de_guerra": false, "fase": "desconocida", "clan_enemigo": null, "bases": [], "tropas_donadas": []}.
+
+Las tropas donadas (los iconos de la ventana de abajo, con "xN" encima y el nivel en un número pequeño en la esquina) SOLO pueden ser de esta lista de Clash of Clans; escribe el nombre en inglés tal como está aquí, sin lo que va entre paréntesis (eso es una seña para reconocer el dibujo). Si un icono no encaja claramente con ninguno, pon "tropa": null. Este juego NO tiene Royal Giant, Dark Prince, Mini P.E.K.K.A, Musketeer, Knight ni Mega Knight (eso es Clash Royale): nunca uses esos nombres.
+${LISTA_TROPAS}`;
 
 // ---------- El juicio ----------
 
@@ -237,9 +265,11 @@ export function juzgar({ lectura, abajo, oponente, propio = null }) {
   const tropas = numero(base.tropas);
   const capacidad = numero(base.capacidad);
   if (tropas == null || capacidad == null || capacidad === 0) return { veredicto: 'no_se_ve', leido: base.nombre };
+  // Solo las tropas que reconocio: un "?" en el mensaje del grupo no
+  // aporta nada, y si no reconocio ninguna, no se lista nada.
   const donado = (Array.isArray(j.tropas_donadas) ? j.tropas_donadas : [])
-    .filter((t) => t && (t.tropa || t.cantidad))
-    .map((t) => `${numero(t.cantidad) ?? '?'}× ${t.tropa ?? '?'}${numero(t.nivel) != null ? ` n${numero(t.nivel)}` : ''}`)
+    .filter((t) => t && t.tropa)
+    .map((t) => `${numero(t.cantidad) ?? '?'}× ${t.tropa}${numero(t.nivel) != null ? ` n${numero(t.nivel)}` : ''}`)
     .join(', ');
   if (tropas >= capacidad) return { veredicto: 'lleno', tropas, capacidad, leido: base.nombre, donado };
   return { veredicto: 'incompleto', tropas, capacidad, leido: base.nombre, donado };
