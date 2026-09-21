@@ -9,7 +9,11 @@ apagada a esa hora, el post sale cuando abra la app.
 - Los textos y las reglas de Cris: `src/lib/portavoz-textos.js`.
 - El post de hoy con los números frescos de la API: `npm run portavoz`
   (`-- --todos` imprime los siete; `-- --fecha 2026-09-25` otro día).
-- El parte a los líderes por Heraldo: `npm run portavoz:reporte`.
+- El parte a los líderes por Valquiria (la que recluta): `npm run portavoz:reporte`.
+- Lo que la tarea apunta en la base (posts, engagement, buzón de la
+  Página): `npm run portavoz:anotar` (tablas `fb_posts` y `fb_mensajes`,
+  `sql/037`), que es lo que enseña la pestaña Reclutamiento del panel.
+- El texto de la tarea programada, paso a paso: `docs/portavoz-tarea.md`.
 - Imágenes: `web/public/reclutamiento-x300.jpg` (vertical 4:5) y
   `web/public/reclutamiento-x300-ancho.jpg` (16:9); se alternan por día.
 
@@ -25,12 +29,19 @@ apagada a esa hora, el post sale cuando abra la app.
 | Sábado | Clash Of Clans - En Español (18K) | ES | 6 |
 | Domingo | Clash of Clans Recruiting Worldwide (7K) | EN | 7 |
 
+La rotación se corrige sola: `npm run portavoz` mira `fb_posts` y, si el
+grupo del día ya tuvo post en los últimos seis días (el 21 sep, lunes, el
+post fue al grupo del martes porque el del lunes no deja publicar a la
+Página), sigue la rotación desde mañana y toma el primer grupo libre. Si
+ya hubo post hoy, dice `saltar` y no se publica dos veces.
+
 ## Reglas del post (de Cris, 21 sep 2026)
 
 - Sin rayas largas (—). Sin la palabra "bots". Primero el enlace de
   Telegram, debajo el del clan. Adultos y responsables; no es clan de
   farming. Los premios son varios, por tareas. Gente de Cuba, Latinoamérica
-  e internacionales. "Se busca jugador".
+  e internacionales. "Se busca jugador". Por Telegram se ofrecen también
+  bases top gratis (layouts).
 - Los números (nivel, guerras ganadas, racha, TH18) salen de la API el
   día del post; la racha solo se presume si es de 5 o más.
 - Ritmo humano: entrar al grupo, leer un poco, escribir, adjuntar la

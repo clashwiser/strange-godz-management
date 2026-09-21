@@ -3,7 +3,8 @@
 // Deibis) la captura del post con el grupo, la hora, el estado y el
 // enlace. Si no hubo post, el motivo. Sin captura, va la imagen del post.
 //
-//   npm run portavoz:reporte -- --grupo "Nombre" --enlace URL --captura ruta.png [--estado pendiente]
+//   npm run portavoz:reporte -- --grupo "Nombre" --enlace URL --captura ruta.png
+//   npm run portavoz:reporte -- --grupo "Nombre" --captura ruta.png --estado pendiente
 //   npm run portavoz:reporte -- --grupo "Nombre" --fallo "por qué no salió"
 
 import { readFileSync } from 'node:fs';
@@ -39,9 +40,13 @@ const enlace = valor('--enlace');
 const captura = valor('--captura');
 const fallo = valor('--fallo');
 
+const pendiente = valor('--estado') === 'pendiente';
+
 const texto = fallo
   ? `📣 <b>Facebook · hoy no hubo post</b>\n\nGrupo: <b>${esc(grupo)}</b> · ${hora}\nMotivo: ${esc(fallo)}\n\nLo intento mañana con el grupo que toque.`
-  : `📣 <b>Facebook · post publicado</b>\n\nGrupo: <b>${esc(grupo)}</b> · ${hora}` + (enlace ? `\n${esc(enlace)}` : '');
+  : pendiente
+    ? `📣 <b>Facebook · post enviado, pendiente de aprobación</b>\n\nGrupo: <b>${esc(grupo)}</b> · ${hora}\nLos administradores del grupo lo revisan antes de publicarlo; en cuanto salga, apunto el enlace en Reclutamiento.`
+    : `📣 <b>Facebook · post publicado</b>\n\nGrupo: <b>${esc(grupo)}</b> · ${hora}` + (enlace ? `\n${esc(enlace)}` : '');
 
 let mandados = 0;
 for (const u of await lideres()) {
@@ -60,4 +65,3 @@ for (const u of await lideres()) {
   else console.log(`  ${u.first_name}: ${r.description}`);
 }
 console.log(`parte mandado a ${mandados} líder(es)`);
-process.exit(0);

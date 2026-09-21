@@ -6,8 +6,9 @@
 //       Apunta el post de hoy (o lo actualiza si ya hay uno de hoy en ese grupo). Imprime su id.
 //   npm run portavoz:anotar -- medir --id 12 --reacciones 5 --comentarios 2 --compartidos 1 [--url URL] [--estado publicado]
 //       Guarda el engagement medido.
-//   npm run portavoz:anotar -- buzon --remitente "Nombre" --texto "..." --hora "2026-09-22T14:00:00Z" [--url URL]
-//       Apunta un mensaje del buzon de la Pagina; si es nuevo, Valquiria avisa a los lideres por Telegram.
+//   npm run portavoz:anotar -- buzon --remitente "Nombre" --texto "..." [--hora "2026-09-22T14:00:00Z"] [--url URL]
+//       Apunta un mensaje del buzon de la Pagina (mismo remitente y texto = ya apuntado);
+//       si es nuevo, Valquiria avisa a los lideres por Telegram.
 //   npm run portavoz:anotar -- pendientes
 //       Los posts sin enlace o sin medir en los ultimos 7 dias (para que la tarea los revise).
 
@@ -75,15 +76,23 @@ if (orden === 'post') {
   const texto = valor('--texto') ?? '';
   const hora = valor('--hora') ?? new Date().toISOString();
   if (!remitente) throw new Error('falta --remitente');
-  const { data, error } = await db
+  // Mismo remitente y mismo texto = mismo mensaje (la hora que enseña
+  // Facebook es relativa, "2 h", y cambiaria de una pasada a otra).
+  const { data: previo, error: e1 } = await db
     .from('fb_mensajes')
-    .upsert({ remitente, texto: texto.slice(0, 2000), recibido_en: hora, url: valor('--url') }, { onConflict: 'remitente,recibido_en', ignoreDuplicates: true })
-    .select('id, avisado');
-  if (error) throw new Error(`fb_mensajes: ${error.message}`);
-  const nuevo = Array.isArray(data) && data.length > 0;
-  if (!nuevo) {
-    console.log(JSON.stringify({ nuevo: false }));
+    .select('id')
+    .eq('remitente', remitente)
+    .eq('texto', texto.slice(0, 2000))
+    .limit(1);
+  if (e1) throw new Error(`fb_mensajes: ${e1.message}`);
+  if (previo?.length) {
+    console.log(JSON.stringify({ nuevo: false, id: previo[0].id }));
   } else {
+    const { data, error } = await db
+      .from('fb_mensajes')
+      .insert({ remitente, texto: texto.slice(0, 2000), recibido_en: hora, url: valor('--url') })
+      .select('id, avisado');
+    if (error) throw new Error(`fb_mensajes: ${error.message}`);
     // Valquiria avisa a los lideres: el buzon de Facebook no lo mira nadie.
     const aviso =
       `💌 <b>Mensaje nuevo en el buzón de Facebook</b>\n\n` +
@@ -114,4 +123,3 @@ if (orden === 'post') {
   console.error('uso: post | medir | buzon | pendientes');
   process.exit(1);
 }
-process.exit(0);

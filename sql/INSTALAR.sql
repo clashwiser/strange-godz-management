@@ -2288,9 +2288,11 @@ create table if not exists fb_mensajes (
   url           text,                          -- enlace a la conversacion en el buzon
   avisado       boolean not null default false, -- ya se aviso por Telegram
   atendido      boolean not null default false, -- un lider ya le contesto
-  creado_en     timestamptz not null default now(),
-  unique (remitente, recibido_en)
+  creado_en     timestamptz not null default now()
 );
+-- Sin unique (remitente, recibido_en): la hora que enseña Facebook es relativa;
+-- el job deduplica por remitente + texto.
+alter table fb_mensajes drop constraint if exists fb_mensajes_remitente_recibido_en_key;
 
 alter table fb_posts enable row level security;
 alter table fb_mensajes enable row level security;

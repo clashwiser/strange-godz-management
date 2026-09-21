@@ -15,3 +15,6 @@ web/public/mascotas/descartadas/
 _*.mjs
 _*.sql
 _*.txt
+
+# Capturas temporales del portavoz de Facebook
+.tmp/
