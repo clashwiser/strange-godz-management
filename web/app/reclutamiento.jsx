@@ -35,6 +35,7 @@ const CANDIDATO = {
   respondio: ['💬', 'Respondió'],
   entro: ['🏰', 'Entró al clan'],
   descartado: ['🚫', 'Descartado'],
+  rechazado: ['⛔', 'El grupo rechazó el comentario'],
 };
 
 const fecha = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' }) : '—');
@@ -169,7 +170,7 @@ export default function Reclutamiento({ d, recargar }) {
             <tbody>
               {candidatos.map((c) => {
                 const [icono, nombre] = CANDIDATO[c.estado] ?? ['•', c.estado];
-                const cerrado = c.estado === 'entro' || c.estado === 'descartado';
+                const cerrado = c.estado === 'entro' || c.estado === 'descartado' || c.estado === 'rechazado';
                 return (
                   <tr key={c.id} style={{ opacity: cerrado ? 0.6 : 1 }}>
                     <td>{fecha(c.fecha)}</td>

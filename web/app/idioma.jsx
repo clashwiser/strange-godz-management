@@ -174,6 +174,7 @@ export const EN = {
   'Respondió': 'Replied',
   'Entró al clan': 'Joined the clan',
   'Descartado': 'Discarded',
+  'El grupo rechazó el comentario': 'The group declined the comment',
   'Entró': 'Joined',
   'Reabrir': 'Reopen',
   'Buzón de la Página': 'Page inbox',

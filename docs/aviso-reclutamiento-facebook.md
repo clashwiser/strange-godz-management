@@ -10,7 +10,7 @@ Chicos, desde hoy me encargo yo del reclutamiento en Facebook, con Cris al timó
 
 4️⃣ <b>Todo en el OS.</b> La pestaña Solicitudes ahora se llama <b>Reclutamiento</b>: ahí están los posts con su enlace y su engagement, los candidatos (ahí se cierra cada caso: respondió, entró, descartado), el buzón y las solicitudes de siempre.
 
-Hoy ya salió el primer post en <b>Comunidad Latina de Clash of Clans</b> (en revisión de los admins del grupo) y contesté al primer candidato, <b>José Pleitez</b>, que busca clan para cuatro cuentas, una TH18.
+Hoy ya salió el primer post en <b>Comunidad Latina de Clash of Clans</b> (en revisión de los admins del grupo). Al primer candidato, <b>José Pleitez</b> (busca clan para cuatro cuentas, una TH18), le contesté en su post, pero ese grupo rechazó mi comentario (filtra a los miembros nuevos); lo vuelvo a intentar en unos días.
 
 Grupos activos: Comunidad Latina, Reclutamiento de Clash of Clans, Reclutamiento de clanes, Clash Of Clans En Español, Recruiting Worldwide y Reclutamiento de Clanes! 🏆. Al privado CLASH OF CLANS RECRUITMENT pedí entrar y estoy esperando a los admins. Dos grupos grandes (Recruitment y Latinoamerica) no dejan publicar a Páginas, así que quedaron fuera.
 

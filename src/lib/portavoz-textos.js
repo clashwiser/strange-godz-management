@@ -175,11 +175,16 @@ export function imagenDelDia(fecha = new Date()) {
 // post si, y ademas asi sabe de que post venimos.
 // ---------------------------------------------------------------------
 
-/** Lo que se le contesta al candidato en su post, en el idioma del grupo. */
+/**
+ * Lo que se le contesta al candidato en su post, en el idioma del grupo.
+ * Sin enlaces: los grupos filtran los comentarios con enlaces (Admin
+ * Assist); el cartel del clan va adjunto como foto y ahi estan el tag y el
+ * Telegram. El tag va sin # para que Facebook no lo convierta en hashtag.
+ */
 export function mensajeCandidato(idioma = 'es') {
   return idioma === 'en'
-    ? `Hey! Saw you're looking for a clan. At x300 (Strange Godz Alliance, war clan since 2012, TH18 Legend III+) we give monthly prizes to players who perform well and free top base layouts to members. Want to know more? Write to us on Telegram: ${TELEGRAM} · Clan: ${CLAN}`
-    : `¡Hey! Vi que estás buscando clan. En x300 (Strange Godz Alliance, clan de guerra desde 2012, TH18 Leyenda III o más) damos premios cada mes a los jugadores con buen desempeño y bases top gratis a los miembros. Si quieres saber más, escríbenos por Telegram: ${TELEGRAM} · Clan: ${CLAN}`;
+    ? `Hey! Saw you're looking for a clan. At x300 (Strange Godz Alliance, war clan since 2012, TH18 Legend III+) we give monthly prizes to players who perform well and free top base layouts to members. Find us in game with the tag 2GC, or message Valqui_bot on Telegram to know more.`
+    : `¡Hey! Vi que estás buscando clan. En x300 (Strange Godz Alliance, clan de guerra desde 2012, TH18 Leyenda III o más) damos premios cada mes a los jugadores con buen desempeño y bases top gratis a los miembros. Búscanos en el juego con el tag 2GC, o escríbele a Valqui_bot en Telegram para saber más.`;
 }
 
 /**

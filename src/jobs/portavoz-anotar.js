@@ -11,8 +11,9 @@
 //       si es nuevo, Valquiria avisa a los lideres por Telegram.
 //   npm run portavoz:anotar -- pendientes
 //       Los posts sin enlace o sin medir en los ultimos 7 dias (para que la tarea los revise).
-//   npm run portavoz:anotar -- candidato --grupo "Nombre" --grupo-url URL --post-url URL --jugador "Nombre" --texto "lo que puso" --mensaje "lo que le contestamos" [--th 18] [--liga "Leyenda II"] [--via comentario] [--nota "..."]
+//   npm run portavoz:anotar -- candidato --grupo "Nombre" --grupo-url URL --post-url URL --jugador "Nombre" --texto "lo que puso" --mensaje "lo que le contestamos" [--th 18] [--liga "Leyenda II"] [--via comentario] [--estado rechazado] [--nota "..."]
 //       Apunta un jugador al que le contestamos en su post; si es nuevo, Valquiria avisa a los lideres.
+//       Con --estado rechazado (el grupo no dejo pasar el comentario) el aviso dice que no le llego.
 //   npm run portavoz:anotar -- candidatos
 //       Los candidatos de los ultimos 30 dias (para no repetir y para el seguimiento).
 //   npm run portavoz:anotar -- candidato-estado --id 3 --estado respondio|entro|descartado [--respuesta "..."] [--nota "..."]
@@ -136,6 +137,7 @@ if (orden === 'post') {
       th: valor('--th'),
       liga: valor('--liga'),
       via: valor('--via') ?? 'comentario',
+      estado: valor('--estado') === 'rechazado' ? 'rechazado' : 'contactado',
       mensaje: valor('--mensaje'),
       nota: valor('--nota'),
     };
@@ -145,13 +147,18 @@ if (orden === 'post') {
     // Valquiria les cuenta a los lideres, con las palabras de Cris.
     const th = fila.th ? `es TH${esc(fila.th)}` : 'no vi el TH';
     const liga = fila.liga ? `está en ${esc(fila.liga)}` : 'no vi si está en Leyenda';
+    const cierre = fila.estado === 'rechazado'
+      ? `\n\nLe contesté en su post, pero el grupo rechazó mi comentario (no le llegó). Si quieren, escríbanle ustedes desde Facebook.`
+      : fila.via === 'comentario'
+        ? `\n\nLe contesté en su post con el clan y el Telegram; quedo atenta a ver si me responde.`
+        : `\n\nLe escribí; quedo atenta a ver si me responde.`;
     const aviso =
       `👋 <b>Buenas, encontré un candidato</b> en <b>${esc(grupo)}</b> que creo que vale la pena.\n` +
       `${esc(postUrl)}\n\n` +
       `<b>${esc(jugador)}</b> puso: «${esc(fila.texto_post.slice(0, 300))}»` +
       (fila.texto_post.length > 300 ? '…' : '') +
       `\nTiene buena pinta: ${th}, ${liga}.` +
-      (fila.via === 'comentario' ? `\n\nLe contesté en su post con el Telegram y el clan; quedo atenta a ver si me responde.` : `\n\nLe escribí; quedo atenta a ver si me responde.`) +
+      cierre +
       `\nLo dejo apuntado en Reclutamiento.`;
     let mandados = 0;
     if (VALQUIRIA) {
@@ -175,7 +182,7 @@ if (orden === 'post') {
 } else if (orden === 'candidato-estado') {
   const id = Number(valor('--id'));
   const estado = valor('--estado');
-  if (!id || !['contactado', 'respondio', 'entro', 'descartado'].includes(estado)) throw new Error('faltan --id o --estado (contactado|respondio|entro|descartado)');
+  if (!id || !['contactado', 'respondio', 'entro', 'descartado', 'rechazado'].includes(estado)) throw new Error('faltan --id o --estado (contactado|respondio|entro|descartado|rechazado)');
   const { data: c, error: e1 } = await db.from('fb_candidatos').select('id, jugador, grupo, post_url, estado').eq('id', id).maybeSingle();
   if (e1) throw new Error(`fb_candidatos: ${e1.message}`);
   if (!c) throw new Error(`no hay candidato ${id}`);
@@ -185,11 +192,13 @@ if (orden === 'post') {
   const { error } = await db.from('fb_candidatos').update(cambios).eq('id', id);
   if (error) throw new Error(`fb_candidatos: ${error.message}`);
   let mandados = 0;
-  if (estado === 'respondio' && c.estado !== 'respondio' && VALQUIRIA) {
-    const aviso =
-      `👀 <b>Me respondió ${esc(c.jugador)}</b> en su post de <b>${esc(c.grupo)}</b>` +
-      (cambios.respuesta ? `:\n«${esc(cambios.respuesta.slice(0, 400))}»` : '.') +
-      `\n${esc(c.post_url)}\n\nSíganlo ustedes desde Facebook, o esperen a que escriba por Telegram.`;
+  const avisar = estado !== c.estado && (estado === 'respondio' || estado === 'rechazado');
+  if (avisar && VALQUIRIA) {
+    const aviso = estado === 'respondio'
+      ? `👀 <b>Me respondió ${esc(c.jugador)}</b> en su post de <b>${esc(c.grupo)}</b>` +
+        (cambios.respuesta ? `:\n«${esc(cambios.respuesta.slice(0, 400))}»` : '.') +
+        `\n${esc(c.post_url)}\n\nSíganlo ustedes desde Facebook, o esperen a que escriba por Telegram.`
+      : `⛔ <b>${esc(c.grupo)}</b> rechazó mi comentario a <b>${esc(c.jugador)}</b>: no le llegó.\n${esc(c.post_url)}\n\nSi quieren, escríbanle ustedes desde Facebook. Lo dejo apuntado en Reclutamiento.`;
     for (const u of await lideres()) {
       const r = await tg('sendMessage', { chat_id: u.id, text: aviso, parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
       if (r.ok) mandados += 1;
