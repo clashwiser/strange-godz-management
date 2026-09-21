@@ -6,10 +6,14 @@
 //      (src/jobs/portavoz.js, tarea programada del escritorio a las 10:30),
 //      con su enlace, su estado (publicado, pendiente de aprobacion, fallo)
 //      y el engagement medido al dia siguiente.
-//   2. El buzon de la Pagina de Facebook: los mensajes que llegan, que nadie
+//   2. Los candidatos: jugadores TH18 que buscan clan en el grupo del dia;
+//      la tarea les contesta en su post como la Pagina y Valquiria avisa
+//      (portavoz-anotar.js candidato). Aqui se cierra el caso: respondio,
+//      entro, descartado.
+//   3. El buzon de la Pagina de Facebook: los mensajes que llegan, que nadie
 //      mira; Valquiria avisa por Telegram cuando entra uno (portavoz-anotar.js
 //      buzon) y aqui se marcan como atendidos.
-//   3. Las solicitudes de Valquiria por Telegram, la bandeja de siempre
+//   4. Las solicitudes de Valquiria por Telegram, la bandeja de siempre
 //      (solicitudes.jsx).
 //
 // Lo pidio Cris el 21 sep 2026: "quiero que todo este respaldado en el OS".
@@ -26,6 +30,13 @@ const ESTADO = {
   fallo: ['❌', 'No salió'],
 };
 
+const CANDIDATO = {
+  contactado: ['📨', 'Contactado'],
+  respondio: ['💬', 'Respondió'],
+  entro: ['🏰', 'Entró al clan'],
+  descartado: ['🚫', 'Descartado'],
+};
+
 const fecha = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' }) : '—');
 const hora = (d) => (d ? new Date(d).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
@@ -35,7 +46,9 @@ export default function Reclutamiento({ d, recargar }) {
 
   const posts = d.fbPosts ?? [];
   const mensajes = d.fbMensajes ?? [];
+  const candidatos = d.fbCandidatos ?? [];
   const sinAtender = mensajes.filter((m) => !m.atendido).length;
+  const abiertos = candidatos.filter((c) => c.estado === 'contactado' || c.estado === 'respondio').length;
 
   // La semana: cuantos posts salieron, cuantos esperan, y el engagement junto.
   const semana = useMemo(() => {
@@ -49,6 +62,19 @@ export default function Reclutamiento({ d, recargar }) {
       comentarios: ultimos.reduce((s, p) => s + (p.comentarios ?? 0), 0),
     };
   }, [posts]);
+
+  async function cerrarCandidato(c, estado) {
+    setOcupado(`c${c.id}`);
+    try {
+      const { error } = await supabase.from('fb_candidatos').update({ estado }).eq('id', c.id);
+      if (error) throw error;
+      await recargar?.();
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   async function atender(m, atendido) {
     setOcupado(m.id);
@@ -107,6 +133,70 @@ export default function Reclutamiento({ d, recargar }) {
                     <td className="sub">{p.revisado_en ? hora(p.revisado_en) : '—'}</td>
                     <td>
                       {p.url ? <a href={p.url} target="_blank" rel="noreferrer">{t('Ver post')}</a> : <span className="sub">{t('sin enlace aún')}</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2 className="sec" style={{ marginTop: 28 }}>
+        🔎 {t('Candidatos en Facebook')}
+        {abiertos > 0 && <> · {abiertos} {t('abiertos')}</>}
+      </h2>
+      <p className="sub" style={{ marginTop: 2 }}>
+        {t('Cada día, en el grupo donde publica, la Página busca jugadores TH18 que piden clan y les contesta en su post con el Telegram y el clan. Valquiria avisa por Telegram de cada uno y de cada respuesta; el caso se cierra aquí.')}
+      </p>
+      {!candidatos.length ? (
+        <p className="vacio">{t('Todavía no hay candidatos. El rastreo va con el post de cada día.')}</p>
+      ) : (
+        <div className="tabla-scroll">
+          <table className="">
+            <thead>
+              <tr>
+                <th>{t('Día')}</th>
+                <th>{t('Jugador')}</th>
+                <th>{t('Grupo')}</th>
+                <th>{t('Lo que puso')}</th>
+                <th>TH</th>
+                <th>{t('Liga')}</th>
+                <th>{t('Estado')}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidatos.map((c) => {
+                const [icono, nombre] = CANDIDATO[c.estado] ?? ['•', c.estado];
+                const cerrado = c.estado === 'entro' || c.estado === 'descartado';
+                return (
+                  <tr key={c.id} style={{ opacity: cerrado ? 0.6 : 1 }}>
+                    <td>{fecha(c.fecha)}</td>
+                    <td>
+                      <a href={c.post_url} target="_blank" rel="noreferrer" title={t('Abrir su post')}>{c.jugador}</a>
+                    </td>
+                    <td>{c.grupo_url ? <a href={c.grupo_url} target="_blank" rel="noreferrer">{c.grupo}</a> : c.grupo}</td>
+                    <td title={c.mensaje ? `${t('Le contestamos')}: ${c.mensaje}` : ''} style={{ maxWidth: 320, whiteSpace: 'pre-wrap' }}>
+                      {(c.texto_post ?? '').slice(0, 180)}{(c.texto_post ?? '').length > 180 ? '…' : ''}
+                      {c.respuesta && <div className="sub">💬 «{c.respuesta.slice(0, 160)}»</div>}
+                    </td>
+                    <td>{c.th ?? '?'}</td>
+                    <td>{c.liga ?? '?'}</td>
+                    <td title={c.nota ?? ''}>{icono} {t(nombre)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {!cerrado && (
+                        <>
+                          {c.estado !== 'respondio' && (
+                            <button className="accion" disabled={ocupado === `c${c.id}`} onClick={() => cerrarCandidato(c, 'respondio')}>{t('Respondió')}</button>
+                          )}{' '}
+                          <button className="accion" disabled={ocupado === `c${c.id}`} onClick={() => cerrarCandidato(c, 'entro')}>{t('Entró')}</button>{' '}
+                          <button className="accion" disabled={ocupado === `c${c.id}`} onClick={() => cerrarCandidato(c, 'descartado')}>{t('Descartar')}</button>
+                        </>
+                      )}
+                      {cerrado && (
+                        <button className="accion" disabled={ocupado === `c${c.id}`} onClick={() => cerrarCandidato(c, 'contactado')}>{t('Reabrir')}</button>
+                      )}
                     </td>
                   </tr>
                 );

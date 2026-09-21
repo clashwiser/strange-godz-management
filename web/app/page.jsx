@@ -65,7 +65,7 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc, cast, ret, vinc, tgu, fbPosts, fbMsgs] =
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc, cast, ret, vinc, tgu, fbPosts, fbMsgs, fbCand] =
         await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
@@ -109,6 +109,7 @@ export default function Panel() {
         // Reclutamiento en Facebook (sql/037): los posts del portavoz y el buzon de la Pagina.
         supabase.from('fb_posts').select('*').order('fecha', { ascending: false }).limit(60),
         supabase.from('fb_mensajes').select('*').order('recibido_en', { ascending: false }).limit(60),
+        supabase.from('fb_candidatos').select('*').order('fecha', { ascending: false }).limit(80),
       ]);
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
@@ -181,6 +182,7 @@ export default function Panel() {
         solicitudes: soli.data ?? [],
         fbPosts: fbPosts.data ?? [],
         fbMensajes: fbMsgs.data ?? [],
+        fbCandidatos: fbCand.data ?? [],
         snaps,
         players: players ?? [],
         alineaciones: alin.data ?? [],

@@ -11,6 +11,12 @@
 //       si es nuevo, Valquiria avisa a los lideres por Telegram.
 //   npm run portavoz:anotar -- pendientes
 //       Los posts sin enlace o sin medir en los ultimos 7 dias (para que la tarea los revise).
+//   npm run portavoz:anotar -- candidato --grupo "Nombre" --grupo-url URL --post-url URL --jugador "Nombre" --texto "lo que puso" --mensaje "lo que le contestamos" [--th 18] [--liga "Leyenda II"] [--via comentario] [--nota "..."]
+//       Apunta un jugador al que le contestamos en su post; si es nuevo, Valquiria avisa a los lideres.
+//   npm run portavoz:anotar -- candidatos
+//       Los candidatos de los ultimos 30 dias (para no repetir y para el seguimiento).
+//   npm run portavoz:anotar -- candidato-estado --id 3 --estado respondio|entro|descartado [--respuesta "..."] [--nota "..."]
+//       Cierra o avanza un candidato; con "respondio", Valquiria avisa con lo que contesto.
 
 import { db } from '../lib/db.js';
 import { grupoTelegram } from '../lib/config.js';
@@ -110,6 +116,86 @@ if (orden === 'post') {
     await db.from('fb_mensajes').update({ avisado: mandados > 0 }).eq('id', data[0].id);
     console.log(JSON.stringify({ nuevo: true, id: data[0].id, avisados: mandados }));
   }
+} else if (orden === 'candidato') {
+  const postUrl = valor('--post-url');
+  const jugador = valor('--jugador');
+  const grupo = valor('--grupo');
+  if (!postUrl || !jugador || !grupo) throw new Error('faltan --post-url, --jugador o --grupo');
+  const { data: previo, error: e1 } = await db.from('fb_candidatos').select('id, estado').eq('post_url', postUrl).maybeSingle();
+  if (e1) throw new Error(`fb_candidatos: ${e1.message}`);
+  if (previo) {
+    console.log(JSON.stringify({ nuevo: false, id: previo.id, estado: previo.estado }));
+  } else {
+    const fila = {
+      fecha: hoy(),
+      grupo,
+      grupo_url: valor('--grupo-url'),
+      post_url: postUrl,
+      jugador,
+      texto_post: (valor('--texto') ?? '').slice(0, 1000),
+      th: valor('--th'),
+      liga: valor('--liga'),
+      via: valor('--via') ?? 'comentario',
+      mensaje: valor('--mensaje'),
+      nota: valor('--nota'),
+    };
+    const limpio = Object.fromEntries(Object.entries(fila).filter(([, v]) => v != null));
+    const { data, error } = await db.from('fb_candidatos').insert(limpio).select('id').single();
+    if (error) throw new Error(`fb_candidatos: ${error.message}`);
+    // Valquiria les cuenta a los lideres, con las palabras de Cris.
+    const th = fila.th ? `es TH${esc(fila.th)}` : 'no vi el TH';
+    const liga = fila.liga ? `está en ${esc(fila.liga)}` : 'no vi si está en Leyenda';
+    const aviso =
+      `👋 <b>Buenas, encontré un candidato</b> en <b>${esc(grupo)}</b> que creo que vale la pena.\n` +
+      `${esc(postUrl)}\n\n` +
+      `<b>${esc(jugador)}</b> puso: «${esc(fila.texto_post.slice(0, 300))}»` +
+      (fila.texto_post.length > 300 ? '…' : '') +
+      `\nTiene buena pinta: ${th}, ${liga}.` +
+      (fila.via === 'comentario' ? `\n\nLe contesté en su post con el Telegram y el clan; quedo atenta a ver si me responde.` : `\n\nLe escribí; quedo atenta a ver si me responde.`) +
+      `\nLo dejo apuntado en Reclutamiento.`;
+    let mandados = 0;
+    if (VALQUIRIA) {
+      for (const u of await lideres()) {
+        const r = await tg('sendMessage', { chat_id: u.id, text: aviso, parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
+        if (r.ok) mandados += 1;
+      }
+    }
+    await db.from('fb_candidatos').update({ avisado: mandados > 0 }).eq('id', data.id);
+    console.log(JSON.stringify({ nuevo: true, id: data.id, avisados: mandados }));
+  }
+} else if (orden === 'candidatos') {
+  const desde = new Date(Date.now() - 30 * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
+  const { data, error } = await db
+    .from('fb_candidatos')
+    .select('id, fecha, grupo, grupo_url, post_url, jugador, estado, via, revisado_en')
+    .gte('fecha', desde)
+    .order('fecha', { ascending: false });
+  if (error) throw new Error(`fb_candidatos: ${error.message}`);
+  console.log(JSON.stringify(data ?? [], null, 1));
+} else if (orden === 'candidato-estado') {
+  const id = Number(valor('--id'));
+  const estado = valor('--estado');
+  if (!id || !['contactado', 'respondio', 'entro', 'descartado'].includes(estado)) throw new Error('faltan --id o --estado (contactado|respondio|entro|descartado)');
+  const { data: c, error: e1 } = await db.from('fb_candidatos').select('id, jugador, grupo, post_url, estado').eq('id', id).maybeSingle();
+  if (e1) throw new Error(`fb_candidatos: ${e1.message}`);
+  if (!c) throw new Error(`no hay candidato ${id}`);
+  const cambios = { estado, revisado_en: new Date().toISOString() };
+  if (valor('--respuesta')) cambios.respuesta = valor('--respuesta').slice(0, 1000);
+  if (valor('--nota')) cambios.nota = valor('--nota');
+  const { error } = await db.from('fb_candidatos').update(cambios).eq('id', id);
+  if (error) throw new Error(`fb_candidatos: ${error.message}`);
+  let mandados = 0;
+  if (estado === 'respondio' && c.estado !== 'respondio' && VALQUIRIA) {
+    const aviso =
+      `👀 <b>Me respondió ${esc(c.jugador)}</b> en su post de <b>${esc(c.grupo)}</b>` +
+      (cambios.respuesta ? `:\n«${esc(cambios.respuesta.slice(0, 400))}»` : '.') +
+      `\n${esc(c.post_url)}\n\nSíganlo ustedes desde Facebook, o esperen a que escriba por Telegram.`;
+    for (const u of await lideres()) {
+      const r = await tg('sendMessage', { chat_id: u.id, text: aviso, parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
+      if (r.ok) mandados += 1;
+    }
+  }
+  console.log(JSON.stringify({ id, ...cambios, avisados: mandados }));
 } else if (orden === 'pendientes') {
   const desde = new Date(Date.now() - 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Havana' });
   const { data, error } = await db
@@ -120,6 +206,6 @@ if (orden === 'post') {
   if (error) throw new Error(`fb_posts: ${error.message}`);
   console.log(JSON.stringify(data ?? [], null, 1));
 } else {
-  console.error('uso: post | medir | buzon | pendientes');
+  console.error('uso: post | medir | buzon | pendientes | candidato | candidatos | candidato-estado');
   process.exit(1);
 }

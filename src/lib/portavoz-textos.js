@@ -18,6 +18,11 @@ export const TAG = '#2GC';
 
 /** Los grupos, por dia de la semana (0 = domingo). Empieza el lunes 21 sep 2026. */
 export const GRUPOS = [
+  // Sustituto del lunes (21 sep 2026): grupo privado, la Pagina pidio entrar
+  // ese dia; hasta que la aprueben, la tarea lo salta con --saltar.
+  { dia: 1, nombre: 'CLASH OF CLANS RECRUITMENT', url: 'https://www.facebook.com/groups/356505543277934/', idioma: 'en', texto: 1, privado: true },
+  // Sustituto del miercoles: publico, la Pagina entro el 21 sep 2026 y ve la caja.
+  { dia: 3, nombre: 'Clash of Clans - Reclutamiento de Clanes! 🏆', url: 'https://www.facebook.com/groups/1258092228410788/', idioma: 'es', texto: 3 },
   // Recruitment (106K): la Pagina no puede publicar ahi. La pestaña "Look
   // for players" (boton "Try it") abre el compositor como la Pagina, pero el
   // servidor rechaza el post (ComposerStoryCreateMutation, api_error_code
@@ -120,10 +125,10 @@ export function textoDe(n, d) {
   return textos[n];
 }
 
-/** El grupo que toca en una fecha, o null si no hay (nunca: son siete). */
+/** El grupo que toca en una fecha (el activo de ese dia; si solo hay pausados, el pausado). */
 export function grupoDelDia(fecha = new Date()) {
   const dia = new Date(fecha).getDay();
-  return GRUPOS.find((g) => g.dia === dia) ?? null;
+  return GRUPOS.find((g) => g.dia === dia && !g.pausado) ?? GRUPOS.find((g) => g.dia === dia) ?? null;
 }
 
 /**
@@ -160,4 +165,30 @@ export function imagenDelDia(fecha = new Date()) {
   const inicio = new Date(d.getFullYear(), 0, 0);
   const diaDelAno = Math.floor((d - inicio) / 86400000);
   return IMAGENES[diaDelAno % IMAGENES.length];
+}
+
+// ---------------------------------------------------------------------
+// El rastreo de candidatos: en el grupo del dia, la tarea busca posts de
+// jugadores TH18 que buscan clan y les contesta como la Pagina. Lo pidio
+// Cris el 21 sep 2026 ("un scrub process"). Por Messenger no se puede:
+// una Pagina no puede escribirle primero a nadie; el comentario en su
+// post si, y ademas asi sabe de que post venimos.
+// ---------------------------------------------------------------------
+
+/** Lo que se le contesta al candidato en su post, en el idioma del grupo. */
+export function mensajeCandidato(idioma = 'es') {
+  return idioma === 'en'
+    ? `Hey! Saw you're looking for a clan. At x300 (Strange Godz Alliance, war clan since 2012, TH18 Legend III+) we give monthly prizes to players who perform well and free top base layouts to members. Want to know more? Write to us on Telegram: ${TELEGRAM} · Clan: ${CLAN}`
+    : `¡Hey! Vi que estás buscando clan. En x300 (Strange Godz Alliance, clan de guerra desde 2012, TH18 Leyenda III o más) damos premios cada mes a los jugadores con buen desempeño y bases top gratis a los miembros. Si quieres saber más, escríbenos por Telegram: ${TELEGRAM} · Clan: ${CLAN}`;
+}
+
+/**
+ * Pistas en el texto de un post: si busca clan y si dice TH18. Es una
+ * ayuda para la tarea (que ademas mira la captura); no decide sola.
+ */
+export function pistasCandidato(texto = '') {
+  const t = String(texto).toLowerCase();
+  const buscaClan = /busc\w* (un )?clan|alg[uú]n clan|clan activo|necesito (un )?clan|looking for (a |an )?(active |new |war )?clan|lf clan|need (a |an )?clan|any clan|clan\?/.test(t);
+  const th18 = /\bth ?18\b|ayuntamiento 18|\bay ?18\b|town ?hall 18/.test(t);
+  return { buscaClan, th18 };
 }

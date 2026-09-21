@@ -1,14 +1,16 @@
 // El portavoz de Facebook: la rotacion de grupos (cada uno una vez por
-// semana, aunque un dia se publique fuera de turno) y las reglas de Cris
-// para los textos.
+// semana, aunque un dia se publique fuera de turno), las reglas de Cris
+// para los textos y el rastreo de candidatos.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { elegirGrupo, grupoDelDia, textoDe, GRUPOS } from '../src/lib/portavoz-textos.js';
+import { elegirGrupo, grupoDelDia, textoDe, mensajeCandidato, pistasCandidato, GRUPOS } from '../src/lib/portavoz-textos.js';
 
 const lunes = new Date('2026-09-21T12:00:00');
 const martes = new Date('2026-09-22T12:00:00');
+const miercoles = new Date('2026-09-23T12:00:00');
 const datos = { nivel: 25, victorias: 437, racha: 22, miembros: 38, th18: 32, liga: 'Champion League I' };
+const activos = GRUPOS.filter((g) => !g.pausado);
 
 test('sin posts recientes toca el grupo del dia', () => {
   const { grupo, motivo } = elegirGrupo(martes, []);
@@ -16,23 +18,22 @@ test('sin posts recientes toca el grupo del dia', () => {
   assert.equal(motivo, null);
 });
 
-test('un grupo pausado se salta aunque sea su dia', () => {
-  // Recruitment (lunes) esta pausado: la Pagina no puede publicar ahi.
-  const { grupo, motivo } = elegirGrupo(lunes, []);
-  assert.equal(grupo.nombre, 'Comunidad Latina de Clash of Clans');
-  assert.match(motivo, /Clash of Clans Recruitment está pausado/);
+test('los sustitutos del lunes y del miercoles ocupan el sitio de los pausados', () => {
+  assert.equal(grupoDelDia(lunes).nombre, 'CLASH OF CLANS RECRUITMENT');
+  assert.equal(grupoDelDia(miercoles).nombre, 'Clash of Clans - Reclutamiento de Clanes! 🏆');
+  assert.ok(GRUPOS.find((g) => g.nombre === 'Clash of Clans Recruitment').pausado);
+  assert.ok(GRUPOS.find((g) => g.nombre === 'Clash of Clans Latinoamerica').pausado);
 });
 
 test('si el grupo del dia ya tuvo post esta semana, sigue la rotacion desde mañana', () => {
-  // El lunes 21 el post fue al grupo del martes: el martes toca el siguiente
-  // libre (el del miercoles, Latinoamerica, esta pausado: salta al del jueves).
+  // El lunes 21 el post fue al grupo del martes: el martes toca el del miercoles.
   const { grupo, motivo } = elegirGrupo(martes, ['Comunidad Latina de Clash of Clans']);
-  assert.equal(grupo.nombre, 'Reclutamiento de Clash of Clans');
+  assert.equal(grupo.nombre, 'Clash of Clans - Reclutamiento de Clanes! 🏆');
   assert.match(motivo, /Comunidad Latina de Clash of Clans ya tuvo post esta semana/);
 });
 
 test('salta los grupos con post reciente hasta dar con uno libre, dando la vuelta al domingo', () => {
-  const usados = GRUPOS.filter((g) => g.dia !== 0 && g.dia !== 1).map((g) => g.nombre);
+  const usados = activos.filter((g) => g.dia !== 0).map((g) => g.nombre);
   const { grupo } = elegirGrupo(martes, usados);
   assert.equal(grupo.nombre, 'Clash of Clans Recruiting Worldwide');
 });
@@ -43,8 +44,11 @@ test('con todos los grupos activos usados no hay post y lo dice', () => {
   assert.match(motivo, /todos los grupos activos/);
 });
 
-test('hay un grupo para cada dia de la semana', () => {
-  for (let d = 0; d < 7; d += 1) assert.ok(grupoDelDia(new Date(2026, 8, 20 + d)), `dia ${d}`);
+test('hay un grupo activo para cada dia de la semana', () => {
+  for (let d = 0; d < 7; d += 1) {
+    const g = grupoDelDia(new Date(2026, 8, 20 + d));
+    assert.ok(g && !g.pausado, `dia ${d}`);
+  }
 });
 
 test('los siete textos cumplen las reglas de Cris', () => {
@@ -62,4 +66,24 @@ test('los siete textos cumplen las reglas de Cris', () => {
 test('la racha solo se presume si es de 5 o mas', () => {
   assert.match(textoDe(2, datos), /racha de 22/);
   assert.doesNotMatch(textoDe(2, { ...datos, racha: 2 }), /racha/);
+});
+
+test('el mensaje al candidato lleva premios, bases, Telegram y clan, sin rayas ni "bots"', () => {
+  for (const idioma of ['es', 'en']) {
+    const m = mensajeCandidato(idioma);
+    assert.ok(/premios|prizes/.test(m) && /bases|layouts/.test(m), idioma);
+    assert.ok(m.indexOf('https://t.me/Valqui_bot') < m.indexOf('OpenClanProfile&tag=2GC'), idioma);
+    assert.ok(!m.includes('—') && !/\bbots?\b/i.test(m), idioma);
+    assert.ok(m.length < 420, `${idioma}: corto, es un comentario`);
+  }
+  assert.match(mensajeCandidato('es'), /Vi que estás buscando clan/);
+  assert.match(mensajeCandidato('en'), /looking for a clan/);
+});
+
+test('las pistas de candidato: busca clan y TH18', () => {
+  assert.deepEqual(pistasCandidato('Busco clan activo th18 max'), { buscaClan: true, th18: true });
+  assert.deepEqual(pistasCandidato('Algún clan activo ?'), { buscaClan: true, th18: false });
+  assert.deepEqual(pistasCandidato('Looking for a war clan, Town Hall 18'), { buscaClan: true, th18: true });
+  assert.deepEqual(pistasCandidato('Ayuntamiento 18 necesito clan'), { buscaClan: true, th18: true });
+  assert.deepEqual(pistasCandidato('vendo cuenta th16'), { buscaClan: false, th18: false });
 });

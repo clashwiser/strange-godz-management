@@ -6,6 +6,8 @@
 //   npm run portavoz -- --texto 3    un texto concreto, con los datos de hoy
 //   npm run portavoz -- --todos      los siete, para revisarlos
 //   npm run portavoz -- --fecha 2026-09-25   el de otro dia
+//   npm run portavoz -- --saltar "Nombre"    como si ese grupo ya tuviera post (la Pagina
+//                                            aun no esta aprobada ahi, etc.); se puede repetir
 //
 // Ver src/lib/portavoz-textos.js (los textos y las reglas de Cris) y
 // docs/portavoz-facebook.md.
@@ -36,6 +38,7 @@ if (args.includes('--todos')) {
   // publico (fb_posts). Sin credenciales de Supabase (leyendo los textos
   // en local) va por dia de la semana.
   const { hoy, recientes } = await postsRecientes(fecha);
+  for (let i = 0; i < args.length; i += 1) if (args[i] === '--saltar' && args[i + 1]) recientes.push(args[i + 1]);
   const { grupo, motivo } = hoy ? { grupo: null, motivo: `ya hubo post hoy en ${hoy.grupo} (${hoy.estado})` } : elegirGrupo(fecha, recientes);
   if (!grupo) {
     console.log(JSON.stringify({ fecha: fecha.toISOString().slice(0, 10), saltar: true, motivo }, null, 2));

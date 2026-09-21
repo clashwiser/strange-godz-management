@@ -31,13 +31,20 @@ está dentro y el feed no le enseña la caja de publicar. También `pausado`.
 Revisado el 21 sep 2026: en los otros cinco grupos la caja sí sale (en
 Comunidad Latina, además, el post entró a revisión de admins).
 
+En su lugar entraron dos grupos que sí aceptan Páginas (21 sep 2026):
+*CLASH OF CLANS RECRUITMENT* (privado, 17K; la solicitud de la Página
+quedó pendiente de los admins) y *Clash of Clans - Reclutamiento de
+Clanes! 🏆* (público, 6.9K; la Página ya está dentro y ve la caja).
+Mientras un grupo no apruebe a la Página, la tarea lo salta con
+`npm run portavoz -- --saltar "Nombre"` y publica en el siguiente libre.
+
 ## Rotación (día de la semana)
 
 | Día | Grupo | Idioma | Texto |
 |---|---|---|---|
-| Lunes | Clash of Clans Recruitment (106K) | EN | 1 |
+| Lunes | CLASH OF CLANS RECRUITMENT (17K, privado) | EN | 1 |
 | Martes | Comunidad Latina de Clash of Clans (111K) | ES | 2 |
-| Miércoles | Clash of Clans Latinoamerica (73K) | ES | 3 |
+| Miércoles | Clash of Clans - Reclutamiento de Clanes! 🏆 (6.9K) | ES | 3 |
 | Jueves | Reclutamiento de Clash of Clans (44K) | ES | 4 |
 | Viernes | Reclutamiento de clanes (25K) | ES | 5 |
 | Sábado | Clash Of Clans - En Español (18K) | ES | 6 |
@@ -61,3 +68,20 @@ ya hubo post hoy, dice `saltar` y no se publica dos veces.
 - Ritmo humano: entrar al grupo, leer un poco, escribir, adjuntar la
   imagen, esperar, publicar. Si el grupo tiene el post en revisión de
   admins, se reporta como "pendiente de aprobación".
+
+## Candidatos (el rastreo, de Cris el 21 sep 2026)
+
+Cada día, en el grupo donde publica, la tarea lee el feed buscando
+jugadores TH18 que piden clan (texto o captura), y les contesta en su post
+como la Página con `mensajeCandidato(idioma)` (Telegram y clan, premios y
+bases). Por Messenger no se puede: una Página no puede escribirle primero
+a nadie. Máximo 3 al día, nunca dos veces al mismo (tabla `fb_candidatos`,
+`sql/038`, única por `post_url`). Valquiria avisa a los líderes de cada
+candidato («Buenas, encontré un candidato…») y de cada respuesta; el caso
+se cierra en la pestaña Reclutamiento (respondió, entró, descartado).
+Comandos: `npm run portavoz:anotar -- candidato | candidatos |
+candidato-estado`.
+
+El primero fue José Pleitez (Reclutamiento de Clash of Clans, 21 sep
+2026, cuatro cuentas TH18/17/16/13), contestado a mano desde este mismo
+flujo para probarlo de punta a punta.
