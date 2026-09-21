@@ -11,9 +11,16 @@ const martes = new Date('2026-09-22T12:00:00');
 const datos = { nivel: 25, victorias: 437, racha: 22, miembros: 38, th18: 32, liga: 'Champion League I' };
 
 test('sin posts recientes toca el grupo del dia', () => {
-  const { grupo, motivo } = elegirGrupo(lunes, []);
-  assert.equal(grupo.nombre, 'Clash of Clans Recruitment');
+  const { grupo, motivo } = elegirGrupo(martes, []);
+  assert.equal(grupo.nombre, 'Comunidad Latina de Clash of Clans');
   assert.equal(motivo, null);
+});
+
+test('un grupo pausado se salta aunque sea su dia', () => {
+  // Recruitment (lunes) esta pausado: la Pagina no puede publicar ahi.
+  const { grupo, motivo } = elegirGrupo(lunes, []);
+  assert.equal(grupo.nombre, 'Comunidad Latina de Clash of Clans');
+  assert.match(motivo, /Clash of Clans Recruitment está pausado/);
 });
 
 test('si el grupo del dia ya tuvo post esta semana, sigue la rotacion desde mañana', () => {
@@ -24,15 +31,15 @@ test('si el grupo del dia ya tuvo post esta semana, sigue la rotacion desde mañ
 });
 
 test('salta los grupos con post reciente hasta dar con uno libre, dando la vuelta al domingo', () => {
-  const usados = GRUPOS.filter((g) => g.dia !== 1).map((g) => g.nombre);
+  const usados = GRUPOS.filter((g) => g.dia !== 0 && g.dia !== 1).map((g) => g.nombre);
   const { grupo } = elegirGrupo(martes, usados);
-  assert.equal(grupo.nombre, 'Clash of Clans Recruitment');
+  assert.equal(grupo.nombre, 'Clash of Clans Recruiting Worldwide');
 });
 
-test('con los siete grupos usados no hay post y lo dice', () => {
+test('con todos los grupos activos usados no hay post y lo dice', () => {
   const { grupo, motivo } = elegirGrupo(martes, GRUPOS.map((g) => g.nombre));
   assert.equal(grupo, null);
-  assert.match(motivo, /los siete grupos/);
+  assert.match(motivo, /todos los grupos activos/);
 });
 
 test('hay un grupo para cada dia de la semana', () => {

@@ -18,10 +18,13 @@ export const TAG = '#2GC';
 
 /** Los grupos, por dia de la semana (0 = domingo). Empieza el lunes 21 sep 2026. */
 export const GRUPOS = [
-  // En Recruitment la Pagina no ve la caja "Write something" del feed: se
-  // publica desde la pestaña "Look for players" (boton "Try it", elegir el
-  // juego Clash of Clans y quitar la tarjeta para poder adjuntar la imagen).
-  { dia: 1, nombre: 'Clash of Clans Recruitment', url: 'https://www.facebook.com/groups/683495443353463/', idioma: 'en', texto: 1, via: 'looking_for_players' },
+  // Recruitment (106K): la Pagina no puede publicar ahi. La pestaña "Look
+  // for players" (boton "Try it") abre el compositor como la Pagina, pero el
+  // servidor rechaza el post (ComposerStoryCreateMutation, api_error_code
+  // 200 = permisos, is_transient false), con foto o como "looking for
+  // players". Probado el 21 sep 2026. Pausado hasta que Cris decida si
+  // entra ahi con su perfil viejo o cambia el grupo.
+  { dia: 1, nombre: 'Clash of Clans Recruitment', url: 'https://www.facebook.com/groups/683495443353463/', idioma: 'en', texto: 1, via: 'looking_for_players', pausado: true },
   { dia: 2, nombre: 'Comunidad Latina de Clash of Clans', url: 'https://www.facebook.com/groups/425293234783579/', idioma: 'es', texto: 2 },
   { dia: 3, nombre: 'Clash of Clans Latinoamerica', url: 'https://www.facebook.com/groups/1393253767633429/', idioma: 'es', texto: 3 },
   { dia: 4, nombre: 'Reclutamiento de Clash of Clans', url: 'https://www.facebook.com/groups/967283530338171/', idioma: 'es', texto: 4 },
@@ -135,16 +138,18 @@ export function grupoDelDia(fecha = new Date()) {
  */
 export function elegirGrupo(fecha = new Date(), recientes = []) {
   const usados = new Set(recientes);
+  const libre = (g) => g && !g.pausado && !usados.has(g.nombre);
   const dia = new Date(fecha).getDay();
   const delDia = grupoDelDia(fecha);
-  if (delDia && !usados.has(delDia.nombre)) return { grupo: delDia, motivo: null };
+  if (libre(delDia)) return { grupo: delDia, motivo: null };
   for (let k = 1; k < 7; k += 1) {
     const g = GRUPOS.find((x) => x.dia === (dia + k) % 7);
-    if (g && !usados.has(g.nombre)) {
-      return { grupo: g, motivo: `${delDia?.nombre ?? 'el grupo de hoy'} ya tuvo post esta semana; toca ${g.nombre}` };
+    if (libre(g)) {
+      const porque = delDia?.pausado ? `${delDia.nombre} está pausado` : `${delDia?.nombre ?? 'el grupo de hoy'} ya tuvo post esta semana`;
+      return { grupo: g, motivo: `${porque}; toca ${g.nombre}` };
     }
   }
-  return { grupo: null, motivo: 'los siete grupos ya tuvieron post en los últimos seis días' };
+  return { grupo: null, motivo: 'todos los grupos activos ya tuvieron post en los últimos seis días' };
 }
 
 /** La imagen que toca: alterna por dia del año, para no repetir dos seguidas. */

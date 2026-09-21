@@ -17,11 +17,14 @@ apagada a esa hora, el post sale cuando abra la app.
 - Imágenes: `web/public/reclutamiento-x300.jpg` (vertical 4:5) y
   `web/public/reclutamiento-x300-ancho.jpg` (16:9); se alternan por día.
 
-En *Clash of Clans Recruitment* (lunes) la Página no ve la caja «Write
-something» del feed: el post se hace desde la pestaña **Look for players**
-(«Try it» → buscar el juego «Clash of Clans» → se abre «Create post» como la
-Página; se quita la tarjeta del juego para poder adjuntar la imagen).
-`npm run portavoz` lo indica con `via: "looking_for_players"` y `url_post`.
+En *Clash of Clans Recruitment* (lunes, 106K) **la Página no puede
+publicar**, y está `pausado` en la rotación. La pestaña «Look for players»
+(«Try it») abre el compositor como la Página, pero el servidor rechaza el
+post: `ComposerStoryCreateMutation` → `api_error_code 200` (permisos),
+`is_transient: false`; igual con foto que como «looking for players».
+Probado el 21 sep 2026 con seis intentos. Para publicar ahí hace falta que
+el perfil viejo de Cris entre al grupo como perfil (y entonces la tarea
+tendría que elegir esa identidad en el compositor) o cambiar el grupo.
 
 ## Rotación (día de la semana)
 
