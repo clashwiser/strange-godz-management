@@ -26,7 +26,9 @@ export const GRUPOS = [
   // entra ahi con su perfil viejo o cambia el grupo.
   { dia: 1, nombre: 'Clash of Clans Recruitment', url: 'https://www.facebook.com/groups/683495443353463/', idioma: 'en', texto: 1, via: 'looking_for_players', pausado: true },
   { dia: 2, nombre: 'Comunidad Latina de Clash of Clans', url: 'https://www.facebook.com/groups/425293234783579/', idioma: 'es', texto: 2 },
-  { dia: 3, nombre: 'Clash of Clans Latinoamerica', url: 'https://www.facebook.com/groups/1393253767633429/', idioma: 'es', texto: 3 },
+  // Latinoamerica: la Pagina esta dentro pero el feed no le enseña la caja
+  // "Write something" (mismo cuadro que Recruitment). Pausado el 21 sep 2026.
+  { dia: 3, nombre: 'Clash of Clans Latinoamerica', url: 'https://www.facebook.com/groups/1393253767633429/', idioma: 'es', texto: 3, pausado: true },
   { dia: 4, nombre: 'Reclutamiento de Clash of Clans', url: 'https://www.facebook.com/groups/967283530338171/', idioma: 'es', texto: 4 },
   { dia: 5, nombre: 'Reclutamiento de clanes', url: 'https://www.facebook.com/groups/2749108748644005/', idioma: 'es', texto: 5 },
   { dia: 6, nombre: 'Clash Of Clans - En Español', url: 'https://www.facebook.com/groups/436752439771326/', idioma: 'es', texto: 6 },

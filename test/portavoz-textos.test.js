@@ -24,9 +24,10 @@ test('un grupo pausado se salta aunque sea su dia', () => {
 });
 
 test('si el grupo del dia ya tuvo post esta semana, sigue la rotacion desde mañana', () => {
-  // El lunes 21 el post fue al grupo del martes: el martes toca el del miercoles.
+  // El lunes 21 el post fue al grupo del martes: el martes toca el siguiente
+  // libre (el del miercoles, Latinoamerica, esta pausado: salta al del jueves).
   const { grupo, motivo } = elegirGrupo(martes, ['Comunidad Latina de Clash of Clans']);
-  assert.equal(grupo.nombre, 'Clash of Clans Latinoamerica');
+  assert.equal(grupo.nombre, 'Reclutamiento de Clash of Clans');
   assert.match(motivo, /Comunidad Latina de Clash of Clans ya tuvo post esta semana/);
 });
 

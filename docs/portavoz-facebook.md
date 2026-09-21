@@ -26,6 +26,11 @@ Probado el 21 sep 2026 con seis intentos. Para publicar ahí hace falta que
 el perfil viejo de Cris entre al grupo como perfil (y entonces la tarea
 tendría que elegir esa identidad en el compositor) o cambiar el grupo.
 
+*Clash of Clans Latinoamerica* (miércoles, 73K) está igual: la Página
+está dentro y el feed no le enseña la caja de publicar. También `pausado`.
+Revisado el 21 sep 2026: en los otros cinco grupos la caja sí sale (en
+Comunidad Latina, además, el post entró a revisión de admins).
+
 ## Rotación (día de la semana)
 
 | Día | Grupo | Idioma | Texto |
