@@ -30,6 +30,7 @@
     "portavoz": "node --env-file-if-exists=.env src/jobs/portavoz.js",
     "portavoz:reporte": "node --env-file-if-exists=.env src/jobs/portavoz-reporte.js",
     "portavoz:anotar": "node --env-file-if-exists=.env src/jobs/portavoz-anotar.js",
+    "valquiria:lideres": "node --env-file-if-exists=.env src/jobs/valquiria-lideres.js",
     "cerebro:latido": "node --env-file-if-exists=.env src/jobs/cerebro-latido.js",
     "cerebro:parte": "node --env-file-if-exists=.env src/jobs/cerebro-parte.js",
     "cierre": "node --env-file-if-exists=.env src/jobs/cierre-mensual.js",
