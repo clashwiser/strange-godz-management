@@ -68,13 +68,14 @@ test('la racha solo se presume si es de 5 o mas', () => {
   assert.doesNotMatch(textoDe(2, { ...datos, racha: 2 }), /racha/);
 });
 
-test('el mensaje al candidato lleva premios, bases, tag y Telegram, sin enlaces, rayas ni "bots"', () => {
+test('el mensaje al candidato lleva premios, bases, tag y el enlace de Telegram (solo ese), sin rayas ni "bots"', () => {
   for (const idioma of ['es', 'en']) {
     const m = mensajeCandidato(idioma);
     assert.ok(/premios|prizes/.test(m) && /bases|layouts/.test(m), idioma);
-    assert.ok(/tag 2GC/.test(m) && /Valqui_bot/.test(m), idioma);
-    // Sin http ni #: los grupos filtran enlaces y Facebook convierte #2GC en hashtag.
-    assert.ok(!/https?:\/\//.test(m) && !m.includes('#') && !m.includes('@'), `${idioma}: sin enlaces, hashtags ni menciones`);
+    assert.ok(/tag 2GC/.test(m) && m.endsWith('https://t.me/Valqui_bot'), idioma);
+    // Un solo enlace, sin # ni @: Facebook convierte #2GC en hashtag y @ abre menciones.
+    assert.equal((m.match(/https?:\/\//g) || []).length, 1, `${idioma}: un solo enlace`);
+    assert.ok(!m.includes('#') && !m.includes('@'), `${idioma}: sin hashtags ni menciones`);
     assert.ok(!m.includes('—') && !/\bbots?\b/i.test(m), idioma);
     assert.ok(m.length < 420, `${idioma}: corto, es un comentario`);
   }
