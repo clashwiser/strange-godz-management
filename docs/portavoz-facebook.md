@@ -17,6 +17,12 @@ apagada a esa hora, el post sale cuando abra la app.
 - Imágenes: `web/public/reclutamiento-x300.jpg` (vertical 4:5) y
   `web/public/reclutamiento-x300-ancho.jpg` (16:9); se alternan por día.
 
+En *Clash of Clans Recruitment* (lunes) la Página no ve la caja «Write
+something» del feed: el post se hace desde la pestaña **Look for players**
+(«Try it» → buscar el juego «Clash of Clans» → se abre «Create post» como la
+Página; se quita la tarjeta del juego para poder adjuntar la imagen).
+`npm run portavoz` lo indica con `via: "looking_for_players"` y `url_post`.
+
 ## Rotación (día de la semana)
 
 | Día | Grupo | Idioma | Texto |

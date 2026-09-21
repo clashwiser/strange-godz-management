@@ -46,6 +46,10 @@ if (args.includes('--todos')) {
           fecha: fecha.toISOString().slice(0, 10),
           grupo: grupo.nombre,
           url: grupo.url,
+          // Donde esta el compositor: 'feed' (la caja "Write something" del
+          // grupo) o 'looking_for_players' (pestaña Look for players, boton Try it).
+          via: grupo.via ?? 'feed',
+          url_post: grupo.via ? `${grupo.url}${grupo.via}/` : grupo.url,
           idioma: grupo.idioma,
           texto_num: grupo.texto,
           imagen: imagenDelDia(fecha),

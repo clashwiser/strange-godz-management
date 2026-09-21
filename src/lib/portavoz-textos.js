@@ -18,7 +18,10 @@ export const TAG = '#2GC';
 
 /** Los grupos, por dia de la semana (0 = domingo). Empieza el lunes 21 sep 2026. */
 export const GRUPOS = [
-  { dia: 1, nombre: 'Clash of Clans Recruitment', url: 'https://www.facebook.com/groups/683495443353463/', idioma: 'en', texto: 1 },
+  // En Recruitment la Pagina no ve la caja "Write something" del feed: se
+  // publica desde la pestaña "Look for players" (boton "Try it", elegir el
+  // juego Clash of Clans y quitar la tarjeta para poder adjuntar la imagen).
+  { dia: 1, nombre: 'Clash of Clans Recruitment', url: 'https://www.facebook.com/groups/683495443353463/', idioma: 'en', texto: 1, via: 'looking_for_players' },
   { dia: 2, nombre: 'Comunidad Latina de Clash of Clans', url: 'https://www.facebook.com/groups/425293234783579/', idioma: 'es', texto: 2 },
   { dia: 3, nombre: 'Clash of Clans Latinoamerica', url: 'https://www.facebook.com/groups/1393253767633429/', idioma: 'es', texto: 3 },
   { dia: 4, nombre: 'Reclutamiento de Clash of Clans', url: 'https://www.facebook.com/groups/967283530338171/', idioma: 'es', texto: 4 },
