@@ -11,7 +11,7 @@ import Cerebro from './cerebro';
 import Bases from './bases';
 import GrupoCWL from './grupo-cwl';
 import Salud from './salud';
-import Solicitudes from './solicitudes';
+import Reclutamiento from './reclutamiento';
 import { AvisoHuella, GestorHuellas } from './huella';
 import Bonos from './bonos';
 import Heraldo from './heraldo';
@@ -26,7 +26,7 @@ const TABS = [
   ['cwl', 'CWL Resultados'],
   ['jugadores', 'Jugadores'],
   ['salud', 'Salud'],
-  ['solicitudes', 'Solicitudes'],
+  ['solicitudes', 'Reclutamiento'],
   ['mensajes', 'Mensajes'],
   ['bases', 'Bases'],
   ['bonos', 'Bonos'],
@@ -65,7 +65,7 @@ export default function Panel() {
     try {
       const temporada = temporadaActual();
 
-      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc, cast, ret, vinc, tgu] =
+      const [clans, jobs, outbox, wa, seasons, alin, conf, packs, bases, bonos, plan, ligas, soli, membres, lecc, cast, ret, vinc, tgu, fbPosts, fbMsgs] =
         await Promise.all([
         supabase.from('clans').select('*').order('orden').order('nombre'),
         supabase.from('job_runs').select('*').order('started_at', { ascending: false }).limit(60),
@@ -106,6 +106,9 @@ export default function Panel() {
         // gente apuntada del grupo para poder elegirla.
         supabase.from('tg_vinculos').select('tg_user_id, player_tag, tg_nombre, principal'),
         supabase.from('tg_usuarios').select('tg_user_id, username, nombre'),
+        // Reclutamiento en Facebook (sql/037): los posts del portavoz y el buzon de la Pagina.
+        supabase.from('fb_posts').select('*').order('fecha', { ascending: false }).limit(60),
+        supabase.from('fb_mensajes').select('*').order('recibido_en', { ascending: false }).limit(60),
       ]);
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
@@ -176,6 +179,8 @@ export default function Panel() {
         castillos: cast.data ?? [],
         retos: ret.data ?? [],
         solicitudes: soli.data ?? [],
+        fbPosts: fbPosts.data ?? [],
+        fbMensajes: fbMsgs.data ?? [],
         snaps,
         players: players ?? [],
         alineaciones: alin.data ?? [],
@@ -283,7 +288,7 @@ export default function Panel() {
         {d && tab === 'jugadores' && <Jugadores d={d} recargar={cargar} />}
         {d && tab === 'mensajes' && <Mensajes d={d} recargar={cargar} />}
         {d && tab === 'salud' && <Salud d={d} />}
-        {d && tab === 'solicitudes' && <Solicitudes d={d} recargar={cargar} />}
+        {d && tab === 'solicitudes' && <Reclutamiento d={d} recargar={cargar} />}
         {d && tab === 'bases' && <Bases d={d} recargar={cargar} />}
         {d && tab === 'bonos' && <Bonos d={d} recargar={cargar} />}
         {d && tab === 'reglas' && <ReglasTab d={d} recargar={cargar} />}
