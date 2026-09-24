@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa, otrasLlenas } from '../web/lib/castillo-foto.js';
+import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa, otrasLlenas, barraDelCastillo } from '../web/lib/castillo-foto.js';
 import { extraerJson } from '../web/lib/vision.js';
 
 const guerra = {
@@ -215,4 +215,42 @@ test('confirmaSegunda: vale la barra llena aunque los numeros no se lean', () =>
   assert.equal(confirmaSegunda({ tropas: null, capacidad: null, barraLlena: true, posicion: 7 }, abajo), true);
   assert.equal(confirmaSegunda({ tropas: null, capacidad: null, botonDonar: 'apagado', tropasDonadas: 5, nombre: 'EL MATATAN' }, abajo), true);
   assert.equal(confirmaSegunda({ tropas: null, capacidad: null, barraLlena: true, posicion: 8 }, abajo), false); // otra base
+});
+
+// La foto de Deibis (24 sep 2026), con la aclaracion de Cris: la ventana
+// es la de la #7 EL MATATAN y su barra, junto a "Donar", dice 55/55 (la
+// lleno bien). El "0/55" de arriba es la etiqueta de la #8 (Anabolic
+// Batman, la base de Cris) colada por detras de la ventana.
+const abajoMatatan = { posicion: 7, nombre: 'EL MATATAN' };
+
+test('barraDelCastillo: la barra de la ventana es la que va junto a "Donar"', () => {
+  const foto = { tropas: 0, capacidad: 55, numeros: [
+    { texto: '0/55', junto_a_donar: false, de_que_base: '8. Anabolic Batman' },
+    { texto: '55/55', junto_a_donar: true, de_que_base: '7. EL MATATAN' },
+  ] };
+  assert.deepEqual(barraDelCastillo(foto, abajoMatatan), { tropas: 55, capacidad: 55 });
+  assert.equal(estaLleno(barraDelCastillo(foto, abajoMatatan)), true);
+});
+
+test('barraDelCastillo: sin la seña de "Donar", el número que es de su base', () => {
+  const foto = { numeros: [{ texto: '0/55', de_que_base: 'Anabolic Batman' }, { texto: '55/55', de_que_base: 'EL MATATAN' }] };
+  assert.deepEqual(barraDelCastillo(foto, abajoMatatan), { tropas: 55, capacidad: 55 });
+});
+
+test('barraDelCastillo: dos números sin dueño no se adivinan (ni el mayor ni el menor)', () => {
+  const foto = { tropas: 0, capacidad: 55, numeros: [{ texto: '0/55' }, { texto: '55/55' }] };
+  assert.deepEqual(barraDelCastillo(foto, abajoMatatan), { tropas: null, capacidad: null });
+  assert.equal(lecturaDudosa(barraDelCastillo(foto, abajoMatatan)), true); // lo confirma un líder
+});
+
+test('barraDelCastillo: un solo número, o ninguno en la lista', () => {
+  assert.deepEqual(barraDelCastillo({ numeros: [{ texto: '30/55' }] }, abajoMatatan), { tropas: 30, capacidad: 55 });
+  assert.deepEqual(barraDelCastillo({ tropas: 45, capacidad: 45 }, abajoMatatan), { tropas: 45, capacidad: 45 });
+  assert.deepEqual(barraDelCastillo({}, abajoMatatan), { tropas: null, capacidad: null });
+});
+
+test('barraDelCastillo: un castillo a medias sigue saliendo a medias', () => {
+  const foto = { numeros: [{ texto: '0/55', de_que_base: '8. Anabolic' }, { texto: '20/55', junto_a_donar: true }] };
+  assert.deepEqual(barraDelCastillo(foto, abajoMatatan), { tropas: 20, capacidad: 55 });
+  assert.equal(estaLleno(barraDelCastillo(foto, abajoMatatan)), false);
 });

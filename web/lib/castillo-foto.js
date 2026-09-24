@@ -209,7 +209,9 @@ const LISTA_TROPAS =
 
 export const INSTRUCCIONES_MAPA = `Esta imagen debería ser una captura de pantalla de Clash of Clans con el mapa de una guerra de clanes, en el lado de las bases aliadas.
 
-Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), una barra con "N/M" junto al botón "Donate", un botón "Scout" y las tropas donadas con su cantidad ("x1") y su nivel.
+Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), el mensaje del jugador pidiendo tropas ("¡Necesito refuerzos!"), una barra con "N/M" junto al botón "Donate"/"Donar", un botón "Scout"/"Explorar" y las tropas que el que mira puede donar.
+
+CUIDADO CON ESTO, es el fallo más común: las etiquetas "N/M" de OTRAS bases del mapa se cuelan por detrás de la ventana de abajo y parecen suyas. La barra de la ventana es la que está PEGADA al botón "Donate"/"Donar", en su misma línea; cualquier otro "N/M" que veas por encima o al lado pertenece a otra base y va con el número y el nombre de ESA base. Si ves "0/55" arriba a la derecha y "55/55" junto a "Donar", el castillo de la ventana es el de 55/55.
 
 Devuelve SOLO un objeto JSON con esta forma, compacto (en una sola línea, sin espacios ni saltos de línea), sin comentarios:
 {
@@ -247,10 +249,10 @@ ${LISTA_TROPAS}`;
 export const INSTRUCCIONES_TROPAS = `Esta imagen es la parte de abajo de una captura del mapa de guerra de Clash of Clans, ampliada: la ventana de donación de una base aliada. En ella se ve el número y el nombre de la base, debajo un mensaje escrito por el jugador pidiendo tropas, una barra "N/M" junto al botón "Donate", y los iconos de las tropas donadas, cada uno con "xN" (la cantidad) encima y el nivel en un número pequeño en la esquina.
 
 Devuelve SOLO un objeto JSON compacto, sin comentarios:
-{"posicion": número de la base de la ventana o null, "nombre": "el nombre de la base de la ventana tal como se lee, o null", "pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "barra_llena": true o false o null, "boton_donar": "activo" o "apagado" o "no_se_ve", "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
+{"posicion": número de la base de la ventana o null, "nombre": "el nombre de la base de la ventana tal como se lee, o null", "pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "numeros": [ { "texto": "N/M tal como se lee", "junto_a_donar": true o false, "de_que_base": "el nombre o el número de la base a la que pertenece ese N/M, si se ve cuál, o null" } ], "barra_llena": true o false o null, "boton_donar": "activo" o "apagado" o "no_se_ve", "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
 
-Mira la barra que está junto al botón "Donate" con MUCHO cuidado, porque es lo que decide:
-- "tropas" es el número de la IZQUIERDA (lo que ya tiene el castillo) y "capacidad" el de la derecha. Si no distingues los dos números con seguridad, pon null en los dos: es mejor null que un número inventado.
+En la imagen puede haber VARIOS números "N/M": el de la ventana y los de las etiquetas de otras bases del mapa, que se cuelan por detrás. Apúntalos TODOS en "numeros", y de cada uno di si está pegado al botón "Donate"/"Donar" (ese es el de la ventana) y de qué base es si se ve.
+- "tropas" y "capacidad" son los del número que está junto a "Donate"/"Donar". Si ves "0/55" suelto arriba y "55/55" junto a "Donar", entonces tropas=55 y capacidad=55. Si no distingues con seguridad cuál es el de la ventana, pon null en los dos: es mejor null que equivocarse de base.
 - "barra_llena": true si la barra de color llega hasta el final (el castillo está lleno), false si queda hueco, null si no la ves.
 - "boton_donar": "apagado" si el botón "Donate" está gris, apagado o no está (el castillo no admite más), "activo" si se puede pulsar, "no_se_ve" si no aparece en la imagen.
 - Los iconos de las tropas donadas son la prueba de que hay algo dentro: si ves iconos de tropas, "tropas" NO puede ser 0 ni "barra_llena" false por descuido. Cuéntalos.
@@ -293,6 +295,44 @@ export async function leerTropasAmpliadas(admin, imagen) {
 }
 
 /**
+ * De los "N/M" que hay en la imagen, el del castillo de la ventana: el que
+ * está pegado al botón "Donar", o el que el modelo atribuye a esa base.
+ *
+ * Nunca se coge "el más grande": el 24 sep 2026, en la foto de Deibis, la
+ * ventana de la #7 (llena, 55/55 junto a "Donar") tenía encima la etiqueta
+ * de la #8 (0/55) colada por detrás. Coger el que no toca da puntos por el
+ * castillo de otro. Si no se sabe cuál es cuál, se devuelve null y un
+ * líder lo confirma con 👍.
+ *
+ * @param {object} j        lo que devolvio el modelo
+ * @param {{posicion:number, nombre:string}} abajo  la base que toca
+ */
+export function barraDelCastillo(j, abajo = null) {
+  const pares = (Array.isArray(j?.numeros) ? j.numeros : [])
+    .map((n) => {
+      const m = /(\d+)\s*\/\s*(\d+)/.exec(String(n?.texto ?? ''));
+      if (!m || Number(m[2]) <= 0) return null;
+      return { tropas: Number(m[1]), capacidad: Number(m[2]), donar: n?.junto_a_donar === true, de: n?.de_que_base == null ? null : String(n.de_que_base) };
+    })
+    .filter(Boolean);
+  const limpio = (p) => ({ tropas: p.tropas, capacidad: p.capacidad });
+
+  const juntoADonar = pares.find((p) => p.donar);
+  if (juntoADonar) return limpio(juntoADonar);
+
+  // Sin esa seña, el que el modelo le atribuye a la base de abajo.
+  if (abajo) {
+    const suyo = pares.find((p) => p.de && (parecidos(p.de, abajo.nombre) || String(abajo.posicion) === String(p.de).replace(/\D/g, '')));
+    if (suyo) return limpio(suyo);
+  }
+  // Un solo número en la imagen: no hay con qué confundirlo.
+  if (pares.length === 1) return limpio(pares[0]);
+  // Varios y sin saber cuál es cuál: no se adivina.
+  if (pares.length > 1) return { tropas: null, capacidad: null };
+  return { tropas: numero(j?.tropas), capacidad: numero(j?.capacidad) };
+}
+
+/**
  * La segunda lectura, la de Valquiria: la misma ventana ampliada pero con
  * el OTRO modelo de vision, cuando la primera no dio por bueno el castillo.
  * Lo pidio Cris el 24 sep 2026: "los lideres estamos casi sin tiempo" -una
@@ -301,7 +341,7 @@ export async function leerTropasAmpliadas(admin, imagen) {
  *
  * Devuelve { tropas, capacidad, donado, nombre, posicion } o null.
  */
-export async function segundaOpinion(admin, imagen) {
+export async function segundaOpinion(admin, imagen, abajo = null) {
   const recorte = await recortarVentana(imagen.base64);
   if (!recorte) return null;
   const otro = [...MODELOS_VISION].reverse();
@@ -314,9 +354,10 @@ export async function segundaOpinion(admin, imagen) {
   });
   const j = lectura?.json;
   if (!j || typeof j !== 'object') return null;
+  const barra = barraDelCastillo(j, abajo);
   return {
-    tropas: numero(j.tropas),
-    capacidad: numero(j.capacidad),
+    tropas: barra.tropas,
+    capacidad: barra.capacidad,
     barraLlena: j.barra_llena === true ? true : j.barra_llena === false ? false : null,
     botonDonar: typeof j.boton_donar === 'string' ? j.boton_donar : null,
     donado: textoDonado(j),
@@ -621,7 +662,7 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
   // (En 'otra_guerra' no: ahi la captura es de otra guerra y da igual lo
   // llena que salga la ventana.)
   if (fallo.veredicto !== 'lleno' && fallo.veredicto !== 'otra_guerra') {
-    const segunda = await segundaOpinion(admin, imagen);
+    const segunda = await segundaOpinion(admin, imagen, abajo);
     if (confirmaSegunda(segunda, abajo)) {
       await admin
         .from('castillos')
@@ -645,6 +686,10 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
       // La segunda lectura vio la ventana clara y tampoco esta llena: eso
       // ya es una respuesta, y mas fiable que "no distingo nada".
       fallo = { ...fallo, veredicto: 'incompleto', tropas: segunda.tropas, capacidad: segunda.capacidad, donado: segunda.donado, dosLecturas };
+    } else if (fallo.veredicto === 'incompleto' && segunda && lecturaDudosa(segunda)) {
+      // La ventana tiene varios "N/M" y no se sabe cuál es el suyo: antes
+      // de llamar mentiroso a nadie, que lo confirme un líder.
+      fallo = { ...fallo, veredicto: 'dudoso', dosLecturas };
     } else {
       fallo = { ...fallo, dosLecturas };
     }
@@ -671,6 +716,18 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         verificado: true,
       };
     }
+    // En la captura hay varios "N/M" (las etiquetas de las bases vecinas se
+    // cuelan por detrás de la ventana) y no se sabe cuál es el del castillo
+    // que toca. No se acusa a nadie: lo confirma un líder.
+    case 'dudoso':
+      await anota(`foto: no se distingue la barra de ${abajo.nombre} entre las de las bases vecinas${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
+      return {
+        texto:
+          `📷 Veo la ventana del castillo de ${quienAbajo}, pero en la captura hay varias barras "N/M" (las de las bases de al lado) y no me arriesgo a leer la que no es. ` +
+          `Prueba con una captura donde se vea bien la barra que está junto a <b>Donar</b>. ${MANUAL}`,
+        verificado: false,
+      };
+
     case 'incompleto': {
       await anota(`foto: ${abajo.nombre} ${fallo.tropas}/${fallo.capacidad}, incompleto${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
       // Si en la misma foto hay OTRA base llena, casi siempre es que donó
