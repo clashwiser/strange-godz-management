@@ -357,13 +357,32 @@ export function estaLleno(v) {
   return false;
 }
 
-/** Una lectura que se contradice: dice 0 (o nada) pero hay tropas dentro. */
+/**
+ * Una lectura que no sirve para decidir: no se leyeron los numeros.
+ *
+ * Los iconos que salen debajo de la ventana NO son lo que hay en el
+ * castillo: son las tropas que el jugador puede donar, de sus campamentos
+ * (lo aclaro Cris el 24 sep 2026 con la foto de Deibis delante). Asi que
+ * ver iconos no dice nada del castillo, y un "0/55" con iconos al lado es
+ * un castillo vacio, no una lectura rota.
+ */
 export function lecturaDudosa(v) {
   if (!v) return true;
-  const conTropas = (v.tropasDonadas ?? 0) > 0;
-  if (conTropas && (v.tropas === 0 || v.tropas == null)) return true;
-  if (v.tropas == null || v.capacidad == null) return true;
-  return false;
+  return v.tropas == null || v.capacidad == null;
+}
+
+/**
+ * Las bases LLENAS que no son la que tocaba. Con esto, cuando alguien dona
+ * al castillo equivocado (Deibis lleno el de la #8 en vez del de la #7, su
+ * base de abajo), el bot se lo dice en vez de dejarlo en "no esta lleno" y
+ * que se arme la discusion.
+ */
+export function otrasLlenas(lectura, abajo) {
+  const bases = Array.isArray(lectura?.json?.bases) ? lectura.json.bases : [];
+  return bases
+    .map((b) => ({ posicion: numero(b?.posicion), nombre: b?.nombre == null ? null : String(b.nombre), tropas: numero(b?.tropas), capacidad: numero(b?.capacidad) }))
+    .filter((b) => b.tropas != null && b.capacidad > 0 && b.tropas >= b.capacidad)
+    .filter((b) => !(b.posicion === abajo.posicion || (b.nombre && parecidos(b.nombre, abajo.nombre))));
 }
 
 /** "7× Archer n14, 5× Headhunter n4": solo las que reconocio y existen. */
@@ -626,11 +645,6 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
       // La segunda lectura vio la ventana clara y tampoco esta llena: eso
       // ya es una respuesta, y mas fiable que "no distingo nada".
       fallo = { ...fallo, veredicto: 'incompleto', tropas: segunda.tropas, capacidad: segunda.capacidad, donado: segunda.donado, dosLecturas };
-    } else if (fallo.veredicto === 'incompleto' && (lecturaDudosa(segunda) || segunda?.tropasDonadas)) {
-      // Ninguna de las dos se aclara: NO se le dice a nadie que su castillo
-      // está vacío cuando puede no estarlo (el 24 sep le pasó a Deibis y a
-      // Pepe). Se pide un 👍 y se queda dicho en la nota.
-      fallo = { ...fallo, veredicto: 'dudoso', dosLecturas };
     } else {
       fallo = { ...fallo, dosLecturas };
     }
@@ -657,23 +671,20 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         verificado: true,
       };
     }
-    case 'incompleto':
+    case 'incompleto': {
       await anota(`foto: ${abajo.nombre} ${fallo.tropas}/${fallo.capacidad}, incompleto${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
+      // Si en la misma foto hay OTRA base llena, casi siempre es que donó
+      // a la de al lado: decirlo ahorra la discusión.
+      const llenas = otrasLlenas(lectura, abajo);
+      const equivocada = llenas.length
+        ? `\n\nOjo: en esa misma captura el castillo lleno es el de <b>${esc(llenas[0].nombre ?? '?')}</b>${llenas[0].posicion != null ? ` (#${llenas[0].posicion})` : ''}. ` +
+          `A ti te toca el de abajo, ${quienAbajo}.`
+        : '';
       return {
-        texto: `📷 En la foto el castillo de ${quienAbajo} va ${fallo.tropas}/${fallo.capacidad}: todavía no está lleno. Cuando lo esté, manda otra captura. ${MANUAL}`,
+        texto: `📷 En la foto el castillo de ${quienAbajo} va ${fallo.tropas}/${fallo.capacidad}: todavía no está lleno.${equivocada}\n\nCuando lo esté, manda otra captura. ${MANUAL}`,
         verificado: false,
       };
-
-    // Las dos lecturas se contradicen: antes de esto el bot soltaba un
-    // "va 0/55" que era mentira. Mejor decir que no se ve y pedir el 👍.
-    case 'dudoso':
-      await anota(`foto: no se lee la barra de ${abajo.nombre}${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
-      return {
-        texto:
-          `📷 Veo el castillo de ${quienAbajo} con tropas dentro, pero no consigo leer la barra para saber si está lleno del todo. ` +
-          `No te voy a decir que no donaste cuando puede que sí. ${MANUAL}`,
-        verificado: false,
-      };
+    }
     case 'otra_guerra':
       await anota(`foto: parece de otra guerra (rival leido: ${fallo.leido})`);
       return {

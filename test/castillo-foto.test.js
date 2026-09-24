@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa } from '../web/lib/castillo-foto.js';
+import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa, otrasLlenas } from '../web/lib/castillo-foto.js';
 import { extraerJson } from '../web/lib/vision.js';
 
 const guerra = {
@@ -186,12 +186,28 @@ test('estaLleno: los numeros, la barra entera o el boton Donate apagado', () => 
   assert.equal(estaLleno(null), false);
 });
 
-test('lecturaDudosa: un 0 con tropas dentro no se le dice a nadie', () => {
-  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 4 }), true);
-  assert.equal(lecturaDudosa({ tropas: null, capacidad: 55, tropasDonadas: 2 }), true);
+// Los iconos de la ventana son el ejercito del que dona, no el castillo:
+// un "0/55" con iconos al lado es un castillo vacio (Cris, 24 sep 2026).
+test('lecturaDudosa: solo cuando no se leen los numeros', () => {
+  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 4 }), false);
   assert.equal(lecturaDudosa({ tropas: 20, capacidad: 55, tropasDonadas: 3 }), false);
-  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 0 }), false); // vacio de verdad
+  assert.equal(lecturaDudosa({ tropas: null, capacidad: 55, tropasDonadas: 2 }), true);
   assert.equal(lecturaDudosa(null), true);
+});
+
+// El caso de Deibis: lleno el castillo de la #8 y le tocaba el de la #7.
+test('otrasLlenas: la base llena que NO era la suya, para avisarle', () => {
+  const lectura = { json: { bases: [
+    { posicion: 7, nombre: 'EL MATATAN', tropas: 0, capacidad: 55, ventana: true },
+    { posicion: 8, nombre: 'Anabolic Batman', tropas: 55, capacidad: 55 },
+    { posicion: 9, nombre: 'Erick34', tropas: 10, capacidad: 55 },
+  ] } };
+  assert.deepEqual(otrasLlenas(lectura, { posicion: 7, nombre: 'EL MATATAN' }), [
+    { posicion: 8, nombre: 'Anabolic Batman', tropas: 55, capacidad: 55 },
+  ]);
+  // La suya llena no se cuenta como "otra".
+  assert.deepEqual(otrasLlenas(lectura, { posicion: 8, nombre: 'Anabolic Batman' }), []);
+  assert.deepEqual(otrasLlenas({ json: {} }, { posicion: 7, nombre: 'X' }), []);
 });
 
 test('confirmaSegunda: vale la barra llena aunque los numeros no se lean', () => {
