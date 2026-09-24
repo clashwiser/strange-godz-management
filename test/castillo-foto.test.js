@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa } from '../web/lib/castillo-foto.js';
+import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa, barraDelCastillo } from '../web/lib/castillo-foto.js';
 import { extraerJson } from '../web/lib/vision.js';
 
 const guerra = {
@@ -199,4 +199,33 @@ test('confirmaSegunda: vale la barra llena aunque los numeros no se lean', () =>
   assert.equal(confirmaSegunda({ tropas: null, capacidad: null, barraLlena: true, posicion: 7 }, abajo), true);
   assert.equal(confirmaSegunda({ tropas: null, capacidad: null, botonDonar: 'apagado', tropasDonadas: 5, nombre: 'EL MATATAN' }, abajo), true);
   assert.equal(confirmaSegunda({ tropas: null, capacidad: null, barraLlena: true, posicion: 8 }, abajo), false); // otra base
+});
+
+// La foto de Deibis (24 sep 2026), mirada de verdad: la ventana de "7. EL
+// MATATAN" tiene DOS numeros, "0/55" arriba junto a "¡Necesito refuerzos!"
+// y "55/55" pegado al boton "Donar". Heraldo cogio el de arriba y le dijo
+// que no habia donado, con el castillo lleno.
+test('barraDelCastillo: de los dos numeros de la ventana, el de junto a "Donar"', () => {
+  const foto = { tropas: 0, capacidad: 55, numeros: [{ texto: '0/55', junto_a_donar: false }, { texto: '55/55', junto_a_donar: true }] };
+  assert.deepEqual(barraDelCastillo(foto), { tropas: 55, capacidad: 55 });
+  assert.equal(estaLleno({ ...barraDelCastillo(foto), tropasDonadas: 4 }), true);
+});
+
+test('barraDelCastillo: sin saber cual es el de "Donar", el que más tropas ve', () => {
+  assert.deepEqual(barraDelCastillo({ tropas: 0, capacidad: 55, numeros: [{ texto: '0/55' }, { texto: '55/55' }] }), { tropas: 55, capacidad: 55 });
+});
+
+test('barraDelCastillo: un castillo a medias sigue saliendo a medias', () => {
+  const medio = { tropas: 30, capacidad: 55, numeros: [{ texto: '0/55' }, { texto: '30/55', junto_a_donar: true }] };
+  assert.deepEqual(barraDelCastillo(medio), { tropas: 30, capacidad: 55 });
+  assert.equal(estaLleno(barraDelCastillo(medio)), false);
+});
+
+test('barraDelCastillo: vacio de verdad (un solo numero, el de Donar) sigue vacio', () => {
+  assert.deepEqual(barraDelCastillo({ tropas: 0, capacidad: 55, numeros: [{ texto: '0/55', junto_a_donar: true }] }), { tropas: 0, capacidad: 55 });
+});
+
+test('barraDelCastillo: sin lista de numeros, lo que dijo suelto', () => {
+  assert.deepEqual(barraDelCastillo({ tropas: 45, capacidad: 45 }), { tropas: 45, capacidad: 45 });
+  assert.deepEqual(barraDelCastillo({}), { tropas: null, capacidad: null });
 });

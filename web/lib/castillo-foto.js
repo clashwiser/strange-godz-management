@@ -209,7 +209,9 @@ const LISTA_TROPAS =
 
 export const INSTRUCCIONES_MAPA = `Esta imagen debería ser una captura de pantalla de Clash of Clans con el mapa de una guerra de clanes, en el lado de las bases aliadas.
 
-Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), una barra con "N/M" junto al botón "Donate", un botón "Scout" y las tropas donadas con su cantidad ("x1") y su nivel.
+Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), el mensaje del jugador pidiendo tropas ("¡Necesito refuerzos!"), una barra con "N/M" junto al botón "Donate" / "Donar", un botón "Scout" / "Explorar" y las tropas donadas con su cantidad ("x1") y su nivel.
+
+MUY IMPORTANTE: en esa ventana de abajo suele haber DOS números con la forma "N/M". Uno va arriba, a la derecha del mensaje del jugador, y NO es lo que tiene el castillo. El que cuenta es el que está PEGADO al botón "Donate"/"Donar", en la misma línea. Si ves "0/55" arriba y "55/55" junto a "Donar", el castillo está en 55/55, lleno.
 
 Devuelve SOLO un objeto JSON con esta forma, compacto (en una sola línea, sin espacios ni saltos de línea), sin comentarios:
 {
@@ -247,10 +249,10 @@ ${LISTA_TROPAS}`;
 export const INSTRUCCIONES_TROPAS = `Esta imagen es la parte de abajo de una captura del mapa de guerra de Clash of Clans, ampliada: la ventana de donación de una base aliada. En ella se ve el número y el nombre de la base, debajo un mensaje escrito por el jugador pidiendo tropas, una barra "N/M" junto al botón "Donate", y los iconos de las tropas donadas, cada uno con "xN" (la cantidad) encima y el nivel en un número pequeño en la esquina.
 
 Devuelve SOLO un objeto JSON compacto, sin comentarios:
-{"posicion": número de la base de la ventana o null, "nombre": "el nombre de la base de la ventana tal como se lee, o null", "pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "barra_llena": true o false o null, "boton_donar": "activo" o "apagado" o "no_se_ve", "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
+{"posicion": número de la base de la ventana o null, "nombre": "el nombre de la base de la ventana tal como se lee, o null", "pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "numeros": [ { "texto": "N/M tal como se lee", "junto_a_donar": true o false } ], "barra_llena": true o false o null, "boton_donar": "activo" o "apagado" o "no_se_ve", "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
 
-Mira la barra que está junto al botón "Donate" con MUCHO cuidado, porque es lo que decide:
-- "tropas" es el número de la IZQUIERDA (lo que ya tiene el castillo) y "capacidad" el de la derecha. Si no distingues los dos números con seguridad, pon null en los dos: es mejor null que un número inventado.
+En esta ventana hay normalmente DOS números con la forma "N/M": uno arriba, junto al mensaje del jugador ("¡Necesito refuerzos!"), que NO es lo que tiene el castillo, y otro PEGADO al botón "Donate"/"Donar", que es el que cuenta. Apúntalos TODOS en "numeros" diciendo cuál está junto al botón.
+- "tropas" es el número de la IZQUIERDA del que está junto a "Donate"/"Donar" (lo que ya tiene el castillo) y "capacidad" el de la derecha. Si ves "0/55" arriba y "55/55" junto a "Donar", entonces tropas=55 y capacidad=55. Si no distingues los dos números con seguridad, pon null en los dos: es mejor null que un número inventado.
 - "barra_llena": true si la barra de color llega hasta el final (el castillo está lleno), false si queda hueco, null si no la ves.
 - "boton_donar": "apagado" si el botón "Donate" está gris, apagado o no está (el castillo no admite más), "activo" si se puede pulsar, "no_se_ve" si no aparece en la imagen.
 - Los iconos de las tropas donadas son la prueba de que hay algo dentro: si ves iconos de tropas, "tropas" NO puede ser 0 ni "barra_llena" false por descuido. Cuéntalos.
@@ -293,6 +295,32 @@ export async function leerTropasAmpliadas(admin, imagen) {
 }
 
 /**
+ * De los números "N/M" que hay en la ventana, el del castillo: el que está
+ * pegado al botón "Donar". Si el modelo no dijo cuál, el de la izquierda
+ * más alta: el otro número de esa ventana (el de arriba, al lado de
+ * "¡Necesito refuerzos!") va siempre en 0 y no es el del castillo. Esto es
+ * lo que le pasó a Deibis el 24 sep 2026: la foto tenía "0/55" arriba y
+ * "55/55" junto a "Donar", y Heraldo cogió el de arriba.
+ */
+export function barraDelCastillo(j) {
+  const pares = (Array.isArray(j?.numeros) ? j.numeros : [])
+    .map((n) => {
+      const m = /(\d+)\s*\/\s*(\d+)/.exec(String(n?.texto ?? ''));
+      return m ? { tropas: Number(m[1]), capacidad: Number(m[2]), donar: n?.junto_a_donar === true } : null;
+    })
+    .filter((p) => p && p.capacidad > 0);
+  const juntoADonar = pares.find((p) => p.donar);
+  if (juntoADonar) return { tropas: juntoADonar.tropas, capacidad: juntoADonar.capacidad };
+  const mejor = [...pares].sort((a, b) => b.tropas - a.tropas)[0];
+  const directo = { tropas: numero(j?.tropas), capacidad: numero(j?.capacidad) };
+  if (!mejor) return directo;
+  // Entre lo que dijo suelto y lo que sale en la lista, el que más tropas
+  // ve: leer de menos es el fallo de siempre, nunca al revés.
+  if (directo.tropas != null && directo.tropas > mejor.tropas) return directo;
+  return { tropas: mejor.tropas, capacidad: mejor.capacidad };
+}
+
+/**
  * La segunda lectura, la de Valquiria: la misma ventana ampliada pero con
  * el OTRO modelo de vision, cuando la primera no dio por bueno el castillo.
  * Lo pidio Cris el 24 sep 2026: "los lideres estamos casi sin tiempo" -una
@@ -314,9 +342,10 @@ export async function segundaOpinion(admin, imagen) {
   });
   const j = lectura?.json;
   if (!j || typeof j !== 'object') return null;
+  const barra = barraDelCastillo(j);
   return {
-    tropas: numero(j.tropas),
-    capacidad: numero(j.capacidad),
+    tropas: barra.tropas,
+    capacidad: barra.capacidad,
     barraLlena: j.barra_llena === true ? true : j.barra_llena === false ? false : null,
     botonDonar: typeof j.boton_donar === 'string' ? j.boton_donar : null,
     donado: textoDonado(j),
