@@ -226,6 +226,7 @@ Devuelve SOLO un objeto JSON con esta forma, compacto (en una sola línea, sin e
 Reglas:
 - Una entrada por cada etiqueta "N/M" que se lea en el mapa (con el nombre de la base que tiene debajo) y otra para la ventana de abajo si la hay.
 - "tropas" es el número de la izquierda de la barra "N/M"; "capacidad", el de la derecha. Si solo se lee uno, pon el otro en null.
+- La barra de la VENTANA de abajo es la que vale y hay que leerla con cuidado: si no distingues el número de la izquierda con seguridad, pon null, NO pongas 0. Un 0 solo se pone si el castillo se ve claramente vacío, sin ningún icono de tropa dentro.
 - Copia los nombres letra a letra, con sus símbolos. No traduzcas nada.
 - Si algo no se lee con claridad, pon null. No adivines ni completes con lo que sería normal.
 - Si la imagen no es del juego o no es el mapa de guerra, devuelve {"es_mapa_de_guerra": false, "fase": "desconocida", "clan_enemigo": null, "bases": [], "tropas_donadas": []}.
@@ -246,9 +247,13 @@ ${LISTA_TROPAS}`;
 export const INSTRUCCIONES_TROPAS = `Esta imagen es la parte de abajo de una captura del mapa de guerra de Clash of Clans, ampliada: la ventana de donación de una base aliada. En ella se ve el número y el nombre de la base, debajo un mensaje escrito por el jugador pidiendo tropas, una barra "N/M" junto al botón "Donate", y los iconos de las tropas donadas, cada uno con "xN" (la cantidad) encima y el nivel en un número pequeño en la esquina.
 
 Devuelve SOLO un objeto JSON compacto, sin comentarios:
-{"posicion": número de la base de la ventana o null, "nombre": "el nombre de la base de la ventana tal como se lee, o null", "pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
+{"posicion": número de la base de la ventana o null, "nombre": "el nombre de la base de la ventana tal como se lee, o null", "pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "barra_llena": true o false o null, "boton_donar": "activo" o "apagado" o "no_se_ve", "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
 
-"tropas" es el número de la IZQUIERDA de la barra que está junto al botón "Donate" (lo que ya tiene el castillo) y "capacidad" el de la derecha; si la barra está llena, los dos son iguales. Cuenta también los iconos: si ves tropas donadas, "tropas" no puede ser 0.
+Mira la barra que está junto al botón "Donate" con MUCHO cuidado, porque es lo que decide:
+- "tropas" es el número de la IZQUIERDA (lo que ya tiene el castillo) y "capacidad" el de la derecha. Si no distingues los dos números con seguridad, pon null en los dos: es mejor null que un número inventado.
+- "barra_llena": true si la barra de color llega hasta el final (el castillo está lleno), false si queda hueco, null si no la ves.
+- "boton_donar": "apagado" si el botón "Donate" está gris, apagado o no está (el castillo no admite más), "activo" si se puede pulsar, "no_se_ve" si no aparece en la imagen.
+- Los iconos de las tropas donadas son la prueba de que hay algo dentro: si ves iconos de tropas, "tropas" NO puede ser 0 ni "barra_llena" false por descuido. Cuéntalos.
 
 Identifica cada icono SOLO con esta lista de Clash of Clans (nombre en inglés tal como está, sin lo que va entre paréntesis, que es una seña del dibujo). Si un icono no encaja claramente con ninguno, pon "tropa": null. No existen aquí Royal Giant, Dark Prince, Mini P.E.K.K.A, Musketeer ni Mega Knight (eso es Clash Royale).
 Las versiones "Super" son raras en un castillo: solo si el icono es claramente el súper (más grande, con brillo dorado); entre Archer y Super Archer, es Archer. Nivel 12 o más es tropa normal.
@@ -312,6 +317,8 @@ export async function segundaOpinion(admin, imagen) {
   return {
     tropas: numero(j.tropas),
     capacidad: numero(j.capacidad),
+    barraLlena: j.barra_llena === true ? true : j.barra_llena === false ? false : null,
+    botonDonar: typeof j.boton_donar === 'string' ? j.boton_donar : null,
     donado: textoDonado(j),
     nombre: j.nombre != null ? String(j.nombre) : null,
     posicion: numero(j.posicion),
@@ -326,13 +333,36 @@ export async function segundaOpinion(admin, imagen) {
  */
 export function confirmaSegunda(segunda, abajo) {
   if (!segunda) return false;
-  const { tropas, capacidad, nombre, posicion } = segunda;
-  if (tropas == null || capacidad == null || capacidad === 0 || tropas < capacidad) return false;
+  const { nombre, posicion } = segunda;
   // De quien es la ventana: hace falta leer la posicion o el nombre, y que
   // sean los de la base de abajo. Sin ninguno de los dos no se confirma:
   // una captura de la aldea propia con el castillo lleno no puede colar.
-  if (posicion != null) return posicion === abajo.posicion;
-  if (nombre) return parecidos(nombre, abajo.nombre);
+  const esSuya = posicion != null ? posicion === abajo.posicion : nombre ? parecidos(nombre, abajo.nombre) : false;
+  return esSuya && estaLleno(segunda);
+}
+
+/**
+ * Si la ventana dice que el castillo esta lleno. Los numeros de la barra
+ * se leen mal a menudo (el 24 sep 2026 Heraldo le dijo "0/55" a Deibis con
+ * el castillo lleno), asi que vale cualquiera de las tres señas: los
+ * numeros, la barra de color entera, o el boton "Donate" apagado (el juego
+ * lo apaga cuando ya no cabe nada). Un 0 con iconos de tropas dentro es
+ * una lectura rota y no cuenta como "vacio".
+ */
+export function estaLleno(v) {
+  if (!v) return false;
+  if (v.tropas != null && v.capacidad) return v.tropas >= v.capacidad;
+  if (v.barraLlena === true) return true;
+  if (v.botonDonar === 'apagado' && (v.tropasDonadas ?? 0) > 0) return true;
+  return false;
+}
+
+/** Una lectura que se contradice: dice 0 (o nada) pero hay tropas dentro. */
+export function lecturaDudosa(v) {
+  if (!v) return true;
+  const conTropas = (v.tropasDonadas ?? 0) > 0;
+  if (conTropas && (v.tropas === 0 || v.tropas == null)) return true;
+  if (v.tropas == null || v.capacidad == null) return true;
   return false;
 }
 
@@ -587,10 +617,22 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         verificado: true,
       };
     }
-    if (segunda && segunda.tropas != null && segunda.capacidad) {
-      // La segunda lectura vio la ventana y tampoco esta llena: eso ya es
-      // una respuesta, y mas fiable que "no distingo nada".
-      fallo = { ...fallo, veredicto: 'incompleto', tropas: segunda.tropas, capacidad: segunda.capacidad, donado: segunda.donado };
+    // Lo que leyeron las dos, en la nota: sin esto no hay forma de saber
+    // cual de las dos pasadas falló cuando alguien se queja.
+    const dosLecturas =
+      `1ª ${fallo.veredicto} ${fallo.tropas ?? '?'}/${fallo.capacidad ?? '?'} · ` +
+      `2ª ${segunda ? `${segunda.tropas ?? '?'}/${segunda.capacidad ?? '?'} barra:${segunda.barraLlena ?? '?'} donar:${segunda.botonDonar ?? '?'} iconos:${segunda.tropasDonadas ?? 0}` : 'no leyó'}`;
+    if (segunda && !lecturaDudosa(segunda)) {
+      // La segunda lectura vio la ventana clara y tampoco esta llena: eso
+      // ya es una respuesta, y mas fiable que "no distingo nada".
+      fallo = { ...fallo, veredicto: 'incompleto', tropas: segunda.tropas, capacidad: segunda.capacidad, donado: segunda.donado, dosLecturas };
+    } else if (fallo.veredicto === 'incompleto' && (lecturaDudosa(segunda) || segunda?.tropasDonadas)) {
+      // Ninguna de las dos se aclara: NO se le dice a nadie que su castillo
+      // está vacío cuando puede no estarlo (el 24 sep le pasó a Deibis y a
+      // Pepe). Se pide un 👍 y se queda dicho en la nota.
+      fallo = { ...fallo, veredicto: 'dudoso', dosLecturas };
+    } else {
+      fallo = { ...fallo, dosLecturas };
     }
   }
 
@@ -616,9 +658,20 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
       };
     }
     case 'incompleto':
-      await anota(`foto: ${abajo.nombre} ${fallo.tropas}/${fallo.capacidad}, incompleto`);
+      await anota(`foto: ${abajo.nombre} ${fallo.tropas}/${fallo.capacidad}, incompleto${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
       return {
         texto: `📷 En la foto el castillo de ${quienAbajo} va ${fallo.tropas}/${fallo.capacidad}: todavía no está lleno. Cuando lo esté, manda otra captura. ${MANUAL}`,
+        verificado: false,
+      };
+
+    // Las dos lecturas se contradicen: antes de esto el bot soltaba un
+    // "va 0/55" que era mentira. Mejor decir que no se ve y pedir el 👍.
+    case 'dudoso':
+      await anota(`foto: no se lee la barra de ${abajo.nombre}${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
+      return {
+        texto:
+          `📷 Veo el castillo de ${quienAbajo} con tropas dentro, pero no consigo leer la barra para saber si está lleno del todo. ` +
+          `No te voy a decir que no donaste cuando puede que sí. ${MANUAL}`,
         verificado: false,
       };
     case 'otra_guerra':
@@ -634,7 +687,7 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         verificado: false,
       };
     case 'no_se_ve':
-      await anota(`foto: no se distingue el castillo de ${sitios.map((c) => c.sitio.abajo.nombre).join(' / ')}`);
+      await anota(`foto: no se distingue el castillo de ${sitios.map((c) => c.sitio.abajo.nombre).join(' / ')}${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
       return {
         texto: `📷 En la foto no distingo el castillo de ${losDeAbajo}, que es el de abajo de ${quien}. Manda una captura del mapa de guerra donde se lea su nombre y el castillo (N/M). ${MANUAL}`,
         verificado: false,

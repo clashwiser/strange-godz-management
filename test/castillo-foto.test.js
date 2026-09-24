@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda } from '../web/lib/castillo-foto.js';
+import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa } from '../web/lib/castillo-foto.js';
 import { extraerJson } from '../web/lib/vision.js';
 
 const guerra = {
@@ -172,4 +172,31 @@ test('confirmaSegunda: la 2a lectura vale si esta llena Y es la base de abajo', 
   // Sin nombre ni posicion no se sabe de quien es la ventana: no cuela.
   assert.equal(confirmaSegunda({ tropas: 55, capacidad: 55, posicion: null, nombre: null }, abajo), false);
   assert.equal(confirmaSegunda(null, abajo), false);
+});
+
+// El castillo de Deibis (24 sep 2026): estaba lleno y Heraldo le dijo
+// "0/55". Los numeros de la barra se leen mal; hay dos señas mas.
+test('estaLleno: los numeros, la barra entera o el boton Donate apagado', () => {
+  assert.equal(estaLleno({ tropas: 55, capacidad: 55 }), true);
+  assert.equal(estaLleno({ tropas: 30, capacidad: 55 }), false);
+  assert.equal(estaLleno({ tropas: null, capacidad: null, barraLlena: true }), true);
+  assert.equal(estaLleno({ tropas: null, capacidad: null, barraLlena: false }), false);
+  assert.equal(estaLleno({ tropas: null, capacidad: null, botonDonar: 'apagado', tropasDonadas: 4 }), true);
+  assert.equal(estaLleno({ tropas: null, capacidad: null, botonDonar: 'apagado', tropasDonadas: 0 }), false);
+  assert.equal(estaLleno(null), false);
+});
+
+test('lecturaDudosa: un 0 con tropas dentro no se le dice a nadie', () => {
+  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 4 }), true);
+  assert.equal(lecturaDudosa({ tropas: null, capacidad: 55, tropasDonadas: 2 }), true);
+  assert.equal(lecturaDudosa({ tropas: 20, capacidad: 55, tropasDonadas: 3 }), false);
+  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 0 }), false); // vacio de verdad
+  assert.equal(lecturaDudosa(null), true);
+});
+
+test('confirmaSegunda: vale la barra llena aunque los numeros no se lean', () => {
+  const abajo = { posicion: 7, nombre: 'EL MATATAN' };
+  assert.equal(confirmaSegunda({ tropas: null, capacidad: null, barraLlena: true, posicion: 7 }, abajo), true);
+  assert.equal(confirmaSegunda({ tropas: null, capacidad: null, botonDonar: 'apagado', tropasDonadas: 5, nombre: 'EL MATATAN' }, abajo), true);
+  assert.equal(confirmaSegunda({ tropas: null, capacidad: null, barraLlena: true, posicion: 8 }, abajo), false); // otra base
 });
