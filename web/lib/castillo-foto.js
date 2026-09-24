@@ -209,7 +209,7 @@ const LISTA_TROPAS =
 
 export const INSTRUCCIONES_MAPA = `Esta imagen debería ser una captura de pantalla de Clash of Clans con el mapa de una guerra de clanes, en el lado de las bases aliadas.
 
-Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), el mensaje del jugador pidiendo tropas ("¡Necesito refuerzos!"), una barra con "N/M" junto al botón "Donate"/"Donar", un botón "Scout"/"Explorar" y las tropas que el que mira puede donar.
+Cómo se ve ese mapa: arriba, una cabecera con los dos clanes ("CLAN A vs CLAN B"), el tiempo que queda y la fase ("Preparation Day" / "Día de preparación" o "Battle Day"). Cada base aliada tiene encima una etiqueta pequeña con "N/M" (tropas donadas al castillo del clan / capacidad, por ejemplo "0/55" o "55/55") y debajo su número de posición y el nombre del jugador ("22. Axe"). Si se tocó una base, abajo se abre una ventana con su número y nombre ("23. davinder"), el mensaje del jugador pidiendo tropas ("¡Necesito refuerzos!"), una barra con "N/M" junto al botón "Donate"/"Donar", un botón "Scout"/"Explorar" y los iconos de las tropas que YA TIENE DENTRO ese castillo, con su cantidad ("x1") y su nivel.
 
 CUIDADO CON ESTO, es el fallo más común: las etiquetas "N/M" de OTRAS bases del mapa se cuelan por detrás de la ventana de abajo y parecen suyas. La barra de la ventana es la que está PEGADA al botón "Donate"/"Donar", en su misma línea; cualquier otro "N/M" que veas por encima o al lado pertenece a otra base y va con el número y el nombre de ESA base. Si ves "0/55" arriba a la derecha y "55/55" junto a "Donar", el castillo de la ventana es el de 55/55.
 
@@ -255,7 +255,7 @@ En la imagen puede haber VARIOS números "N/M": el de la ventana y los de las et
 - "tropas" y "capacidad" son los del número que está junto a "Donate"/"Donar". Si ves "0/55" suelto arriba y "55/55" junto a "Donar", entonces tropas=55 y capacidad=55. Si no distingues con seguridad cuál es el de la ventana, pon null en los dos: es mejor null que equivocarse de base.
 - "barra_llena": true si la barra de color llega hasta el final (el castillo está lleno), false si queda hueco, null si no la ves.
 - "boton_donar": "apagado" si el botón "Donate" está gris, apagado o no está (el castillo no admite más), "activo" si se puede pulsar, "no_se_ve" si no aparece en la imagen.
-- Los iconos de las tropas donadas son la prueba de que hay algo dentro: si ves iconos de tropas, "tropas" NO puede ser 0 ni "barra_llena" false por descuido. Cuéntalos.
+- Los iconos de tropas que salen debajo de la barra SON lo que hay dentro del castillo, con su cantidad ("x2") y su nivel. Son la prueba de que el castillo no está vacío: si ves iconos de tropas, "tropas" NO puede ser 0. Cuéntalos.
 
 Identifica cada icono SOLO con esta lista de Clash of Clans (nombre en inglés tal como está, sin lo que va entre paréntesis, que es una seña del dibujo). Si un icono no encaja claramente con ninguno, pon "tropa": null. No existen aquí Royal Giant, Dark Prince, Mini P.E.K.K.A, Musketeer ni Mega Knight (eso es Clash Royale).
 Las versiones "Super" son raras en un castillo: solo si el icono es claramente el súper (más grande, con brillo dorado); entre Archer y Super Archer, es Archer. Nivel 12 o más es tropa normal.
@@ -399,17 +399,18 @@ export function estaLleno(v) {
 }
 
 /**
- * Una lectura que no sirve para decidir: no se leyeron los numeros.
+ * Una lectura que no sirve para decidir.
  *
- * Los iconos que salen debajo de la ventana NO son lo que hay en el
- * castillo: son las tropas que el jugador puede donar, de sus campamentos
- * (lo aclaro Cris el 24 sep 2026 con la foto de Deibis delante). Asi que
- * ver iconos no dice nada del castillo, y un "0/55" con iconos al lado es
- * un castillo vacio, no una lectura rota.
+ * Los iconos que salen debajo de la ventana SON lo que hay dentro del
+ * castillo (lo aclaro Cris el 24 sep 2026). Por eso un "0" con iconos al
+ * lado es imposible: el numero vino de otra base, no de esta. Cuando pasa
+ * eso, o cuando no se leyeron los numeros, no se decide: lo confirma un
+ * lider con 👍.
  */
 export function lecturaDudosa(v) {
   if (!v) return true;
-  return v.tropas == null || v.capacidad == null;
+  if (v.tropas == null || v.capacidad == null) return true;
+  return v.tropas === 0 && (v.tropasDonadas ?? 0) > 0;
 }
 
 /**
@@ -723,8 +724,8 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
       await anota(`foto: no se distingue la barra de ${abajo.nombre} entre las de las bases vecinas${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
       return {
         texto:
-          `📷 Veo la ventana del castillo de ${quienAbajo}, pero en la captura hay varias barras "N/M" (las de las bases de al lado) y no me arriesgo a leer la que no es. ` +
-          `Prueba con una captura donde se vea bien la barra que está junto a <b>Donar</b>. ${MANUAL}`,
+          `📷 Veo el castillo de ${quienAbajo} con tropas dentro, pero en la captura hay varias barras "N/M" (las de las bases de al lado) y no me arriesgo a leer la que no es. ` +
+          `No te voy a decir que no donaste cuando puede que sí. ${MANUAL}`,
         verificado: false,
       };
 

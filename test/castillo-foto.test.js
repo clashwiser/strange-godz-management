@@ -186,12 +186,13 @@ test('estaLleno: los numeros, la barra entera o el boton Donate apagado', () => 
   assert.equal(estaLleno(null), false);
 });
 
-// Los iconos de la ventana son el ejercito del que dona, no el castillo:
-// un "0/55" con iconos al lado es un castillo vacio (Cris, 24 sep 2026).
-test('lecturaDudosa: solo cuando no se leen los numeros', () => {
-  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 4 }), false);
-  assert.equal(lecturaDudosa({ tropas: 20, capacidad: 55, tropasDonadas: 3 }), false);
+// Los iconos de la ventana SON el contenido del castillo (Cris, 24 sep
+// 2026): un "0" con iconos al lado es un numero que vino de otra base.
+test('lecturaDudosa: sin numeros, o un 0 con tropas dentro', () => {
+  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 4 }), true);
   assert.equal(lecturaDudosa({ tropas: null, capacidad: 55, tropasDonadas: 2 }), true);
+  assert.equal(lecturaDudosa({ tropas: 20, capacidad: 55, tropasDonadas: 3 }), false);
+  assert.equal(lecturaDudosa({ tropas: 0, capacidad: 55, tropasDonadas: 0 }), false); // vacio de verdad
   assert.equal(lecturaDudosa(null), true);
 });
 
