@@ -1,7 +1,7 @@
 'use client';
 
 // Vista de ejemplo, sin Supabase ni login. Sirve para ver como queda el panel
-// antes de que haya datos reales, y para mostrarselo a Carlos y Deibis.
+// antes de que haya datos reales, y para mostrarselo a Carlos y Deivis.
 // Los CLANES son los de verdad; los numeros son inventados.
 
 import { useEffect, useState } from 'react';
@@ -44,7 +44,7 @@ const d = {
   players: [
     { player_tag: '#P1', nombre_actual: 'Cris' },
     { player_tag: '#P2', nombre_actual: 'Dr Strange' },
-    { player_tag: '#P3', nombre_actual: 'Deibis' },
+    { player_tag: '#P3', nombre_actual: 'Deivis' },
     { player_tag: '#P4', nombre_actual: 'ElMago' },
     { player_tag: '#P5', nombre_actual: 'Yandy' },
     { player_tag: '#P6', nombre_actual: 'Reyniel' },
@@ -168,7 +168,7 @@ const d = {
     {
       id: 9, tipo: 'alerta_cwl', estado: 'pendiente', creado_en: '2026-09-08T08:01:00Z',
       cuerpo:
-        '⚔️ *ATAQUES DE CWL SIN USAR*\n\n*x300*  (escuadra A)\nCierra en *2.8h* - faltan 2:\n```# 7 Deibis\n#12 ElMago```\n\n_Si avisaste antes del dia de batalla, decilo y no cuenta como fallo._',
+        '⚔️ *ATAQUES DE CWL SIN USAR*\n\n*x300*  (escuadra A)\nCierra en *2.8h* - faltan 2:\n```# 7 Deivis\n#12 ElMago```\n\n_Si avisaste antes del dia de batalla, decilo y no cuenta como fallo._',
     },
     {
       id: 8, tipo: 'reporte_mensual', estado: 'copiado', creado_en: '2026-09-01T06:10:00Z',
@@ -201,7 +201,7 @@ const d = {
   ],
   config: [
     { clave: 'bot_nombre',      valor: 'Heraldo' },
-    { clave: 'contactos',       valor: [{ nombre: 'Cris', rol: 'Líder', telegram: '@YHLQMDLG2', tg_id: 742056647, whatsapp: 'https://wa.me/qr/WVEABIBOBC5DP1' }, { nombre: 'Carlos', rol: 'Líder', telegram: 'Pmc', tg_id: 8319208377, whatsapp: 'https://wa.me/qr/65KZOBJGV5YIM1' }, { nombre: 'Deibis', rol: 'Líder', telegram: '@LM10viscabarsa', tg_id: 1626048117, whatsapp: '' }] },
+    { clave: 'contactos',       valor: [{ nombre: 'Cris', rol: 'Líder', telegram: '@YHLQMDLG2', tg_id: 742056647, whatsapp: 'https://wa.me/qr/WVEABIBOBC5DP1' }, { nombre: 'Carlos', rol: 'Líder', telegram: 'Pmc', tg_id: 8319208377, whatsapp: 'https://wa.me/qr/65KZOBJGV5YIM1' }, { nombre: 'Deivis', rol: 'Líder', telegram: '@LM10viscabarsa', tg_id: 1626048117, whatsapp: '' }] },
     { clave: 'bot_firma',       valor: '— Heraldo de Strange Godz' },
     { clave: 'alerta_umbrales', valor: [6, 3, 1] },
     { clave: 'alerta_cwl',      valor: true },

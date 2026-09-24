@@ -236,7 +236,7 @@ CWL en curso se pueden rescatar **ahora mismo**.
 2. **SQL Editor** > pegar y ejecutar `sql/001_schema.sql`, despues `sql/002_rls.sql`.
 3. **Settings > API**: copiar `Project URL` y la clave `service_role`.
 4. **Authentication > Users > Add user**: crear un usuario con email y contrasena para
-   vos, Carlos y Deibis.
+   vos, Carlos y Deivis.
 5. Volver al SQL Editor y autorizar a cada uno:
 
 ```sql
@@ -275,7 +275,7 @@ escribe en Supabase.
 ### 5. Telegram
 
 1. Hablarle a [@BotFather](https://t.me/BotFather) > `/newbot` > guardar el token.
-2. Crear un grupo con Carlos y Deibis, agregar el bot.
+2. Crear un grupo con Carlos y Deivis, agregar el bot.
 3. Mandar cualquier mensaje al grupo y abrir:
    `https://api.telegram.org/bot<TOKEN>/getUpdates`
 4. Copiar el `chat_id` (para grupos es negativo, ej. `-1001234567890`).
@@ -287,7 +287,7 @@ escribe en Supabase.
 - [ ] Los 3 tags de clan
 - [ ] Los 11 tags de las cuentas de los lideres (marcar `owners.cobra_premios = false`)
 - [ ] Agrupacion de multicuentas por persona (tabla `owners`)
-- [ ] Si Deibis compite o cobra fijo (`owners.pago_fijo_usd = 10.00`)
+- [ ] Si Deivis compite o cobra fijo (`owners.pago_fijo_usd = 10.00`)
 - [ ] Confirmar la bolsa final ($91 es borrador)
 
 ---

@@ -5,7 +5,7 @@
 //
 // Los DATOS los contesta de la base, aqui mismo, sin red: quien no ha
 // atacado, cuantas estrellas lleva cada uno, como va el reparto. Es lo que
-// mas preguntan Carlos y Deibis, y asi no se inventa nada.
+// mas preguntan Carlos y Deivis, y asi no se inventa nada.
 //
 // Lo demas va a /api/asistente: el cerebro de frases de Heraldo y, detras,
 // la misma IA gratis que usa en Telegram (web/lib/pensar.js), sabiendo que
@@ -42,7 +42,7 @@ export default function Heraldo({ d, nombreBot = 'Cerebro' }) {
   const finRef = useRef(null);
 
   // Quien esta al otro lado: su nombre en dashboard_users (Cris, Carlos,
-  // Deibis). Cada uno puede leer su propia fila (sql/002_rls.sql). Si no
+  // Deivis). Cada uno puede leer su propia fila (sql/002_rls.sql). Si no
   // hay fila, lo que va antes de la arroba del correo.
   const [usuario, setUsuario] = useState(null);
   // El estado del sistema, para que conteste "¿como estas?" con datos. Se

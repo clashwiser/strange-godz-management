@@ -3,7 +3,7 @@
 -- Ejecutar DESPUES de 034_asignar.sql
 -- =====================================================================
 --
--- Ya son tres los que editan el panel (Cris, Carlos, Deibis). Cada cambio
+-- Ya son tres los que editan el panel (Cris, Carlos, Deivis). Cada cambio
 -- queda apuntado en `logs` por un trigger, con quien lo hizo (el nombre de
 -- dashboard_users; si no hay sesion -bots y jobs- "sistema"), la tabla,
 -- la fila y el antes/despues. La pestaña Logs lo enseña en cristiano.

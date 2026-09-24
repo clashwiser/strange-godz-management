@@ -46,6 +46,6 @@ test('elegirLeccion: una leccion de puras palabras vacias no casa con todo', () 
 });
 
 test('aplicarLeccion: pone el nombre, o "socio" si no hay', () => {
-  assert.equal(aplicarLeccion(lecciones[0], 'Deibis'), 'Escríbele a @Valqui_bot, Deibis.');
+  assert.equal(aplicarLeccion(lecciones[0], 'Deivis'), 'Escríbele a @Valqui_bot, Deivis.');
   assert.equal(aplicarLeccion(lecciones[0], null), 'Escríbele a @Valqui_bot, socio.');
 });

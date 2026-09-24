@@ -1,6 +1,6 @@
 // El parte de un post de Facebook: VALQUIRIA (la que recluta) les manda
 // en privado a los administradores del grupo de Telegram (Cris, Carlos,
-// Deibis) la captura del post con el grupo, la hora, el estado y el
+// Deivis) la captura del post con el grupo, la hora, el estado y el
 // enlace. Si no hubo post, el motivo. Sin captura, va la imagen del post.
 //
 //   npm run portavoz:reporte -- --grupo "Nombre" --enlace URL --captura ruta.png

@@ -476,7 +476,7 @@ export const MAS = [
   ),
   par(
     'lideres',
-    /\b(los lideres|los líderes|el lider|el líder|quien manda|quién manda|quien es el lider|quién es el líder|cris|carlos|deibis|deivi|colider|colíder|coliderato|hazme colider|hazme colíder|quiero ser colider)\b/,
+    /\b(los lideres|los líderes|el lider|el líder|quien manda|quién manda|quien es el lider|quién es el líder|cris|carlos|deivis|deivi|colider|colíder|coliderato|hazme colider|hazme colíder|quiero ser colider)\b/,
     [
       'Los líderes son los que deciden, asere. Yo solo anuncio lo que deciden.',
       'Colíder se gana atacando, donando y ayudando. No se pide; se nota.',

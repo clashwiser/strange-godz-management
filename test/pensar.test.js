@@ -126,8 +126,8 @@ test('pensar: a los gpt-oss se les pide razonar poco y no devolver el razonamien
 
 test('pensar: con nombre, la pregunta lleva quien la hace', async () => {
   estado.peticiones = [];
-  await pensar(admin, 'valquiria', 'hola', 'Deibis');
-  assert.equal(estado.peticiones[0].messages[1].content, 'Deibis dice: hola');
+  await pensar(admin, 'valquiria', 'hola', 'Deivis');
+  assert.equal(estado.peticiones[0].messages[1].content, 'Deivis dice: hola');
 });
 
 test('pensar con buscar: dos pasos, el buscador sin personaje y el personaje con lo encontrado', async () => {

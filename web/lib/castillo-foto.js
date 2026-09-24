@@ -298,7 +298,7 @@ export async function leerTropasAmpliadas(admin, imagen) {
  * De los "N/M" que hay en la imagen, el del castillo de la ventana: el que
  * está pegado al botón "Donar", o el que el modelo atribuye a esa base.
  *
- * Nunca se coge "el más grande": el 24 sep 2026, en la foto de Deibis, la
+ * Nunca se coge "el más grande": el 24 sep 2026, en la foto de Deivis, la
  * ventana de la #7 (llena, 55/55 junto a "Donar") tenía encima la etiqueta
  * de la #8 (0/55) colada por detrás. Coger el que no toca da puntos por el
  * castillo de otro. Si no se sabe cuál es cuál, se devuelve null y un
@@ -384,7 +384,7 @@ export function confirmaSegunda(segunda, abajo) {
 
 /**
  * Si la ventana dice que el castillo esta lleno. Los numeros de la barra
- * se leen mal a menudo (el 24 sep 2026 Heraldo le dijo "0/55" a Deibis con
+ * se leen mal a menudo (el 24 sep 2026 Heraldo le dijo "0/55" a Deivis con
  * el castillo lleno), asi que vale cualquiera de las tres señas: los
  * numeros, la barra de color entera, o el boton "Donate" apagado (el juego
  * lo apaga cuando ya no cabe nada). Un 0 con iconos de tropas dentro es
@@ -415,7 +415,7 @@ export function lecturaDudosa(v) {
 
 /**
  * Las bases LLENAS que no son la que tocaba. Con esto, cuando alguien dona
- * al castillo equivocado (Deibis lleno el de la #8 en vez del de la #7, su
+ * al castillo equivocado (Deivis lleno el de la #8 en vez del de la #7, su
  * base de abajo), el bot se lo dice en vez de dejarlo en "no esta lleno" y
  * que se arme la discusion.
  */

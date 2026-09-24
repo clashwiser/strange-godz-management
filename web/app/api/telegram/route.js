@@ -535,7 +535,7 @@ export function entender(texto) {
   if (/(cuanto llevo|como voy|mis estrellas|mis stats|mis estadisticas|mis ataques|como ando|mis numeros)/.test(q))
     return { comando: 'yo', arg: '' };
   // Los contactos de los lideres: Telegram y WhatsApp.
-  if (/(contacto|contactos|whatsapp|wasap|numero de (cris|carlos|deibis)|como (le |les )?escribo|hablar con (un lider|los lideres|cris|carlos|deibis)|quienes son los lideres|los lideres)/.test(q))
+  if (/(contacto|contactos|whatsapp|wasap|numero de (cris|carlos|deivis)|como (le |les )?escribo|hablar con (un lider|los lideres|cris|carlos|deivis)|quienes son los lideres|los lideres)/.test(q))
     return { comando: 'contacto', arg: '' };
   // Los premios del mes (el plan); lo personal ("que premio me toca") es /cobro.
   if (/(premios|bonus|bonos|reparto del mes|que se gana|cuanto (se )?paga|que hay de premio)/.test(q) && !/(me toca|voy a|cuanto gano|mi premio|mi bonus)/.test(q))

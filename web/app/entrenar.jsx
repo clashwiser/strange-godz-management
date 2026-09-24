@@ -2,7 +2,7 @@
 
 // Entrenar a los bots, desde la pestaña Bots.
 //
-// Carlos y Deibis no tocan codigo. Lo que necesitan es poder decirle a
+// Carlos y Deivis no tocan codigo. Lo que necesitan es poder decirle a
 // un bot "a esto contesta asi" cuando lo ven contestar mal, y contarle
 // cosas del clan que no estan en ningun sitio -que los premios los
 // reparte Cris, que la CWL se juega el dia 1-. Eso es lo que hay aqui:

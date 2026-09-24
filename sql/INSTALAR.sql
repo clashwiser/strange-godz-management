@@ -33,7 +33,7 @@ create table if not exists owners (
   nombre        text not null,
   es_lider      boolean not null default false,
   cobra_premios boolean not null default true,   -- los 3 lideres: false
-  pago_fijo_usd numeric(6,2),                    -- Deibis coordinador: 10.00
+  pago_fijo_usd numeric(6,2),                    -- Deivis coordinador: 10.00
   telegram_id   text,
   notas         text,
   created_at    timestamptz not null default now()
@@ -871,7 +871,7 @@ create unique index if not exists idx_outbox_dedupe
 --
 -- Hasta ahora los clanes solo entraban por el job de snapshot, que los saca
 -- de la variable CLAN_TAGS de GitHub. Eso obliga a que un cambio de alianza
--- pase por mi: Carlos o Deibis no pueden anadir un clan nuevo aunque sean
+-- pase por mi: Carlos o Deivis no pueden anadir un clan nuevo aunque sean
 -- lideres. Con esto lo hacen desde la pestana Clanes.
 --
 -- Sigue SIN permitirse DELETE, a proposito. Borrar un clan se lleva por
@@ -1563,7 +1563,7 @@ update ia_uso set llamadas = greatest(llamadas - fallos, 0) where fallos > 0;
 -- Ejecutar DESPUES de 023_ia_contar_fallo.sql
 -- =====================================================================
 --
--- Carlos y Deibis no tocan codigo. Si Valquiria contesta mal a algo, o
+-- Carlos y Deivis no tocan codigo. Si Valquiria contesta mal a algo, o
 -- quieren que Heraldo diga una cosa concreta cuando pregunten por otra,
 -- lo enseñan desde la pestaña Bots y los bots lo miran ANTES que su
 -- cerebro de frases y que la IA:
@@ -2093,7 +2093,7 @@ alter table tg_usuarios enable row level security;
 -- Ejecutar DESPUES de 034_asignar.sql
 -- =====================================================================
 --
--- Ya son tres los que editan el panel (Cris, Carlos, Deibis). Cada cambio
+-- Ya son tres los que editan el panel (Cris, Carlos, Deivis). Cada cambio
 -- queda apuntado en `logs` por un trigger, con quien lo hizo (el nombre de
 -- dashboard_users; si no hay sesion -bots y jobs- "sistema"), la tabla,
 -- la fila y el antes/despues. La pestaña Logs lo enseña en cristiano.

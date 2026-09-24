@@ -3,7 +3,7 @@
 -- Ejecutar DESPUES de 023_ia_contar_fallo.sql
 -- =====================================================================
 --
--- Carlos y Deibis no tocan codigo. Si Valquiria contesta mal a algo, o
+-- Carlos y Deivis no tocan codigo. Si Valquiria contesta mal a algo, o
 -- quieren que Heraldo diga una cosa concreta cuando pregunten por otra,
 -- lo enseñan desde la pestaña Bots y los bots lo miran ANTES que su
 -- cerebro de frases y que la IA:

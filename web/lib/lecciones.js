@@ -1,6 +1,6 @@
 // Las lecciones que los lideres les dan a los bots desde la pestaña Bots:
 // "cuando digan X, responde Y". Van ANTES que el cerebro de frases y que
-// la IA, porque son la unica forma que tienen Carlos y Deibis de corregir
+// la IA, porque son la unica forma que tienen Carlos y Deivis de corregir
 // a un bot sin tocar codigo.
 //
 // Puro: sin red, sin base. La misma funcion la usa el panel para el

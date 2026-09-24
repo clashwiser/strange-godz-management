@@ -19,7 +19,7 @@
 //    quien NO compite.
 //
 // 2. Los tres lideres no compiten. Estan marcados elegible_premios=false.
-//    Deibis cobra 10 fijos por coordinar, que sale del presupuesto pero no
+//    Deivis cobra 10 fijos por coordinar, que sale del presupuesto pero no
 //    del reparto por resultados.
 //
 // 3. Los ataques disponibles de CWL se cuentan desde el ROSTER, no desde el

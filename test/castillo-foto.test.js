@@ -174,7 +174,7 @@ test('confirmaSegunda: la 2a lectura vale si esta llena Y es la base de abajo', 
   assert.equal(confirmaSegunda(null, abajo), false);
 });
 
-// El castillo de Deibis (24 sep 2026): estaba lleno y Heraldo le dijo
+// El castillo de Deivis (24 sep 2026): estaba lleno y Heraldo le dijo
 // "0/55". Los numeros de la barra se leen mal; hay dos señas mas.
 test('estaLleno: los numeros, la barra entera o el boton Donate apagado', () => {
   assert.equal(estaLleno({ tropas: 55, capacidad: 55 }), true);
@@ -196,7 +196,7 @@ test('lecturaDudosa: sin numeros, o un 0 con tropas dentro', () => {
   assert.equal(lecturaDudosa(null), true);
 });
 
-// El caso de Deibis: lleno el castillo de la #8 y le tocaba el de la #7.
+// El caso de Deivis: lleno el castillo de la #8 y le tocaba el de la #7.
 test('otrasLlenas: la base llena que NO era la suya, para avisarle', () => {
   const lectura = { json: { bases: [
     { posicion: 7, nombre: 'EL MATATAN', tropas: 0, capacidad: 55, ventana: true },
@@ -218,7 +218,7 @@ test('confirmaSegunda: vale la barra llena aunque los numeros no se lean', () =>
   assert.equal(confirmaSegunda({ tropas: null, capacidad: null, barraLlena: true, posicion: 8 }, abajo), false); // otra base
 });
 
-// La foto de Deibis (24 sep 2026), con la aclaracion de Cris: la ventana
+// La foto de Deivis (24 sep 2026), con la aclaracion de Cris: la ventana
 // es la de la #7 EL MATATAN y su barra, junto a "Donar", dice 55/55 (la
 // lleno bien). El "0/55" de arriba es la etiqueta de la #8 (Anabolic
 // Batman, la base de Cris) colada por detras de la ventana.

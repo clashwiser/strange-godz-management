@@ -2,7 +2,7 @@
 
 // Alta de un clan desde el panel.
 //
-// Existe para que Carlos o Deibis puedan sumar un clan a la alianza sin
+// Existe para que Carlos o Deivis puedan sumar un clan a la alianza sin
 // pasar por mi. Antes los clanes solo entraban editando la variable
 // CLAN_TAGS en los secretos de GitHub.
 //

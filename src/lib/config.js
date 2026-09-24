@@ -2,7 +2,7 @@
 //
 // Antes salian SOLO de la variable CLAN_TAGS del entorno. Eso significaba
 // que anadir un clan obligaba a editar un secreto de GitHub, o sea que ni
-// Carlos ni Deibis podian hacerlo por su cuenta aunque fueran lideres. Y
+// Carlos ni Deivis podian hacerlo por su cuenta aunque fueran lideres. Y
 // peor: si daban de alta un clan desde el panel, los jobs seguian leyendo
 // los tags viejos y ese clan no se sincronizaba nunca. La pantalla decia
 // una cosa y el cron hacia otra.

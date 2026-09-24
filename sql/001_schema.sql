@@ -12,7 +12,7 @@ create table if not exists owners (
   nombre        text not null,
   es_lider      boolean not null default false,
   cobra_premios boolean not null default true,   -- los 3 lideres: false
-  pago_fijo_usd numeric(6,2),                    -- Deibis coordinador: 10.00
+  pago_fijo_usd numeric(6,2),                    -- Deivis coordinador: 10.00
   telegram_id   text,
   notas         text,
   created_at    timestamptz not null default now()

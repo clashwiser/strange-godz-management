@@ -347,7 +347,7 @@ export async function flujoSolicitud(admin, msg, texto, via) {
     .maybeSingle();
 
   // Un lider (administrador del grupo) no solicita nada, tenga o no una
-  // solicitud de antes: Deibis toco /start en Heraldo y le salio la
+  // solicitud de antes: Deivis toco /start en Heraldo y le salio la
   // entrevista porque su fila se creo un minuto antes de hacerlo admin, y
   // Carlos tenia la de cuando probo la entrevista. Se borra esa fila y se le
   // dice para que sirve este chat. Es una llamada a Telegram, asi que se

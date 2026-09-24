@@ -5,7 +5,7 @@
 --
 -- Hasta ahora los clanes solo entraban por el job de snapshot, que los saca
 -- de la variable CLAN_TAGS de GitHub. Eso obliga a que un cambio de alianza
--- pase por mi: Carlos o Deibis no pueden anadir un clan nuevo aunque sean
+-- pase por mi: Carlos o Deivis no pueden anadir un clan nuevo aunque sean
 -- lideres. Con esto lo hacen desde la pestana Clanes.
 --
 -- Sigue SIN permitirse DELETE, a proposito. Borrar un clan se lleva por

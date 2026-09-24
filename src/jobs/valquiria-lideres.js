@@ -1,5 +1,5 @@
 // Valquiria les manda un texto en privado a los lideres (los administradores
-// del grupo de Telegram: Cris, Carlos, Deibis). Para los avisos de
+// del grupo de Telegram: Cris, Carlos, Deivis). Para los avisos de
 // reclutamiento que no salen de la tarea diaria: novedades, cambios, etc.
 //
 //   npm run valquiria:lideres -- --archivo docs/aviso.md
