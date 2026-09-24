@@ -70,7 +70,7 @@ const r = await api('setWebhook', {
   url: URL_WEBHOOK,
   secret_token: SECRETO,
   // callback_query: los botones en los mensajes (aceptar las normas).
-  allowed_updates: ['message', 'edited_message', 'callback_query'],
+  allowed_updates: ['message', 'edited_message', 'callback_query', 'message_reaction'],
   drop_pending_updates: true,
 });
 

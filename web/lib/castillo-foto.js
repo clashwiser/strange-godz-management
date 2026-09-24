@@ -18,7 +18,7 @@
 // que fue el de arriba, que es su deber; si otro lo lleno por el, los
 // puntos se los lleva igual, y eso lo arregla un ❌ de un lider.
 
-import { leerImagen } from './vision.js';
+import { leerImagen, MODELOS_VISION } from './vision.js';
 import { pedirPerfil } from './coc-perfil.js';
 import { PUNTOS_CASTILLO, temporadaDe } from './castillos.js';
 import { plano, parecidos } from './nombres.js';
@@ -246,7 +246,9 @@ ${LISTA_TROPAS}`;
 export const INSTRUCCIONES_TROPAS = `Esta imagen es la parte de abajo de una captura del mapa de guerra de Clash of Clans, ampliada: la ventana de donación de una base aliada. En ella se ve el número y el nombre de la base, debajo un mensaje escrito por el jugador pidiendo tropas, una barra "N/M" junto al botón "Donate", y los iconos de las tropas donadas, cada uno con "xN" (la cantidad) encima y el nivel en un número pequeño en la esquina.
 
 Devuelve SOLO un objeto JSON compacto, sin comentarios:
-{"pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
+{"posicion": número de la base de la ventana o null, "nombre": "el nombre de la base de la ventana tal como se lee, o null", "pedido": "el mensaje del jugador tal cual, o null", "tropas": número o null, "capacidad": número o null, "tropas_donadas": [ { "tropa": "nombre de la lista, o null", "cantidad": número o null, "nivel": número o null } ]}
+
+"tropas" es el número de la IZQUIERDA de la barra que está junto al botón "Donate" (lo que ya tiene el castillo) y "capacidad" el de la derecha; si la barra está llena, los dos son iguales. Cuenta también los iconos: si ves tropas donadas, "tropas" no puede ser 0.
 
 Identifica cada icono SOLO con esta lista de Clash of Clans (nombre en inglés tal como está, sin lo que va entre paréntesis, que es una seña del dibujo). Si un icono no encaja claramente con ninguno, pon "tropa": null. No existen aquí Royal Giant, Dark Prince, Mini P.E.K.K.A, Musketeer ni Mega Knight (eso es Clash Royale).
 Las versiones "Super" son raras en un castillo: solo si el icono es claramente el súper (más grande, con brillo dorado); entre Archer y Super Archer, es Archer. Nivel 12 o más es tropa normal.
@@ -285,6 +287,55 @@ export async function leerTropasAmpliadas(admin, imagen) {
   return j;
 }
 
+/**
+ * La segunda lectura, la de Valquiria: la misma ventana ampliada pero con
+ * el OTRO modelo de vision, cuando la primera no dio por bueno el castillo.
+ * Lo pidio Cris el 24 sep 2026: "los lideres estamos casi sin tiempo" -una
+ * foto buena se quedo sin puntos desde las 8 de la mañana hasta las 5 de
+ * la tarde-, asi que en vez de esperar a un lider se mira otra vez sola.
+ *
+ * Devuelve { tropas, capacidad, donado, nombre, posicion } o null.
+ */
+export async function segundaOpinion(admin, imagen) {
+  const recorte = await recortarVentana(imagen.base64);
+  if (!recorte) return null;
+  const otro = [...MODELOS_VISION].reverse();
+  const lectura = await leerImagen(admin, {
+    base64: recorte.base64,
+    mime: recorte.mime,
+    instrucciones: INSTRUCCIONES_TROPAS,
+    max_tokens: 350,
+    modelos: otro,
+  });
+  const j = lectura?.json;
+  if (!j || typeof j !== 'object') return null;
+  return {
+    tropas: numero(j.tropas),
+    capacidad: numero(j.capacidad),
+    donado: textoDonado(j),
+    nombre: j.nombre != null ? String(j.nombre) : null,
+    posicion: numero(j.posicion),
+    tropasDonadas: Array.isArray(j.tropas_donadas) ? j.tropas_donadas.filter((t) => t && tropaValida(t.tropa)).length : 0,
+  };
+}
+
+/**
+ * Si la segunda lectura da el castillo por lleno Y es la base que toca.
+ * Sin lo segundo, la foto del castillo de otro valdria: la ventana
+ * ampliada no sabe de quien es el mapa, solo lo que dice la ventana.
+ */
+export function confirmaSegunda(segunda, abajo) {
+  if (!segunda) return false;
+  const { tropas, capacidad, nombre, posicion } = segunda;
+  if (tropas == null || capacidad == null || capacidad === 0 || tropas < capacidad) return false;
+  // De quien es la ventana: hace falta leer la posicion o el nombre, y que
+  // sean los de la base de abajo. Sin ninguno de los dos no se confirma:
+  // una captura de la aldea propia con el castillo lleno no puede colar.
+  if (posicion != null) return posicion === abajo.posicion;
+  if (nombre) return parecidos(nombre, abajo.nombre);
+  return false;
+}
+
 /** "7× Archer n14, 5× Headhunter n4": solo las que reconocio y existen. */
 export function textoDonado(j) {
   return (Array.isArray(j?.tropas_donadas) ? j.tropas_donadas : [])
@@ -306,6 +357,23 @@ const numero = (v) => {
 };
 
 /**
+ * Si lo que el modelo dio por "clan enemigo" puede serlo. En la cabecera
+ * del mapa, al lado de los dos clanes, van el reloj ("21M", "2D 4H") y el
+ * marcador; el modelo los coge a veces. Un nombre de clan tiene letras y
+ * no es un puro numero con una letra de unidad detras.
+ */
+export function pareceNombreDeClan(s) {
+  const t = String(s ?? '').trim();
+  if (!t) return false;
+  if (/^\d+\s*[dhms]$/i.test(t)) return false;         // 21M, 2D, 45S: el reloj
+  if (/^\d+\s*[dhms]\s*\d+\s*[dhms]$/i.test(t)) return false; // "2D 4H"
+  if (/^[\d\s:/.%-]+$/.test(t)) return false;           // 0/55, 12:30, 45%
+  // Tres letras: «龙之城» es un clan de verdad y «21M» o «x300» (una letra
+  // y numeros) son el reloj o nuestro propio nombre mal cogido.
+  return (t.match(/\p{L}/gu) ?? []).length >= 3;
+}
+
+/**
  * Cruza lo que leyo el modelo con lo que dice la API y decide.
  *
  * @returns {{ veredicto: 'lleno'|'incompleto'|'no_se_ve'|'otra_guerra'|'no_es_mapa'|'ilegible', tropas?:number, capacidad?:number, leido?:string }}
@@ -317,10 +385,13 @@ export function juzgar({ lectura, abajo, oponente, propio = null }) {
 
   // El rival no pinta nada en la donacion -el castillo es el del aliado de
   // abajo-; su nombre solo sirve de sello de QUE guerra es la captura. Si
-  // se lee y no es el de esta guerra, la captura es de otra. Si el modelo
-  // leyo el nombre de nuestro propio clan (la cabecera dice "x300 vs
-  // Rival" y puede coger el lado equivocado), no se le hace caso.
-  if (j.clan_enemigo && oponente && !parecidos(j.clan_enemigo, oponente) && !(propio && parecidos(j.clan_enemigo, propio))) {
+  // se lee un nombre de clan de verdad y no es el de esta guerra, la
+  // captura es de otra. Si el modelo leyo el nombre de nuestro propio clan
+  // (la cabecera dice "x300 vs Rival" y puede coger el lado equivocado),
+  // no se le hace caso. Y si lo que leyo no parece un nombre -"21M", que
+  // es el reloj de la guerra (24 sep 2026: rechazo una captura buena de
+  // Pepe)- tampoco: se sigue con las bases, que es la prueba de verdad.
+  if (j.clan_enemigo && oponente && pareceNombreDeClan(j.clan_enemigo) && !parecidos(j.clan_enemigo, oponente) && !(propio && parecidos(j.clan_enemigo, propio))) {
     return { veredicto: 'otra_guerra', leido: String(j.clan_enemigo) };
   }
 
@@ -375,7 +446,9 @@ export async function filaParaFoto(admin, { tgId, mensajeBotId = null }) {
   return data ?? null;
 }
 
-const MANUAL = 'Mientras, un líder puede confirmarlo contestando ✅ a este mensaje.';
+// Un lider lo confirma con 👍: sirve la reaccion (Telegram gratis no
+// tiene ✅ entre las reacciones, 👍 si) y sirve contestar al mensaje.
+const MANUAL = 'Mientras, un líder puede confirmarlo con un 👍 a este mensaje.';
 
 /**
  * Lee la foto de un aviso y, si cuadra, lo confirma. Devuelve { texto,
@@ -471,7 +544,8 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     const rango = RANGO[f.veredicto] ?? 1;
     if (!mejor || rango > mejor.rango) mejor = { ...c, fallo: f, rango };
   }
-  const { tag, guerra, sitio, fallo } = mejor;
+  const { tag, guerra, sitio } = mejor;
+  let { fallo } = mejor;
   // La fila que se confirma: la del aviso si esta libre. Si esa ya es de
   // otra cuenta confirmada hoy, para esta cuenta se abre una nueva, pero
   // solo si la foto vale (lleno): un intento fallido no deja filas sueltas.
@@ -491,6 +565,34 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
   const quienAbajo = `<b>${esc(abajo.nombre)}</b> (#${abajo.posicion})`;
   // Para el "no lo veo": todos los castillos que valdrian, no solo uno.
   const losDeAbajo = sitios.map((c) => `<b>${esc(c.sitio.abajo.nombre)}</b> (#${c.sitio.abajo.posicion})`).join(' o ');
+
+  // Heraldo no lo dio por bueno: antes de mandar a nadie a esperar a un
+  // lider, Valquiria mira la ventana ampliada con el otro modelo. Si ella
+  // lo ve lleno y es la base de abajo que toca, vale igual.
+  // (En 'otra_guerra' no: ahi la captura es de otra guerra y da igual lo
+  // llena que salga la ventana.)
+  if (fallo.veredicto !== 'lleno' && fallo.veredicto !== 'otra_guerra') {
+    const segunda = await segundaOpinion(admin, imagen);
+    if (confirmaSegunda(segunda, abajo)) {
+      await admin
+        .from('castillos')
+        .update({ verificado: true, puntos: PUNTOS_CASTILLO, verificado_por: 'Valquiria (2ª lectura)' })
+        .eq('id', fila.id);
+      await anota(`2ª lectura: ${abajo.nombre} ${segunda.tropas}/${segunda.capacidad} (Heraldo dijo ${fallo.veredicto})`);
+      return {
+        texto:
+          `✅ Lo miré otra vez y sí está: el castillo de ${quienAbajo}, el de abajo de ${quien}, va ${segunda.tropas}/${segunda.capacidad}` +
+          (segunda.donado ? ` (${esc(segunda.donado)})` : '') +
+          `. +${PUNTOS_CASTILLO} puntos este mes. 📜`,
+        verificado: true,
+      };
+    }
+    if (segunda && segunda.tropas != null && segunda.capacidad) {
+      // La segunda lectura vio la ventana y tampoco esta llena: eso ya es
+      // una respuesta, y mas fiable que "no distingo nada".
+      fallo = { ...fallo, veredicto: 'incompleto', tropas: segunda.tropas, capacidad: segunda.capacidad, donado: segunda.donado };
+    }
+  }
 
   switch (fallo.veredicto) {
     case 'lleno': {

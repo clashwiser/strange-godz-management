@@ -85,9 +85,11 @@ export function extraerJson(texto) {
  * si no hay llave, la IA esta apagada, se paso el tope del dia o fallo.
  *
  * @param {object} admin   Supabase con service_role (para el tope)
- * @param {{ base64:string, mime?:string, instrucciones:string, max_tokens?:number, timeout?:number }} p
+ * @param {{ base64:string, mime?:string, instrucciones:string, max_tokens?:number, timeout?:number, modelos?:string[] }} p
+ *   modelos: el orden de preferencia, si se quiere otro (la segunda
+ *   lectura de Valquiria pide el modelo que NO uso Heraldo).
  */
-export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000 }) {
+export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000, modelos = MODELOS_VISION }) {
   if (!visionConfigurada || !base64 || !instrucciones) {
     console.error(`[vision] sin leer: ${!visionConfigurada ? 'falta IA_LLAVE o IA_URL' : !base64 ? 'sin imagen' : 'sin instrucciones'}`);
     return null;
@@ -120,7 +122,7 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
   // tope, se espera lo que Groq pide ("try again in 8.4s") y se repite,
   // una vez, si cabe en lo que le queda de vida a la funcion.
   const t0 = Date.now();
-  const candidatos = MODELOS_VISION.filter((m) => !descartados.has(m));
+  const candidatos = (Array.isArray(modelos) && modelos.length ? modelos : MODELOS_VISION).filter((m) => !descartados.has(m));
   const cola = [...candidatos];
   let esperoYa = false;
   while (cola.length) {

@@ -65,10 +65,11 @@ test('tablaPuntos: suma castillos y retos y cuenta cada clase', () => {
     { tg_user_id: 1, nombre: 'Ana', verificado: true, puntos: 5 },
     { tg_user_id: 1, nombre: 'Ana', verificado: true, puntos: 5, tipo: 'fc' },
     { tg_user_id: 2, nombre: 'Beto', verificado: true, puntos: 5, tipo: 'fc' },
+    { tg_user_id: 2, nombre: 'Beto', verificado: true, puntos: 50, tipo: 'juegos' },
   ];
   assert.deepEqual(tablaPuntos(filas), [
-    { nombre: 'Ana', puntos: 10, veces: 2, castillos: 1, fc: 1 },
-    { nombre: 'Beto', puntos: 5, veces: 1, castillos: 0, fc: 1 },
+    { nombre: 'Beto', puntos: 55, veces: 2, castillos: 0, fc: 1, juegos: 1 },
+    { nombre: 'Ana', puntos: 10, veces: 2, castillos: 1, fc: 1, juegos: 0 },
   ]);
 });
 

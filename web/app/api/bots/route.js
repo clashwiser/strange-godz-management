@@ -51,6 +51,7 @@ const BOTS = {
       { command: 'reglas', description: 'Las normas del clan' },
       { command: 'castillo', description: 'Con la captura del mapa de guerra: tu castillo donado (+puntos)' },
       { command: 'fc', description: 'Con la captura del chat: 5 desafíos amistosos de 2⭐ o más (+puntos)' },
+      { command: 'juegos', description: 'Con la captura de los Juegos del Clan: 4000 = +20, 10000 = +50' },
       { command: 'puntos', description: 'La tabla de puntos del mes' },
       { command: 'ayuda', description: 'Todo lo que sabe hacer' },
     ],
@@ -136,7 +137,7 @@ export async function POST(request) {
       url: `${SITIO}${b.ruta}`,
       secret_token: b.secreto,
       // callback_query: los botones en los mensajes (aceptar las normas).
-      allowed_updates: ['message', 'edited_message', 'callback_query'],
+      allowed_updates: ['message', 'edited_message', 'callback_query', 'message_reaction'],
       drop_pending_updates: true,
     });
     return Response.json({ ok: r.ok, error: r.ok ? null : r.description });

@@ -15,6 +15,7 @@
 import { avisaCastillo, anotarCastillo, recordarMensaje } from './castillos.js';
 import { fotoDe, filaParaFoto, verificarCastilloConFoto, leerMapaDePrueba } from './castillo-foto.js';
 import { esFotoDeFC, verificarFCConFoto, recordarMensajeReto, leerChatDePrueba } from './retos.js';
+import { esFotoDeJuegos, verificarJuegosConFoto, leerJuegosDePrueba } from './juegos.js';
 import { anotarEnBitacora } from './pensar.js';
 
 const plano = (s) =>
@@ -31,7 +32,7 @@ export function esPruebaDeLectura(pie) {
     .replace(/^\s*@?(heraldo|valqui\w*)\s+/, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return /^(prueba|lectura|que ves)( de lectura)?( (fc|chat|castillo|mapa|guerra))?$/.test(q);
+  return /^(prueba|lectura|que ves)( de lectura)?( (fc|chat|castillo|mapa|guerra|juegos))?$/.test(q);
 }
 
 /** A que bot le hablan en el pie: 'valquiria', 'heraldo' o null. Los dos: Heraldo. */
@@ -50,9 +51,11 @@ export function botNombrado(pie) {
  */
 export function comandoDelPie(pie) {
   const q = plano(pie).trim();
-  const m = /(?:^|\s)\/(fc|castillo|prueba)(?:@\w+)?\b/.exec(q);
-  if (m) return m[1];
-  const solo = /^(fc|castillo|prueba)( (fc|chat|castillo|mapa|guerra))?$/.exec(q);
+  // /juegos, /juegosdelclan y /juegosdeclan (que es como lo escribio Pepe)
+  // son el mismo comando.
+  const m = /(?:^|\s)\/(fc|castillo|prueba|juegos(?:de[l]?clan)?)(?:@\w+)?\b/.exec(q);
+  if (m) return m[1].startsWith('juegos') ? 'juegos' : m[1];
+  const solo = /^(fc|castillo|prueba|juegos)( (fc|chat|castillo|mapa|guerra|juegos))?$/.exec(q);
   return solo ? solo[1] : null;
 }
 
@@ -73,14 +76,15 @@ export function fotoDirigida(pie, { aUnBot = null } = {}) {
  *
  * @param {string} pie
  * @param {{ aUnBot: number|null }} ctx  id del mensaje del bot al que responde, si responde a uno
- * @returns {'prueba_chat'|'prueba_mapa'|'fc'|'castillo'|'castillo_respuesta'|'duda'|null}
+ * @returns {'prueba_chat'|'prueba_mapa'|'prueba_juegos'|'fc'|'juegos'|'castillo'|'castillo_respuesta'|'duda'|null}
  */
 export function modoDeFoto(pie, { aUnBot = null } = {}) {
   if (!fotoDirigida(pie, { aUnBot })) return null;
   const q = plano(pie);
   const comando = comandoDelPie(pie);
-  if (comando === 'prueba' || esPruebaDeLectura(pie)) return /fc|chat/.test(q) ? 'prueba_chat' : 'prueba_mapa';
+  if (comando === 'prueba' || esPruebaDeLectura(pie)) return /juegos/.test(q) ? 'prueba_juegos' : /fc|chat/.test(q) ? 'prueba_chat' : 'prueba_mapa';
   if (comando === 'castillo' || avisaCastillo(pie) || /castillo/.test(q)) return 'castillo';
+  if (comando === 'juegos' || esFotoDeJuegos(pie)) return 'juegos';
   if (comando === 'fc' || esFotoDeFC(pie)) return 'fc';
   if (aUnBot) return 'castillo_respuesta';
   return 'duda';
@@ -88,7 +92,8 @@ export function modoDeFoto(pie, { aUnBot = null } = {}) {
 
 export const TEXTO_DUDA =
   '📷 ¿Qué te reviso? Si es el castillo de guerra, manda la captura del mapa con <code>/castillo</code> en el pie (o "@Heraldo ya doné mi castillo"); ' +
-  'si son tus desafíos amistosos, la captura del chat con <code>/fc</code>. Los administradores pueden poner <code>/prueba</code> para ver qué leo.';
+  'si son tus desafíos amistosos, la captura del chat con <code>/fc</code>; si son los Juegos del Clan, la ventana con <code>/juegos</code>. ' +
+  'Los administradores pueden poner <code>/prueba</code> para ver qué leo.';
 
 /**
  * Atiende la foto y devuelve { texto, despues } o null si no es para
@@ -115,13 +120,18 @@ export async function atenderFoto(admin, { token, msg, quien, esAdmin, aUnBot = 
 async function atender(admin, { token, msg, quien, esAdmin, aUnBot, pie, modo }) {
   switch (modo) {
     case 'prueba_chat':
+    case 'prueba_juegos':
     case 'prueba_mapa': {
       if (!(await esAdmin())) return { texto: TEXTO_DUDA };
-      const texto = modo === 'prueba_chat' ? await leerChatDePrueba(admin, { token, msg }) : await leerMapaDePrueba(admin, { token, msg });
-      return { texto };
+      const lector = { prueba_chat: leerChatDePrueba, prueba_juegos: leerJuegosDePrueba, prueba_mapa: leerMapaDePrueba }[modo];
+      return { texto: await lector(admin, { token, msg }) };
     }
     case 'fc': {
       const r = await verificarFCConFoto(admin, { token, msg, tgId: quien.id, quien: quien.nombre });
+      return { texto: r.texto, despues: r.verificado ? (id) => recordarMensajeReto(admin, r.id, id) : null };
+    }
+    case 'juegos': {
+      const r = await verificarJuegosConFoto(admin, { token, msg, tgId: quien.id, quien: quien.nombre });
       return { texto: r.texto, despues: r.verificado ? (id) => recordarMensajeReto(admin, r.id, id) : null };
     }
     case 'castillo':

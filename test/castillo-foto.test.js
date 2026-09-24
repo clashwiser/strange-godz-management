@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida } from '../web/lib/castillo-foto.js';
+import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda } from '../web/lib/castillo-foto.js';
 import { extraerJson } from '../web/lib/vision.js';
 
 const guerra = {
@@ -153,4 +153,23 @@ test('las tropas donadas: solo nombres de Clash of Clans; lo de Clash Royale se 
   assert.equal(tropaValida(null), null);
   const l = lectura({ es_mapa_de_guerra: true, clan_enemigo: 'Rival', bases: [{ posicion: 2, nombre: 'Beto', tropas: 55, capacidad: 55, ventana: true }], tropas_donadas: [{ tropa: 'Archer', cantidad: 7, nivel: 14 }, { tropa: 'Dark Wizard', cantidad: 5, nivel: 4 }, { tropa: 'Furnace', cantidad: 1, nivel: 4 }] });
   assert.equal(juzgar({ lectura: l, abajo, oponente: 'Rival' }).donado, '7× Archer n14, 1× Furnace n4');
+});
+
+// El reloj de la cabecera no es el rival: el 24 sep 2026 Heraldo rechazo
+// una captura buena de Pepe porque leyo "21M" donde buscaba el clan.
+test('pareceNombreDeClan: el reloj y los numeros no son un clan', () => {
+  for (const x of ['STIVEN_COC_500', 'Canadian Elite', '龙之城', 'WILD GORKHAS']) assert.equal(pareceNombreDeClan(x), true, x);
+  for (const x of ['21M', '2D', '2D 4H', '45S', '0/55', '12:30', '45%', 'x300', '', null]) assert.equal(pareceNombreDeClan(x), false, String(x));
+});
+
+test('confirmaSegunda: la 2a lectura vale si esta llena Y es la base de abajo', () => {
+  const abajo = { posicion: 20, nombre: '[ $alvo ]' };
+  assert.equal(confirmaSegunda({ tropas: 55, capacidad: 55, posicion: 20, nombre: '[ $alvo ]' }, abajo), true);
+  assert.equal(confirmaSegunda({ tropas: 45, capacidad: 45, posicion: null, nombre: '[ $alvo ]' }, abajo), true);
+  assert.equal(confirmaSegunda({ tropas: 55, capacidad: 55, posicion: 21, nombre: 'Otro' }, abajo), false);
+  assert.equal(confirmaSegunda({ tropas: 20, capacidad: 55, posicion: 20 }, abajo), false);
+  assert.equal(confirmaSegunda({ tropas: null, capacidad: null }, abajo), false);
+  // Sin nombre ni posicion no se sabe de quien es la ventana: no cuela.
+  assert.equal(confirmaSegunda({ tropas: 55, capacidad: 55, posicion: null, nombre: null }, abajo), false);
+  assert.equal(confirmaSegunda(null, abajo), false);
 });

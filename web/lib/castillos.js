@@ -12,7 +12,9 @@
 // del jugador (lo dijo Cris; en Reddit lleva anos pidiendose que cuenten).
 // La primera version de esto miraba ese contador y era una comprobacion
 // falsa. Asi que confirma un lider, que es el que puede mirar el castillo
-// en el juego: contestando ✅ al aviso en Telegram, o en la pestaña Bonos.
+// en el juego: con un 👍 al aviso en Telegram (la reaccion o la respuesta),
+// o en la pestaña Bonos. En Telegram gratis no hay ✅ entre las reacciones
+// -lo dijo Cris el 24 sep 2026-, y 👍 lo tiene todo el mundo.
 // Con puntos de un premio mensual el incentivo a mentir es pequeño, y el
 // que lo haga se lo encuentra un colider mirando el castillo.
 
@@ -34,7 +36,7 @@ export function avisaCastillo(texto) {
   return /\b(done|dono|donado|donada|lleno|llene|llenado|listo|lista|puesto|puse|completo|complete|cargado|cargue)\b/.test(q);
 }
 
-/** Lo que dice un lider al confirmar contestando al aviso: ✅, ok, confirmado... */
+/** Lo que dice un lider al confirmar contestando al aviso: 👍, ✅, ok, confirmado... */
 export function confirmaCastillo(texto) {
   const q = plano(texto).trim();
   return /^(✅|👍|ok|okey|confirmado|confirmo|verificado|visto|listo|si|sí|dale|correcto)\b/.test(q) || /^[✅👍]+$/.test(q);
@@ -128,7 +130,7 @@ export async function anotarCastillo(admin, { tgId, nombre, texto }) {
     fila: { id: fila.id, tg_user_id: tgId, player_tag: vinculo?.player_tag ?? null, nombre, verificado: false, puntos: 0, mensaje_bot_id: null },
     texto:
       `📜 Anotado, ${nombre}: castillo de guerra donado. ` +
-      `Manda la captura del mapa de guerra (con el castillo de abajo lleno) contestando a este mensaje o con <code>/castillo</code> en el pie, y lo verifico yo; si no, un líder lo confirma contestando ✅ a este mensaje (o desde el panel). Suman +${PUNTOS_CASTILLO} puntos este mes.` +
+      `Manda la captura del mapa de guerra (con el castillo de abajo lleno) contestando a este mensaje o con <code>/castillo</code> en el pie, y lo verifico yo; si no, un líder lo confirma con un 👍 a este mensaje (o desde el panel). Suman +${PUNTOS_CASTILLO} puntos este mes.` +
       (vinculo?.player_tag ? '' : ` Preséntate con <code>/soy TuNombre</code> para que sepan qué castillo mirar.`),
   };
 }
@@ -166,19 +168,20 @@ export async function recordarMensaje(admin, id, mensajeBotId) {
 /**
  * La tabla del mes: puntos por persona, confirmados, para el grupo o el
  * panel. Admite filas de castillos (sin tipo) y de retos (tipo 'fc'...),
- * y cuenta cada clase aparte: { nombre, puntos, veces, castillos, fc }.
+ * y cuenta cada clase aparte: { nombre, puntos, veces, castillos, fc, juegos }.
  */
 export function tablaPuntos(filas) {
   const por = new Map();
   for (const f of filas ?? []) {
     if (!f.verificado) continue;
     const k = f.tg_user_id;
-    const p = por.get(k) ?? { nombre: f.nombre, puntos: 0, veces: 0, castillos: 0, fc: 0 };
+    const p = por.get(k) ?? { nombre: f.nombre, puntos: 0, veces: 0, castillos: 0, fc: 0, juegos: 0 };
     p.puntos += f.puntos ?? 0;
     p.veces += 1;
     const tipo = f.tipo ?? 'castillo';
     if (tipo === 'castillo') p.castillos += 1;
     else if (tipo === 'fc') p.fc += 1;
+    else if (tipo === 'juegos') p.juegos += 1;
     p.nombre = f.nombre || p.nombre;
     por.set(k, p);
   }

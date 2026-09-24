@@ -22,6 +22,7 @@ import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
 import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
 import { fotoDe } from '../../../lib/castillo-foto';
 import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
+import { JUEGOS_BASE, JUEGOS_MAX, PUNTOS_JUEGOS_BASE, PUNTOS_JUEGOS_MAX } from '../../../lib/juegos';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
 import { tagsDe, cuentasDe } from '../../../lib/vinculos';
@@ -176,6 +177,18 @@ export async function POST(request) {
 }
 
 async function atender(update) {
+  // Un lider reacciona 👍 (o ✅) al aviso de un castillo o un reto. Es la
+  // forma natural de decir "confirmado" en un telefono, y en Telegram
+  // gratis 👍 esta y ✅ no (Cris, 24 sep 2026). Contestar tambien vale.
+  if (update.message_reaction) {
+    try {
+      await atenderReaccion(update.message_reaction);
+    } catch (e) {
+      console.error(`[reaccion] ${e.message}`);
+    }
+    return;
+  }
+
   // Un boton tocado en un mensaje suyo: los del /soy (elegir clan, nombre,
   // "las dos") o el de aceptar las normas (en privado).
   if (update.callback_query) {
@@ -198,6 +211,38 @@ async function atender(update) {
     return;
   }
   await atenderMensaje(null, update, msg, chatId, texto);
+}
+
+// Las reacciones que valen. Telegram gratis no tiene ✅ ni ❌ en la lista
+// de reacciones, asi que el si es 👍 y el no es 👎; los otros se aceptan
+// por si alguien tiene Premium.
+const REACCION_SI = ['👍', '✅', '🔥', '❤', '❤️'];
+const REACCION_NO = ['👎', '❌'];
+const emojisDe = (lista) => (Array.isArray(lista) ? lista : []).filter((r) => r?.type === 'emoji').map((r) => r.emoji);
+
+/**
+ * Un 👍 / 👎 de un lider sobre el aviso de un castillo o un reto. Solo
+ * cuenta la reaccion NUEVA (Telegram manda la lista entera antes y
+ * despues) y solo de administradores del grupo: esto da o quita puntos.
+ */
+async function atenderReaccion(r) {
+  const chatId = r?.chat?.id;
+  const mensajeBotId = r?.message_id;
+  const quienId = r?.user?.id;
+  if (!chatId || !mensajeBotId || !quienId) return;
+  if (!PERMITIDOS.includes(String(chatId))) return;
+
+  const antes = new Set(emojisDe(r.old_reaction));
+  const nuevas = emojisDe(r.new_reaction).filter((e) => !antes.has(e));
+  const confirmar = nuevas.some((e) => REACCION_SI.includes(e));
+  const rechazar = nuevas.some((e) => REACCION_NO.includes(e));
+  if (!confirmar && !rechazar) return;
+  if (!(await esAdminDelGrupo(quienId))) return;
+
+  const nombre = [r.user.first_name, r.user.last_name].filter(Boolean).join(' ') || r.user.username || 'un líder';
+  const decision = { mensajeBotId, confirmar, lider: esc(nombre) };
+  const texto = (await decidirCastillo(admin, decision)) ?? (await decidirReto(admin, decision));
+  if (texto) await responder(chatId, texto);
 }
 
 /** Un boton tocado en un mensaje de Heraldo, por su prefijo. */
@@ -626,6 +671,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
 ` +
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini (una cada 3 días)\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
+        `/juegos — los Juegos del Clan: manda la captura y suma puntos\n` +
         `/puntos — la tabla de puntos del mes\n\n` +
         `<b>Con foto</b> (el comando va en el pie de la captura):\n` +
         `/castillo + captura del mapa de guerra → +5 si el castillo de abajo está lleno\n` +
@@ -656,6 +702,22 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       return null;
     }
 
+    // "/juegos" sin foto. Con foto no llega aqui: el pie lo atiende fotos.js.
+    case 'juegos':
+    case 'juegosdelclan':
+    case 'juegosdeclan':
+      return (
+        `🎮 <b>Juegos del Clan</b>: cuando termines, manda la captura de la ventana (donde sale la lista con lo que lleva cada uno) con <code>/juegos</code> en el pie.
+
+` +
+        `• ${JUEGOS_BASE} puntos de juegos — +${PUNTOS_JUEGOS_BASE} puntos del mes
+` +
+        `• ${JUEGOS_MAX} puntos de juegos — +${PUNTOS_JUEGOS_MAX} puntos del mes
+
+` +
+        `Se cobra una vez al mes por cuenta. Si mandas la captura con ${JUEGOS_BASE} y luego llegas a ${JUEGOS_MAX}, manda otra y te subo el premio.`
+      );
+
     // "/fc" sin foto: se explica como va. Con foto no llega aqui: el pie
     // con /fc lo atiende fotos.js.
     case 'fc':
@@ -672,9 +734,16 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       ]);
       const tabla = tablaPuntos([...(castillos ?? []), ...(retos ?? [])]);
       if (!tabla.length) {
-        return `Todavía nadie tiene puntos este mes. Dan puntos el castillo de guerra donado y avisado con la captura (<code>/castillo</code>) y el reto de los desafíos amistosos (la captura del chat con 5, pie "fc").`;
+        return `Todavía nadie tiene puntos este mes. Dan puntos el castillo de guerra donado y avisado con la captura (<code>/castillo</code>), el reto de los desafíos amistosos (<code>/fc</code>) y los Juegos del Clan (<code>/juegos</code>).`;
       }
-      const desglose = (p) => [p.castillos ? `${p.castillos} ${p.castillos === 1 ? 'castillo' : 'castillos'}` : null, p.fc ? `${p.fc} FC` : null].filter(Boolean).join(' · ');
+      const desglose = (p) =>
+        [
+          p.castillos ? `${p.castillos} ${p.castillos === 1 ? 'castillo' : 'castillos'}` : null,
+          p.fc ? `${p.fc} FC` : null,
+          p.juegos ? 'juegos del clan' : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
       return (
         `🏅 <b>Puntos del mes · ${temporadaDe()}</b>\n\n` +
         tabla.slice(0, 15).map((p, i) => `${i + 1}. ${esc(p.nombre)} — ${p.puntos} pts (${desglose(p)})`).join('\n')
@@ -1062,7 +1131,7 @@ const CADA_DIAS = 3;
 // dia que llega.
 const CUPO_GRUPO = 10;
 /** Lo que un miembro puede pedirle a Heraldo en privado. */
-const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'contacto', 'contactos', 'lideres', 'puntos', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen', 'sistema']);
+const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'contacto', 'contactos', 'lideres', 'puntos', 'juegos', 'juegosdelclan', 'juegosdeclan', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen', 'sistema']);
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>
