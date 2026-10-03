@@ -2,21 +2,39 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conBotonTraducir, markupTraducir, sinBotonTraducir, BOTON_TRADUCIR, atenderBotonTraducir } from '../web/lib/traducir.js';
+import { conBotonTraducir, markupTraducir, sinBotonTraducir, BOTON_TRADUCIR, BOTONES_TRADUCIR, idiomaDelDato, atenderBotonTraducir } from '../web/lib/traducir.js';
 import { yaVisto, olvidarVistos, esViejo } from '../web/lib/webhook.js';
 
-test('el boton va al final si el texto lo merece, y una sola vez', () => {
+test('los botones van al final si el texto lo merece, y una sola vez', () => {
   assert.equal(conBotonTraducir(null, 'ok 👍'), null);
-  assert.deepEqual(conBotonTraducir(null, 'x'.repeat(40)), [[BOTON_TRADUCIR]]);
+  // Dos idiomas: ingles y filipino (entro Queen, de Filipinas, 3 oct 2026).
+  assert.deepEqual(conBotonTraducir(null, 'x'.repeat(40)), [BOTONES_TRADUCIR]);
+  assert.equal(BOTONES_TRADUCIR.length, 2);
   const soy = [[{ text: 'a', callback_data: 'soy:c:1' }]];
-  assert.deepEqual(conBotonTraducir(soy, 'x'.repeat(50)), [...soy, [BOTON_TRADUCIR]]);
+  assert.deepEqual(conBotonTraducir(soy, 'x'.repeat(50)), [...soy, BOTONES_TRADUCIR]);
   assert.deepEqual(conBotonTraducir(soy, 'corto'), soy);
-  assert.deepEqual(conBotonTraducir([...soy, [BOTON_TRADUCIR]], 'x'.repeat(50)), [...soy, [BOTON_TRADUCIR]]);
+  assert.deepEqual(conBotonTraducir([...soy, BOTONES_TRADUCIR], 'x'.repeat(50)), [...soy, BOTONES_TRADUCIR]);
   // Las etiquetas HTML no cuentan como texto.
   assert.equal(conBotonTraducir(null, '<b>' + 'x'.repeat(30) + '</b>'), null);
-  assert.deepEqual(markupTraducir(null, 'x'.repeat(40)), { reply_markup: { inline_keyboard: [[BOTON_TRADUCIR]] } });
+  assert.deepEqual(markupTraducir(null, 'x'.repeat(40)), { reply_markup: { inline_keyboard: [BOTONES_TRADUCIR] } });
   assert.deepEqual(markupTraducir(null, 'corto'), {});
+});
+
+test('al traducir se quita solo el botón usado; el otro idioma se queda', () => {
+  const soy = [[{ text: 'a', callback_data: 'soy:c:1' }]];
   assert.deepEqual(sinBotonTraducir([...soy, [BOTON_TRADUCIR]]), soy);
+  const conDos = [...soy, BOTONES_TRADUCIR];
+  const trasIngles = sinBotonTraducir(conDos, 'tr:en');
+  assert.deepEqual(trasIngles, [...soy, [BOTONES_TRADUCIR[1]]]);
+  assert.deepEqual(sinBotonTraducir(trasIngles, 'tr:fil'), soy);
+});
+
+test('idiomaDelDato: el idioma que pide cada botón', () => {
+  assert.equal(idiomaDelDato('tr:en'), 'English');
+  assert.equal(idiomaDelDato('tr:fil'), 'Filipino (Tagalog)');
+  assert.equal(idiomaDelDato('tr:xx'), 'English'); // uno que no conozco: ingles
+  assert.equal(idiomaDelDato('soy:c:1'), null);
+  assert.equal(idiomaDelDato(null), null);
 });
 
 test('al tocarlo: contesta el callback, traduce en respuesta al original y quita el boton', async () => {
@@ -27,7 +45,7 @@ test('al tocarlo: contesta el callback, traduce en respuesta al original y quita
     return { json: async () => ({ ok: true, result: { message_id: 9 } }) };
   };
   try {
-    const cq = { id: 'cq1', message: { message_id: 5, chat: { id: -100 }, text: 'Hola, asere', reply_markup: { inline_keyboard: [[BOTON_TRADUCIR]] } } };
+    const cq = { id: 'cq1', data: 'tr:en', message: { message_id: 5, chat: { id: -100 }, text: 'Hola, asere', reply_markup: { inline_keyboard: [[BOTON_TRADUCIR]] } } };
     const ok = await atenderBotonTraducir('T', cq, async (t) => `Hi, bro (${t})`);
     assert.equal(ok, true);
     assert.deepEqual(llamadas.map((l) => l[0]), ['answerCallbackQuery', 'sendMessage', 'editMessageReplyMarkup']);

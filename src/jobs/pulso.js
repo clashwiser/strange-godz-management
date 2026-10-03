@@ -26,9 +26,10 @@
 // de deduplicacion.
 
 import { getClan, getCurrentWar, getLeagueGroup, getLeagueWar, parseCocDate, opcional } from '../lib/coc.js';
-import { clanes, grupoTelegram } from '../lib/config.js';
+import { clanes, grupoTelegram, temporadaActual } from '../lib/config.js';
 import { encolar, negrita } from '../lib/outbox.js';
 import { db, chk, correrJob } from '../lib/db.js';
+import { inscripcionAbierta, horasParaCerrar, estaInscrito, textoInscripcion } from '../lib/liga-inscripcion.js';
 import { textoFinGuerra } from '../lib/guerra-texto.js';
 import { miniaturasYoutube } from '../lib/telegram.js';
 import { textoYaEmpezo } from '../../web/lib/youtube-texto.js';
@@ -193,19 +194,52 @@ function textoNuevo(fila, nombreClan, admins) {
   );
 }
 
+/**
+ * Pregunta por un miembro nuevo. El aviso al GRUPO es el que importa: si
+ * el bot de Valquiria no puede mandarlo, lo manda Heraldo antes que dejar
+ * la entrada sin avisar.
+ *
+ * Esto estuvo roto del 14 sep al 3 oct 2026: entraron 30 personas y no
+ * avisó ni una vez, y no había forma de saber por qué porque el fallo se
+ * tragaba en silencio. Ahora el motivo se apunta en la fila y en el log.
+ */
+// Lo ultimo que fallo al avisar, para que salga en el detalle del job y se
+// vea desde el panel sin tener que abrir los logs de GitHub.
+let ultimoFalloAviso = null;
+
 async function preguntarPorNuevo(fila, nombreClan, admins) {
   const texto = textoNuevo(fila, nombreClan, admins);
   const avisos = [];
-  const enGrupo = await tg(VALQUIRIA, 'sendMessage', { chat_id: GRUPO, text: texto, parse_mode: 'HTML', reply_markup: botonesDe(fila.id) });
-  if (enGrupo.ok) avisos.push({ chat_id: Number(GRUPO), message_id: enGrupo.result.message_id });
-  // Y en privado, a los que la tengan abierta (a los demas Telegram no deja).
-  for (const u of admins) {
-    const r = await tg(VALQUIRIA, 'sendMessage', { chat_id: u.id, text: texto, parse_mode: 'HTML', reply_markup: botonesDe(fila.id) });
-    if (r.ok) avisos.push({ chat_id: u.id, message_id: r.result.message_id });
+  const fallos = [];
+  const mandar = (token, chat) => tg(token, 'sendMessage', { chat_id: chat, text: texto, parse_mode: 'HTML', reply_markup: botonesDe(fila.id) });
+
+  let enGrupo = await mandar(VALQUIRIA, GRUPO);
+  if (!enGrupo.ok) {
+    fallos.push(`valquiria→grupo: ${enGrupo.description ?? 'sin motivo'}`);
+    if (VALQUIRIA !== HERALDO) {
+      enGrupo = await mandar(HERALDO, GRUPO);
+      if (!enGrupo.ok) fallos.push(`heraldo→grupo: ${enGrupo.description ?? 'sin motivo'}`);
+    }
   }
-  await db.from('miembros_vistos').update({ avisos }).eq('id', fila.id);
+  if (enGrupo.ok) avisos.push({ chat_id: Number(GRUPO), message_id: enGrupo.result.message_id });
+
+  // Y en privado, a los que la tengan abierta (a los demas Telegram no deja,
+  // y eso no es un fallo que valga la pena apuntar).
+  const porPrivado = enGrupo.ok && avisos.length ? (VALQUIRIA === HERALDO || !fallos.length ? VALQUIRIA : HERALDO) : null;
+  if (porPrivado) {
+    for (const u of admins) {
+      const r = await mandar(porPrivado, u.id);
+      if (r.ok) avisos.push({ chat_id: u.id, message_id: r.result.message_id });
+    }
+  }
+
+  const { error } = await db.from('miembros_vistos').update({ avisos }).eq('id', fila.id);
+  if (error) fallos.push(`guardar avisos: ${error.message}`);
+  if (fallos.length) console.error(`  [nuevo ${fila.nombre}] ${fallos.join(' · ')}`);
+  ultimoFalloAviso = fallos.length ? fallos.join(' · ') : null;
   return avisos.length;
 }
+
 
 async function vigilarMiembros(lista) {
   let preguntas = 0;
@@ -316,10 +350,63 @@ async function vigilarDirectos() {
   return avisos;
 }
 
+// ------------------------------------------------- 4. Inscripcion de la liga
+
+const AVISO_LIGA_H = 4; // cada cuanto se pregunta mientras este abierta
+
+/**
+ * Mientras la inscripcion de la Liga de Guerra este abierta (del 1 a las
+ * 08:00 UTC al 3 a la misma hora), Heraldo pregunta cada 4 horas si ya la
+ * mandaron. En octubre de 2026 tres clanes se quedaron fuera por creer que
+ * habia hasta el dia 3 entero.
+ */
+async function avisarInscripcionLiga(lista) {
+  const ahora = new Date();
+  if (!inscripcionAbierta(ahora)) return 0;
+
+  // Cada cuatro horas como mucho, y una vez por temporada el ultimo aviso.
+  const mes = temporadaActual();
+  const { data: fila } = await db.from('config').select('valor').eq('clave', 'liga_aviso_en').maybeSingle();
+  const ultimo = fila?.valor ? new Date(fila.valor) : null;
+  if (ultimo && (ahora - ultimo) / 3600000 < AVISO_LIGA_H) return 0;
+
+  const sinInscribir = [];
+  for (const c of lista) {
+    const grupo = await opcional(getLeagueGroup(c.clan_tag));
+    if (!estaInscrito(grupo)) sinInscribir.push(c.nombre ?? c.clan_tag);
+  }
+  if (!sinInscribir.length) {
+    console.log('liga: todos los clanes inscritos, no hay nada que recordar');
+    return 0;
+  }
+
+  const r = await tg(HERALDO, 'sendMessage', {
+    chat_id: GRUPO,
+    text: textoInscripcion(sinInscribir, horasParaCerrar(ahora)),
+    parse_mode: 'HTML',
+    link_preview_options: { is_disabled: true },
+  });
+  if (!r.ok) {
+    console.error(`liga: no pude avisar (${r.description})`);
+    return 0;
+  }
+  await db.from('config').upsert(
+    { clave: 'liga_aviso_en', valor: ahora.toISOString(), descripcion: `Último recordatorio de inscribirse en la liga (${mes})` },
+    { onConflict: 'clave' }
+  );
+  console.log(`liga: recordado (${sinInscribir.length} sin inscribir)`);
+  return 1;
+}
+
 // ---------------------------------------------------------------- El job
 
 await correrJob('pulso', async () => {
   GRUPO = await grupoTelegram();
+  // Que los tokens sirvan de verdad: un secreto mal pegado en GitHub daba
+  // un bot mudo sin un solo error a la vista.
+  const quienEs = async (token) => (token ? (await tg(token, 'getMe', {})).result?.username ?? 'TOKEN MALO' : 'sin token');
+  const bots = { heraldo: await quienEs(HERALDO), valquiria: await quienEs(process.env.RECLUTA_BOT_TOKEN) };
+  console.log(`bots: heraldo=${bots.heraldo} valquiria=${bots.valquiria}`);
   const lista = await clanes();
   const avisos = await avisarGuerras(lista);
   console.log(`guerras por empezar: ${avisos} aviso(s)`);
@@ -335,5 +422,11 @@ await correrJob('pulso', async () => {
     console.log(`directos de YouTube: ${e.message}`);
   }
   console.log(`directos que empezaron: ${directos} aviso(s)`);
-  return { filas: avisos + preguntas + directos, detalle: { avisos, preguntas, directos } };
+  let liga = 0;
+  try {
+    liga = await avisarInscripcionLiga(lista);
+  } catch (e) {
+    console.log(`inscripción de liga: ${e.message}`);
+  }
+  return { filas: avisos + preguntas + directos + liga, detalle: { avisos, preguntas, directos, liga, bots, falloAviso: ultimoFalloAviso } };
 });

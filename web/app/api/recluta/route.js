@@ -98,7 +98,7 @@ async function atender(update) {
     const cq = update.callback_query;
     try {
       if (String(cq.data ?? '').startsWith('nm:')) await atenderBotonNuevo(admin, TOKEN, cq);
-      else if (String(cq.data ?? '').startsWith('tr:')) await atenderBotonTraducir(TOKEN, cq, (t) => traducir(admin, t));
+      else if (String(cq.data ?? '').startsWith('tr:')) await atenderBotonTraducir(TOKEN, cq, (t, idioma) => traducir(admin, t, idioma));
       else await atenderBoton(admin, TOKEN, cq, 'recluta');
     } catch (e) {
       console.error(`[boton] ${e.message}`);

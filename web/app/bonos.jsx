@@ -19,6 +19,11 @@ import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../lib/retos';
 
 const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
 
+const mesAnterior = (mes) => {
+  const [a, m] = mes.split('-').map(Number);
+  return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`;
+};
+
 const mesSiguiente = (mes) => {
   const [a, m] = mes.split('-').map(Number);
   const d = new Date(Date.UTC(a, m, 1));
@@ -314,11 +319,23 @@ export default function Bonos({ d, demo = false, recargar }) {
   return (
     <>
       <div className="filtros" style={{ marginTop: 14 }}>
+        {/* El mes pasado hace falta: sus premios se pagan a mediados de
+            este, y hasta el 3 oct 2026 el selector no lo ofrecía y parecía
+            que el OS los había borrado. Y cualquier mes que tenga premios
+            guardados, para no perder el historial. */}
         <select className="campo campo-corto" value={mes} onChange={(e) => setMes(e.target.value)}>
-          <option value={d.temporada}>Este mes ({d.temporada})</option>
+          <option value={mesAnterior(d.temporada)}>{t('Mes pasado')} ({mesAnterior(d.temporada)})</option>
+          <option value={d.temporada}>{t('Este mes')} ({d.temporada})</option>
           <option value={mesSiguiente(d.temporada)}>
-            Próximo mes ({mesSiguiente(d.temporada)})
+            {t('Próximo mes')} ({mesSiguiente(d.temporada)})
           </option>
+          {[...new Set((d.premiosPlan ?? []).map((p) => p.mes))]
+            .filter((m) => ![mesAnterior(d.temporada), d.temporada, mesSiguiente(d.temporada)].includes(m))
+            .sort()
+            .reverse()
+            .map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
         </select>
         <span style={{ flex: 1 }} />
         <button className="fantasma" onClick={agregar}>+ {t('Premio')}</button>

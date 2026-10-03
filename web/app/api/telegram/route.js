@@ -12,6 +12,7 @@ import { after } from 'next/server';
 import { admin } from '../../../lib/supabase-admin';
 import { yaVisto, esViejo } from '../../../lib/webhook';
 import { markupTraducir, atenderBotonTraducir } from '../../../lib/traducir';
+import { TEXTO_IDIOMA, botonesIdioma, idiomaDelDato, guardarIdioma, idiomaDe, enSuIdioma, IDIOMAS } from '../../../lib/idioma-usuario';
 import { traducir } from '../../../lib/pensar';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 import { flujoSolicitud, decirCon, escribiendo, esAdminDelGrupo, atenderBoton } from '../../../lib/solicitud';
@@ -262,8 +263,17 @@ async function atenderCallback(cq) {
     await atenderBotonBase(cq);
   } else if (String(cq.data ?? '').startsWith('nm:')) {
     await atenderBotonNuevo(admin, TOKEN, cq);
+  } else if (String(cq.data ?? '').startsWith('idi:')) {
+    const codigo = idiomaDelDato(cq.data);
+    const texto = codigo ? await guardarIdioma(admin, cq.from.id, codigo) : null;
+    await fetch(`https://api.telegram.org/bot${TOKEN}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: cq.id, text: texto ?? 'No pude guardarlo.' }),
+    });
+    if (texto && cq.message) await responder(cq.message.chat.id, texto);
   } else if (String(cq.data ?? '').startsWith('tr:')) {
-    await atenderBotonTraducir(TOKEN, cq, (t) => traducir(admin, t));
+    await atenderBotonTraducir(TOKEN, cq, (t, idioma) => traducir(admin, t, idioma));
   } else if (String(cq.data ?? '').startsWith('asg:')) {
     const tg = (metodo, cuerpo) =>
       fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
@@ -490,12 +500,31 @@ async function atenderMensaje(request, update, msg, chatId, texto) {
     // null = el comando ya contesto por su cuenta (el castillo, que
     // necesita el id del mensaje que manda).
     const r = await ejecutar(comando, arg, quien, chatId, msg);
-    if (r !== null) await responder(chatId, r);
+    // En privado, en el idioma que eligió esa persona con /idioma. En el
+    // grupo no: los botones de traducir son para todos (idioma-usuario.js).
+    if (r !== null) await responder(chatId, esPrivado(msg) ? await traducirSiHaceFalta(r, quien.id) : r);
   } catch (e) {
     await responder(chatId, `⚠️ Error: <code>${esc(e.message)}</code>`);
   }
 
   return Response.json({ ok: true });
+}
+
+/** El chat es privado (no el grupo). */
+const esPrivado = (msg) => msg?.chat?.type === 'private';
+
+/**
+ * Lo que va a contestar el bot, en el idioma de quien pregunta. Solo toca
+ * el texto: un {foto, pie} o {texto, botones} se traducen por dentro.
+ */
+async function traducirSiHaceFalta(r, tgId) {
+  const codigo = await idiomaDe(admin, tgId);
+  if (codigo === 'es') return r;
+  const tr = (t, idioma) => traducir(admin, t, idioma);
+  if (typeof r === 'string') return await enSuIdioma(r, codigo, tr);
+  if (r && typeof r === 'object' && r.texto) return { ...r, texto: await enSuIdioma(r.texto, codigo, tr) };
+  if (r && typeof r === 'object' && r.pie) return { ...r, pie: await enSuIdioma(r.pie, codigo, tr) };
+  return r;
 }
 
 /**
@@ -672,6 +701,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini (una cada 3 días)\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
         `/juegos — los Juegos del Clan: manda la captura y suma puntos\n` +
+        `/idioma — en qué idioma te contesto por privado (ES · EN · FIL)\n` +
         `/puntos — la tabla de puntos del mes\n\n` +
         `<b>Con foto</b> (el comando va en el pie de la captura):\n` +
         `/castillo + captura del mapa de guerra → +5 si el castillo de abajo está lleno\n` +
@@ -700,6 +730,18 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       const idMensaje = await responder(chatId, r.texto);
       if (!r.existente) await recordarMensaje(admin, r.id, idMensaje);
       return null;
+    }
+
+    // El idioma de cada quien, para lo que se le conteste en privado.
+    case 'idioma':
+    case 'language':
+    case 'lang': {
+      const codigo = String(arg ?? '').trim().toLowerCase();
+      if (IDIOMAS[codigo]) {
+        const r = await guardarIdioma(admin, quien.id, codigo);
+        return r ?? 'No pude guardarlo, dile a un líder.';
+      }
+      return { texto: TEXTO_IDIOMA, botones: botonesIdioma().inline_keyboard };
     }
 
     // "/juegos" sin foto. Con foto no llega aqui: el pie lo atiende fotos.js.
@@ -1055,16 +1097,43 @@ async function cmdEstrellas() {
  * "¿Cuáles son los premios de esta temporada?" se contesta con esto, no
  * mandando a nadie a /reporte.
  */
+/**
+ * Los premios. Si los de este mes todavía no están armados, se enseñan los
+ * del mes pasado: son los que se están pagando ahora (se reparten a
+ * mediados del mes siguiente) y es lo que la gente quiere ver. Lo pidió
+ * Cris el 3 oct 2026: antes contestaba "todavía no publicaron los premios"
+ * y dejaba a todo el mundo sin saber qué se juega.
+ */
 async function cmdPremios() {
   const mes = temporadaActual();
-  const { data: premios } = await admin.from('premios_plan').select('titulo, criterio, monto_usd, tipo').eq('mes', mes).eq('activo', true).order('orden');
-  if (!premios?.length) return `Los líderes todavía no publicaron los premios de ${mes}.`;
+  const [a, m] = mes.split('-').map(Number);
+  const anterior = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`;
   const TIPOS = { efectivo: null, pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
-  const lineas = premios.map((p) => {
-    const premio = p.tipo === 'efectivo' || !TIPOS[p.tipo] ? `$${Number(p.monto_usd)}` : TIPOS[p.tipo];
-    return `• <b>${esc(p.titulo)}</b> — ${premio}${p.criterio ? `\n   <i>${esc(p.criterio)}</i>` : ''}`;
-  });
-  return `🏆 <b>PREMIOS DE ${mes}</b> · ${premios.length}\n\n${lineas.join('\n')}\n\nSe entregan al cerrar el mes. Cómo vas tú: /cobro.`;
+  const leer = async (cual) => {
+    const { data } = await admin.from('premios_plan').select('titulo, criterio, monto_usd, tipo').eq('mes', cual).eq('activo', true).order('orden');
+    return data ?? [];
+  };
+  const lista = (premios) =>
+    premios
+      .map((p) => {
+        const premio = p.tipo === 'efectivo' || !TIPOS[p.tipo] ? `$${Number(p.monto_usd)}` : TIPOS[p.tipo];
+        return `• <b>${esc(p.titulo)}</b> — ${premio}${p.criterio ? `\n   <i>${esc(p.criterio)}</i>` : ''}`;
+      })
+      .join('\n');
+
+  const deEsteMes = await leer(mes);
+  if (deEsteMes.length) {
+    return `🏆 <b>PREMIOS DE ${mes}</b> · ${deEsteMes.length}\n\n${lista(deEsteMes)}\n\nSe entregan al cerrar el mes. Cómo vas tú: /cobro.`;
+  }
+  const delPasado = await leer(anterior);
+  if (delPasado.length) {
+    return (
+      `🏆 <b>PREMIOS DE ${anterior}</b> · ${delPasado.length}\n\n${lista(delPasado)}\n\n` +
+      `Esos son los del mes pasado, que son los que se están pagando ahora (se reparten a mediados de ${mes}).\n` +
+      `Los de <b>${mes}</b> todavía están en revisión: los líderes los publican en cuanto estén. Cómo vas tú: /cobro.`
+    );
+  }
+  return `Los líderes todavía no publicaron los premios de ${mes}.`;
 }
 
 async function cmdJugador(arg) {
@@ -1131,7 +1200,7 @@ const CADA_DIAS = 3;
 // dia que llega.
 const CUPO_GRUPO = 10;
 /** Lo que un miembro puede pedirle a Heraldo en privado. */
-const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'contacto', 'contactos', 'lideres', 'puntos', 'juegos', 'juegosdelclan', 'juegosdeclan', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen', 'sistema']);
+const EN_PRIVADO = new Set(['base', 'bases', 'yo', 'mislastats', 'miclan', 'cobro', 'guerra', 'faltan', 'estrellas', 'premios', 'bonus', 'bonos', 'contacto', 'contactos', 'lideres', 'puntos', 'juegos', 'juegosdelclan', 'juegosdeclan', 'idioma', 'language', 'lang', 'soy', 'asignar', 'asigna', 'ayuda', 'help', 'start', 'reglas', 'resumen', 'sistema']);
 
 /** El dia de hoy en Cuba, que es donde vive la gente que pide. */
 const diaCuba = () =>

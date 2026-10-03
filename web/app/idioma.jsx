@@ -144,6 +144,10 @@ export const EN = {
   'Elige primero al jugador que se lo ganó.': 'Pick the player who won it first.',
   'Ese premio no tiene título todavía.': 'That prize has no title yet.',
   'Mensaje listo en la pestaña Mensajes para': 'Message ready in the Messages tab for',
+  // ---- Bonos y premios ----
+  'Mes pasado': 'Last month',
+  'Este mes': 'This month',
+  'Próximo mes': 'Next month',
   // ---- Reclutamiento (Facebook + buzon de la Pagina + solicitudes) ----
   'Reclutamiento': 'Recruiting',
   'Facebook': 'Facebook',

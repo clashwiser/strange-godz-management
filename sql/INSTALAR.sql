@@ -3,7 +3,7 @@
 --  INSTALACION COMPLETA EN UN SOLO PASO
 --
 --  Pegar TODO este archivo en el SQL Editor de Supabase y darle Run.
---  Es la union de los 38 archivos de sql/ en el orden correcto; el orden
+--  Es la union de los 39 archivos de sql/ en el orden correcto; el orden
 --  importa porque cada uno se apoya en tablas del anterior.
 --
 --  Se puede correr dos veces sin romper nada: todo va con
@@ -2348,3 +2348,25 @@ create policy "lideres leen fb_candidatos" on fb_candidatos for select using (es
 drop policy if exists "editores cierran fb_candidatos" on fb_candidatos;
 create policy "editores cierran fb_candidatos" on fb_candidatos for update using (puede_editar()) with check (puede_editar());
 -- Escribe la tarea diaria (service_role).
+
+
+-- ####################################################################
+-- ##  039_idioma_usuario.sql
+-- ####################################################################
+
+-- =====================================================================
+-- El idioma de cada quien. Ejecutar DESPUES de 038_fb_candidatos.sql
+-- =====================================================================
+--
+-- Entró Queen, de Filipinas, con un inglés básico (3 oct 2026). Los
+-- botones de traducir de los mensajes del grupo son los mismos para todos
+-- (Telegram no personaliza los botones por usuario), así que lo que sí se
+-- puede hacer por persona es esto: que diga en qué idioma quiere que el
+-- bot le hable EN PRIVADO, con /idioma.
+--
+-- 'es' es el de la casa y no gasta nada; cualquier otro hace que la
+-- respuesta pase por el traductor de la IA antes de salir.
+
+alter table tg_usuarios add column if not exists idioma text;
+
+comment on column tg_usuarios.idioma is 'Idioma para las respuestas en privado: es (por defecto), en, fil. Lo elige cada uno con /idioma.';

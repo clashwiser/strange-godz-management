@@ -53,7 +53,32 @@ const BOTS = {
       { command: 'fc', description: 'Con la captura del chat: 5 desafíos amistosos de 2⭐ o más (+puntos)' },
       { command: 'juegos', description: 'Con la captura de los Juegos del Clan: 4000 = +20, 10000 = +50' },
       { command: 'puntos', description: 'La tabla de puntos del mes' },
+      { command: 'idioma', description: 'En qué idioma te contesto por privado (ES · EN · FIL)' },
       { command: 'ayuda', description: 'Todo lo que sabe hacer' },
+    ],
+    // El mismo menu en ingles. Telegram se lo enseña a quien tenga la app
+    // en ingles, sin que esa persona haga nada (setMyCommands acepta
+    // language_code). Lo pidio Cris el 3 oct 2026, con Queen en el clan.
+    comandosEn: [
+      { command: 'yo', description: 'Your stars and attacks in this CWL' },
+      { command: 'miclan', description: 'Which clan you play this CWL in' },
+      { command: 'cobro', description: 'Where you stand in the prize split' },
+      { command: 'base', description: 'A base from the pack, in private (one every 3 days per account)' },
+      { command: 'guerra', description: 'Which clans are at war right now and how long is left' },
+      { command: 'faltan', description: "Who hasn't attacked in the current war" },
+      { command: 'premios', description: "This month's prizes" },
+      { command: 'contacto', description: 'The leaders\' Telegram and WhatsApp' },
+      { command: 'asignar', description: '(leaders) Say who someone is: reply to them and /asignar Name' },
+      { command: 'estrellas', description: 'War stars table for the season' },
+      { command: 'resumen', description: 'How the clans are doing' },
+      { command: 'soy', description: 'Who you are in game: pick from the list, or /soy Name, or /soy #YourTag' },
+      { command: 'reglas', description: 'The clan rules' },
+      { command: 'castillo', description: 'With the war map screenshot: your donated castle (+points)' },
+      { command: 'fc', description: 'With the chat screenshot: 5 friendly challenges with 2⭐ or more (+points)' },
+      { command: 'juegos', description: 'With the Clan Games screenshot: 4000 = +20, 10000 = +50' },
+      { command: 'puntos', description: "This month's points table" },
+      { command: 'idioma', description: 'Pick the language I answer you in, in private (ES · EN · FIL)' },
+      { command: 'ayuda', description: 'Everything I can do' },
     ],
   },
   recluta: {
@@ -144,8 +169,15 @@ export async function POST(request) {
   }
 
   if (accion === 'comandos') {
+    // El menu por defecto (español) y, aparte, el de quien tenga la app en
+    // ingles. Telegram elige solo por el idioma de cada cliente.
     const r = await tg(b.token, 'setMyCommands', { commands: b.comandos });
-    return Response.json({ ok: r.ok, error: r.ok ? null : r.description, cuantos: b.comandos.length });
+    let idiomas = 1;
+    if (r.ok && b.comandosEn?.length) {
+      const en = await tg(b.token, 'setMyCommands', { commands: b.comandosEn, language_code: 'en' });
+      if (en.ok) idiomas += 1;
+    }
+    return Response.json({ ok: r.ok, error: r.ok ? null : r.description, cuantos: b.comandos.length, idiomas });
   }
 
   return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });
