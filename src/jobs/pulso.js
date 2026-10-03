@@ -241,9 +241,29 @@ async function preguntarPorNuevo(fila, nombreClan, admins) {
 }
 
 
+/**
+ * Quien NO es nuevo para la alianza: cualquiera que ya se haya visto en
+ * CUALQUIERA de nuestros clanes, ahora o antes.
+ *
+ * Esto es lo que pidio Cris desde el principio y conviene no perderlo: el
+ * aviso es para jugadores NUEVOS, no para los de siempre. Los nuestros
+ * entran y salen todo el tiempo -se van a visitar a un amigo, o a otro de
+ * nuestros clanes a hacer CWL- y pitar cada vez que vuelve uno seria
+ * ruido. Mirando los cinco clanes a la vez, mudarse de x300 a Cuban
+ * Pirates tampoco dispara nada.
+ */
+async function conocidosDeLaAlianza() {
+  const [vistos, membresias] = await Promise.all([
+    db.from('miembros_vistos').select('player_tag'),
+    db.from('memberships').select('player_tag'),
+  ]);
+  return new Set([...(vistos.data ?? []), ...(membresias.data ?? [])].map((x) => x.player_tag).filter(Boolean));
+}
+
 async function vigilarMiembros(lista) {
   let preguntas = 0;
   const admins = await lideres();
+  const conocidos = await conocidosDeLaAlianza();
   for (const c of lista) {
     const clan = await opcional(getClan(c.clan_tag));
     if (!clan?.memberList) continue;
@@ -267,12 +287,10 @@ async function vigilarMiembros(lista) {
       continue;
     }
 
-    // Los que ya estuvieron en el clan (membresias) vuelven, no son nuevos.
-    const { data: membresias } = await db.from('memberships').select('player_tag').eq('clan_tag', c.clan_tag).in('player_tag', nuevos.map((m) => m.tag));
-    const yaEstuvo = new Set((membresias ?? []).map((m) => m.player_tag));
-
     for (const m of nuevos) {
-      const estado = yaEstuvo.has(m.tag) ? 'conocido' : 'pendiente';
+      // Conocido en cualquiera de nuestros clanes: se apunta y ya, sin
+      // preguntar. Solo se pregunta por caras nuevas de verdad.
+      const estado = conocidos.has(m.tag) ? 'conocido' : 'pendiente';
       const { data: fila, error } = await db
         .from('miembros_vistos')
         .upsert({ player_tag: m.tag, clan_tag: c.clan_tag, nombre: m.name, th: m.townHallLevel ?? null, estado }, { onConflict: 'player_tag,clan_tag', ignoreDuplicates: true })
