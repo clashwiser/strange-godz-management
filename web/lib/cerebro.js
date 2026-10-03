@@ -14,6 +14,7 @@
 import { glosarioJuego, reglasDelClan } from './entrenamiento.js';
 import { MODELOS_VISION } from './vision.js';
 import { saludDelBot } from './bots-salud.js';
+import { repartirOutbox } from './outbox-tipos.js';
 
 const BASE_COC = process.env.COC_BASE_URL || 'https://cocproxy.royaleapi.dev/v1';
 
@@ -99,7 +100,7 @@ export async function medirSalud(admin) {
         admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'),
         admin.from('castillos').select('verificado').eq('temporada', mes),
         admin.from('retos').select('verificado').eq('temporada', mes),
-        admin.from('outbox').select('*', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+        admin.from('outbox').select('tipo, estado').eq('estado', 'pendiente'),
         admin.from('bases').select('*', { count: 'exact', head: true }),
         admin.from('solicitudes').select('estado'),
         admin.from('ia_uso').select('llamadas, fallos').eq('dia', hoy).maybeSingle(),
@@ -147,7 +148,7 @@ export async function medirSalud(admin) {
           castillosPendientes: (cast.data ?? []).filter((c) => !c.verificado).length,
           retos: (ret.data ?? []).filter((r) => r.verificado).length,
         },
-        outbox: out.count ?? 0,
+        outbox: repartirOutbox(out.data),
         interruptores: { ia: config.ia_activa !== false, telegram: config.telegram_activo !== false },
         cuota: { hoy: uso.data?.llamadas ?? 0, fallos: uso.data?.fallos ?? 0, tope: Number(process.env.IA_TOPE_DIA) || 300 },
         bitacora: bit.data ?? [],
@@ -189,17 +190,32 @@ export async function medirSalud(admin) {
   const fallados = (d?.jobs ?? []).filter((j) => j.ok === false);
   const jobsMal = fallados.filter((j) => j.anteriorOk === false || (j.hace != null && j.hace <= 3));
   const tropiezos = fallados.filter((j) => !jobsMal.includes(j));
+  // Si los jobs cayeron por la API de Clash (el proxy de RoyaleAPI se cae
+  // con 520/525 de vez en cuando), se dice: asi nadie busca el fallo en
+  // nuestro codigo. Paso el 2 oct 2026 con tres jobs a la vez.
+  const porClash = jobsMal.filter((j) => /CoC API|clashofclans|royaleapi|5(2[05]|00)\b/i.test(String(j.error ?? ''))).length;
   const detJobs = !d
     ? datos.error
     : jobsMal.length
-      ? `${jobsMal.length} con error: ${jobsMal.map((j) => j.job).join(', ')}`
+      ? `${jobsMal.length} con error: ${jobsMal.map((j) => j.job).join(', ')}` +
+        (porClash ? ` (${porClash === jobsMal.length ? 'todos' : porClash} por la caída de la API de Clash)` : '')
       : tropiezos.length
         ? `${d.jobs.length} jobs · ${tropiezos.map((j) => `${j.job} tropezó ${hace(j.hace)}`).join(', ')} (reintenta solo)`
         : `${d.jobs.length} jobs, todos bien`;
   pon('jobs', 'Jobs (GitHub Actions)', d && jobsMal.length === 0, detJobs, 'los robots de fondo: sincronizar, avisar, cerrar el mes', 15);
   pon('snapshot', 'Datos de los jugadores', d?.snapshot?.hace != null && d.snapshot.hace <= 36, d?.snapshot?.fecha ? `último snapshot ${d.snapshot.fecha}` : 'sin snapshots', d?.snapshot?.hace != null ? `hace ${d.snapshot.hace} h` : '', 10);
   pon('meta', 'Digesto del meta', d?.meta?.hace != null && d.meta.hace <= 72, d?.meta ? `${d.meta.videos ?? '?'} videos · ${d.meta.articulos ?? '?'} artículos` : 'sin digesto', d?.meta?.hace != null ? `hace ${d.meta.hace} h` : '', 5);
-  pon('outbox', 'Bandeja de salida', d && (d.outbox ?? 0) < 10, `${d?.outbox ?? '?'} pendientes`, 'avisos por mandar', 5);
+  // Lo que espera a que un lider lo apruebe NO es una averia (puede estar
+  // ahi semanas y es lo normal); lo que tenia que salir solo y no salio, si.
+  const ob = d?.outbox ?? { porAprobar: 0, atascados: 0, total: 0 };
+  const detOutbox = !d
+    ? '?'
+    : ob.atascados
+      ? `${ob.atascados} sin salir` + (ob.porAprobar ? ` · ${ob.porAprobar} esperando a un líder` : '')
+      : ob.porAprobar
+        ? `${ob.porAprobar} esperando a un líder`
+        : 'vacía';
+  pon('outbox', 'Bandeja de salida', d && ob.atascados < 5, detOutbox, 'avisos por mandar', 5);
   if (d) pon('cuota', 'Cuota de IA hoy', d.cuota.hoy < d.cuota.tope * 0.9, `${d.cuota.hoy} / ${d.cuota.tope} llamadas`, `${d.cuota.fallos} fallos`, 0);
 
   const total = piezas.reduce((s, p) => s + p.peso, 0);

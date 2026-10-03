@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, configurado, hayHuella } from '../lib/supabase';
+import { POR_APROBAR, NOMBRE_TIPO } from '../lib/outbox-tipos';
 import Alineacion from './alineacion';
 import SelectorTema, { Mascota } from './temas';
 import Clanes from './clanes';
@@ -850,18 +851,8 @@ export function Jugadores({ d, recargar }) {
 // apruebe y lo mande; lo que escriben los robots (avisos de guerra y CWL,
 // el parte diario, los videos) sale solo por Heraldo y aqui queda como
 // historial. Mezclados, nadie sabia que era que.
-const POR_APROBAR = new Set(['alineacion_cwl', 'premios_del_mes', 'felicitacion', 'reglas']);
-const NOMBRE_TIPO = {
-  alineacion_cwl: 'Lista CWL',
-  premios_del_mes: 'Premios del mes',
-  felicitacion: 'Felicitación',
-  reglas: 'Normas',
-  alerta_cwl: 'Aviso de CWL',
-  alerta_guerra: 'Aviso de guerra',
-  cwl_heraldo: 'Parte de CWL',
-  youtube: 'Video de YouTube',
-  medallas_cwl: 'Medallas de CWL',
-};
+// Las dos bandejas viven en web/lib/outbox-tipos.js: el Cerebro usa la
+// misma lista para no contar como avería lo que solo espera a un líder.
 
 export function Mensajes({ d, recargar }) {
   const t = useT();
