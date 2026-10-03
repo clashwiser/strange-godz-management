@@ -13,6 +13,7 @@ import { admin } from '../../../lib/supabase-admin';
 import { yaVisto, esViejo } from '../../../lib/webhook';
 import { markupTraducir, atenderBotonTraducir } from '../../../lib/traducir';
 import { TEXTO_IDIOMA, botonesIdioma, idiomaDelDato, guardarIdioma, idiomaDe, enSuIdioma, IDIOMAS } from '../../../lib/idioma-usuario';
+import { DATO_LANZADO } from '../../../../src/lib/liga-inscripcion.js';
 import { traducir } from '../../../lib/pensar';
 import { charlar, cierreBase, bienvenida } from '../../../lib/charla';
 import { flujoSolicitud, decirCon, escribiendo, esAdminDelGrupo, atenderBoton } from '../../../lib/solicitud';
@@ -263,6 +264,33 @@ async function atenderCallback(cq) {
     await atenderBotonBase(cq);
   } else if (String(cq.data ?? '').startsWith('nm:')) {
     await atenderBotonNuevo(admin, TOKEN, cq);
+  } else if (cq.data === DATO_LANZADO) {
+    // "Ya lanzamos": calla el recordatorio de la liga hasta el mes que
+    // viene. Solo lideres: es decir por todo el clan que ya esta hecho.
+    const api = (metodo, cuerpo) =>
+      fetch(`https://api.telegram.org/bot${TOKEN}/${metodo}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo),
+      }).then((r) => r.json());
+    if (!(await esAdminDelGrupo(cq.from.id))) {
+      await api('answerCallbackQuery', { callback_query_id: cq.id, text: 'Eso lo dicen los líderes.', show_alert: true });
+    } else {
+      const mes = temporadaActual();
+      const quien = esc([cq.from.first_name, cq.from.last_name].filter(Boolean).join(' ') || cq.from.username || 'un líder');
+      const { error } = await admin
+        .from('config')
+        .upsert({ clave: 'liga_lanzado', valor: mes, descripcion: 'La temporada en la que un líder dijo que ya lanzaron la liga' }, { onConflict: 'clave' });
+      await api('answerCallbackQuery', { callback_query_id: cq.id, text: error ? 'No pude guardarlo.' : 'Listo, no pregunto más este mes.' });
+      if (!error && cq.message) {
+        await api('editMessageText', {
+          chat_id: cq.message.chat.id,
+          message_id: cq.message.message_id,
+          text: `⚔️ <b>Liga lanzada</b>\n\n${quien} dice que ya está todo lo que se iba a lanzar este mes. No pregunto más hasta ${mes === '2026-12' ? 'enero' : 'el mes que viene'}.`,
+          parse_mode: 'HTML',
+        });
+      }
+    }
   } else if (String(cq.data ?? '').startsWith('idi:')) {
     const codigo = idiomaDelDato(cq.data);
     const texto = codigo ? await guardarIdioma(admin, cq.from.id, codigo) : null;

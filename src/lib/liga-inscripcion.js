@@ -9,6 +9,12 @@
 // El aviso es una pregunta, no una bronca: durante la ventana la API puede
 // decir que un clan no tiene grupo aunque ya se haya inscrito (el grupo no
 // se forma hasta que emparejan), así que no se puede afirmar nada.
+//
+// Y se calla de dos formas: sola, cuando cierra la inscripción, o porque
+// un líder toca "Ya lanzamos". Ese botón hace falta porque no todos los
+// meses se tira liga en los cinco clanes: en octubre de 2026 la idea era
+// tirarla solo en x300 y en ＳＴＲＡＮＧＥ-ＷＯＲＬＤ, así que avisar por los
+// otros tres sería dar la lata por gusto.
 
 /** Si ahora mismo se puede inscribir (día 1 08:00 UTC → día 3 08:00 UTC). */
 export function inscripcionAbierta(ahora = new Date()) {
@@ -38,6 +44,10 @@ export function estaInscrito(grupo) {
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/** El botón para que un líder calle el recordatorio del mes. */
+export const DATO_LANZADO = 'liga:lanzado';
+export const botonLanzado = () => ({ inline_keyboard: [[{ text: '✅ Ya lanzamos', callback_data: DATO_LANZADO }]] });
+
 /**
  * El mensaje al grupo. Lo escribió Cris: preguntar sin dar la lata, con el
  * dato que se les olvidó (son dos días, no hasta el día 3 entero).
@@ -59,6 +69,7 @@ export function textoInscripcion(sinInscribir, horas) {
     `⚔️ <b>¿Ya mandaron liga?</b>\n\n` +
     `No quiero ser un dolor de cabeza, pero recuerden que la inscripción de la Liga de Guerra dura <b>dos días</b>: ` +
     `abre el día 1 a las 8:00 UTC (4:00 AM en Cuba) y cierra el día 3 a la misma hora, no el día 3 entero.\n\n` +
-    `${quedan} para que cierre.${lista}\n\nSi no han lanzado, métanle mano.`
+    `${quedan} para que cierre.${lista}\n\nSi no han lanzado, métanle mano. ` +
+    `Si ya está todo lo que iban a lanzar este mes, un líder toca <b>Ya lanzamos</b> y no vuelvo a preguntar.`
   );
 }

@@ -29,7 +29,7 @@ import { getClan, getCurrentWar, getLeagueGroup, getLeagueWar, parseCocDate, opc
 import { clanes, grupoTelegram, temporadaActual } from '../lib/config.js';
 import { encolar, negrita } from '../lib/outbox.js';
 import { db, chk, correrJob } from '../lib/db.js';
-import { inscripcionAbierta, horasParaCerrar, estaInscrito, textoInscripcion } from '../lib/liga-inscripcion.js';
+import { inscripcionAbierta, horasParaCerrar, estaInscrito, textoInscripcion, botonLanzado } from '../lib/liga-inscripcion.js';
 import { textoFinGuerra } from '../lib/guerra-texto.js';
 import { miniaturasYoutube } from '../lib/telegram.js';
 import { textoYaEmpezo } from '../../web/lib/youtube-texto.js';
@@ -364,8 +364,16 @@ async function avisarInscripcionLiga(lista) {
   const ahora = new Date();
   if (!inscripcionAbierta(ahora)) return 0;
 
-  // Cada cuatro horas como mucho, y una vez por temporada el ultimo aviso.
   const mes = temporadaActual();
+  // Un lider ya dijo "ya lanzamos" este mes: callado hasta el que viene.
+  // No todos los meses se tira liga en los cinco clanes.
+  const { data: lanzado } = await db.from('config').select('valor').eq('clave', 'liga_lanzado').maybeSingle();
+  if (lanzado?.valor === mes) {
+    console.log('liga: un líder ya dijo que lanzaron este mes');
+    return 0;
+  }
+
+  // Cada cuatro horas como mucho.
   const { data: fila } = await db.from('config').select('valor').eq('clave', 'liga_aviso_en').maybeSingle();
   const ultimo = fila?.valor ? new Date(fila.valor) : null;
   if (ultimo && (ahora - ultimo) / 3600000 < AVISO_LIGA_H) return 0;
@@ -384,6 +392,7 @@ async function avisarInscripcionLiga(lista) {
     chat_id: GRUPO,
     text: textoInscripcion(sinInscribir, horasParaCerrar(ahora)),
     parse_mode: 'HTML',
+    reply_markup: botonLanzado(),
     link_preview_options: { is_disabled: true },
   });
   if (!r.ok) {
