@@ -2,7 +2,7 @@
 
 // Packs de bases. El PDF llega por DM del proveedor y se importa con
 //   npm run bases:importar "ruta/al.pdf" "Nombre del pack"
-// De ahi en adelante todo es automatico: nivel de TH y tipo (aldea o guerra)
+// De ahi en adelante todo es automatico: nivel de TH y tipo (CWL o guerra)
 // salen del propio enlace, no hay que etiquetar nada a mano.
 
 import { useEffect, useMemo, useState } from 'react';
@@ -10,7 +10,10 @@ import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 
 // Se traducen al pintar, no aqui: el mapa es de codigo de la API a texto.
-const TIPOS = { HV: 'Aldea', WB: 'Guerra' };
+// "Base de aldea" no es una cosa en este clan: estos packs son de CWL y
+// esas se usan en liga (lo corrigió Cris el 4 oct 2026). En el enlace del
+// juego la etiqueta sigue siendo HV/WB, que es lo que trae el PDF.
+const TIPOS = { HV: 'CWL', WB: 'Guerra' };
 
 export default function Bases({ d, demo = false, recargar }) {
   const t = useT();
@@ -240,9 +243,9 @@ export default function Bases({ d, demo = false, recargar }) {
           ))}
         </select>
         <select className="campo campo-corto" value={tipoSel} onChange={(e) => setTipoSel(e.target.value)}>
-          <option value="todos">{t('Aldea y guerra')}</option>
+          <option value="todos">{t('Guerra y CWL')}</option>
           <option value="WB">{t('Solo guerra')}</option>
-          <option value="HV">{t('Solo aldea')}</option>
+          <option value="HV">{t('Solo CWL')}</option>
         </select>
         <label className="fila-check" style={{ marginTop: 0 }}>
           <input type="checkbox" checked={soloLibres} onChange={(e) => setSoloLibres(e.target.checked)} />

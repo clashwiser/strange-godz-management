@@ -485,7 +485,8 @@ export const EN = {
   'Los enlaces van como anotaciones dentro del PDF, no como texto — por eso copiar y pegar el contenido no trae nada. El importador los lee y saca de cada uno el nivel de ayuntamiento y si es base de aldea o de guerra.':
     'The links live as annotations inside the PDF, not as text — that is why copying and pasting the content brings nothing. The importer reads them and pulls the town hall level and whether it is a home village or war base from each one.',
   'Todos los packs': 'All packs',
-  'Aldea y guerra': 'Home and war',
+  'Guerra y CWL': 'War and CWL',
+  'Solo CWL': 'CWL only',
   'Solo guerra': 'War only',
   'Solo aldea': 'Home only',
   'Solo sin asignar': 'Unassigned only',

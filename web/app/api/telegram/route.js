@@ -726,7 +726,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/soy — quién eres en el juego: solo te sale la lista para tocar tu nombre; o /soy TuNombre, o /soy #TuTag (una vez por cuenta)\n` +
         `/asignar — (líderes) contesta al mensaje de alguien y dime quién es: /asignar Nombre, /asignar #Tag, o a secas para elegir de la lista
 ` +
-        `/base [th] [guerra|cwl|aldea] — una base del pack, con su mini (una cada 3 días)\n` +
+        `/base [th] [guerra|cwl] — una base del pack, con su mini (una cada 3 días)\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
         `/juegos — los Juegos del Clan: manda la captura y suma puntos\n` +
         `/idioma — en qué idioma te contesto por privado (ES · EN · FIL)\n` +
@@ -1272,7 +1272,8 @@ async function cmdBase(arg, quien, chatId = null) {
   const suelto = /\b(\d{1,2})\b/.exec(texto);
   const candidato = Number(conPrefijo?.[1] ?? suelto?.[1]);
   const thPedido = candidato >= 6 && candidato <= 20 ? candidato : null;
-  const tipo = /guerra|war|cwl|wb/.test(texto) ? 'WB' : /aldea|home|hv/.test(texto) ? 'HV' : null;
+  // "cwl" y "liga" piden las HV (que es como se usan); "guerra", las WB.
+  const tipo = /\b(cwl|liga|hv)\b/.test(texto) ? 'HV' : /\b(guerra|war|wb)\b/.test(texto) ? 'WB' : /\b(aldea|home)\b/.test(texto) ? 'HV' : null;
 
   // Sus cuentas, con el ayuntamiento de cada una (del ultimo snapshot; si
   // no hay, del juego).
@@ -1288,7 +1289,7 @@ async function cmdBase(arg, quien, chatId = null) {
     else if (thPedido && cuentas.filter((c) => c.th === thPedido).length === 1) cuenta = cuentas.find((c) => c.th === thPedido);
     else {
       return {
-        texto: `¿Para cuál cuenta, ${esc(quien.nombre ?? 'mi hermano')}? Toca una${tipo ? ` (base de ${tipo === 'WB' ? 'guerra' : 'aldea'})` : ''}:`,
+        texto: `¿Para cuál cuenta, ${esc(quien.nombre ?? 'mi hermano')}? Toca una${tipo ? ` (base de ${nombreTipo(tipo)})` : ''}:`,
         botones: [
           ...cuentas.map((c) => [{ text: `${c.nombre}${c.th ? ` · TH${c.th}` : ''}`.slice(0, 40), callback_data: `base:${c.tag}:${tipo ?? '-'}:${quien.id}` }]),
           [{ text: '✖️ Cerrar', callback_data: `base:x:-:${quien.id}` }],
@@ -1323,6 +1324,14 @@ async function cuentasConTH(tgId) {
  * Elige la base, la anota y la manda en privado. Devuelve lo que se
  * contesta DONDE se pidio.
  */
+/**
+ * Como se llama cada tipo delante de la gente. En el enlace del juego la
+ * etiqueta es HV (home village) o WB (war base), pero "base de aldea" no
+ * es una cosa en este clan: estos packs son de CWL y esas se usan en liga.
+ * Lo corrigió Cris el 4 oct 2026. Cuando haya bases de leyenda, se añade.
+ */
+const nombreTipo = (tipo) => (tipo === 'WB' ? 'guerra' : 'CWL');
+
 async function darBase({ quien, chatId, cuenta, th, tipo }) {
   const hoy = diaCuba();
   const enPrivado = chatId != null && String(chatId) === String(quien.id);
@@ -1370,7 +1379,7 @@ async function darBase({ quien, chatId, cuenta, th, tipo }) {
   const todas = meses.length ? (todasLasBases ?? []).filter((b) => (mesDe.get(b.pack_id) ?? '') === meses[0]) : todasLasBases;
 
   if (!todas?.length) {
-    const filtro = [th ? `TH${th}` : null, tipo === 'WB' ? 'de guerra' : tipo === 'HV' ? 'de aldea' : null].filter(Boolean).join(' ');
+    const filtro = [th ? `TH${th}` : null, tipo ? `de ${nombreTipo(tipo)}` : null].filter(Boolean).join(' ');
     return `No tengo ninguna base ${esc(filtro)} en el pack.\nPrueba <code>/base</code> a secas.`;
   }
 
@@ -1384,7 +1393,7 @@ async function darBase({ quien, chatId, cuenta, th, tipo }) {
   const base = saco[Math.floor(Math.random() * saco.length)];
 
   const pie =
-    `🏰 <b>TH${base.th ?? '?'} · ${base.tipo === 'WB' ? 'guerra' : 'aldea'}</b>` +
+    `🏰 <b>TH${base.th ?? '?'} · ${nombreTipo(base.tipo)}</b>` +
     (cuenta ? ` · para ${quienEs}` : '') +
     (base.etiqueta ? ` · ${esc(base.etiqueta)}` : '') +
     (base.nota ? `\n\n🛡 <i>${esc(base.nota)}</i>` : '') +
@@ -1406,7 +1415,7 @@ async function darBase({ quien, chatId, cuenta, th, tipo }) {
   }
   await admin.from('base_pedidos').insert({ tg_user_id: quien.id, tg_nombre: quien.nombre ?? null, base_id: base.id, dia: hoy, player_tag: cuenta?.tag ?? null });
   if (enPrivado) return entrega;
-  return `📩 Te mandé por privado la base <b>TH${base.th ?? '?'} · ${base.tipo === 'WB' ? 'guerra' : 'aldea'}</b>${cuenta ? ` para ${quienEs}` : ''}. Móntala y no la compartas: el pack es pagado.`;
+  return `📩 Te mandé por privado la base <b>TH${base.th ?? '?'} · ${nombreTipo(base.tipo)}</b>${cuenta ? ` para ${quienEs}` : ''}. Móntala y no la compartas: el pack es pagado.`;
 }
 
 /** Un boton "base:<tag>:<tipo>:<uid>" tocado: la base para esa cuenta. */
