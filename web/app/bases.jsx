@@ -14,6 +14,20 @@ const TIPOS = { HV: 'Aldea', WB: 'Guerra' };
 
 export default function Bases({ d, demo = false, recargar }) {
   const t = useT();
+  // Los meses que hay, el más nuevo primero. Con 104 bases en 7 packs la
+  // lista de un solo golpe no se puede mirar: se entra por el mes (4 oct
+  // 2026, cuando Cris subió los packs de octubre).
+  const meses = useMemo(
+    () => [...new Set((d.basePacks ?? []).map((p) => p.mes).filter(Boolean))].sort().reverse(),
+    [d.basePacks]
+  );
+  const [mesSel, setMesSel] = useState(null);
+  // El mes más nuevo por defecto, y se recalcula si llega un pack nuevo.
+  const mes = mesSel && meses.includes(mesSel) ? mesSel : (meses[0] ?? null);
+  const packsDelMes = useMemo(
+    () => (d.basePacks ?? []).filter((p) => !mes || p.mes === mes),
+    [d.basePacks, mes]
+  );
   const [packSel, setPackSel] = useState('todos');
   const [tipoSel, setTipoSel] = useState('todos');
   const [soloLibres, setSoloLibres] = useState(false);
@@ -29,9 +43,11 @@ export default function Bases({ d, demo = false, recargar }) {
   );
 
   const filtradas = useMemo(() => {
+    const delMes = new Set(packsDelMes.map((p) => p.id));
     return (d.bases ?? [])
       .filter(
         (b) =>
+          delMes.has(b.pack_id) &&
           (packSel === 'todos' || String(b.pack_id) === packSel) &&
           (tipoSel === 'todos' || b.tipo === tipoSel) &&
           (!soloLibres || !b.asignada_a)
@@ -41,7 +57,7 @@ export default function Bases({ d, demo = false, recargar }) {
       // asi que estorban arriba. Dentro de cada grupo se respeta el orden
       // que trajo la consulta, que ya viene por TH descendente.
       .sort((a, b) => (b.preview ? 1 : 0) - (a.preview ? 1 : 0));
-  }, [d.bases, packSel, tipoSel, soloLibres]);
+  }, [d.bases, packsDelMes, packSel, tipoSel, soloLibres]);
 
   useEffect(() => {
     if (!ampliada) return;
@@ -195,10 +211,31 @@ export default function Bases({ d, demo = false, recargar }) {
       <h2 className="sec">{t('Bases')} · {filtradas.length} {t('de')} {d.bases.length}</h2>
       {msg && <p className="error">{msg}</p>}
 
+      {/* Una pestaña por mes: el más nuevo primero y abierto de entrada. */}
+      {meses.length > 1 && (
+        <div className="pestanas-mes" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          {meses.map((m) => {
+            const cuantas = (d.bases ?? []).filter((b) => (d.basePacks ?? []).some((p) => p.id === b.pack_id && p.mes === m)).length;
+            return (
+              <button
+                key={m}
+                className={m === mes ? 'accion' : 'fantasma'}
+                onClick={() => {
+                  setMesSel(m);
+                  setPackSel('todos');
+                }}
+              >
+                {m}{m === meses[0] ? ` · ${t('nuevo')}` : ''} ({cuantas})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="filtros">
         <select className="campo campo-corto" value={packSel} onChange={(e) => setPackSel(e.target.value)}>
-          <option value="todos">{t('Todos los packs')}</option>
-          {(d.basePacks ?? []).map((p) => (
+          <option value="todos">{t('Todos los packs')} · {mes ?? '—'}</option>
+          {packsDelMes.map((p) => (
             <option key={p.id} value={String(p.id)}>{p.nombre}</option>
           ))}
         </select>

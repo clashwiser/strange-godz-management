@@ -1355,11 +1355,20 @@ async function darBase({ quien, chatId, cuenta, th, tipo }) {
     );
   }
 
-  let qb = admin.from('bases').select('id, url, th, tipo, etiqueta, nota, preview');
+  let qb = admin.from('bases').select('id, url, th, tipo, etiqueta, nota, preview, pack_id');
   if (th) qb = qb.eq('th', th);
   if (tipo) qb = qb.eq('tipo', tipo);
-  const { data: todas, error } = await qb;
+  const { data: todasLasBases, error } = await qb;
   if (error) throw error;
+
+  // Siempre del pack más nuevo que tenga algo que sirva: lo pidió Cris el
+  // 4 oct 2026. Los packs de meses viejos siguen ahí, pero solo se usan si
+  // el mes nuevo no tiene nada de ese TH o tipo.
+  const { data: packs } = await admin.from('base_packs').select('id, mes');
+  const mesDe = new Map((packs ?? []).map((p) => [p.id, p.mes ?? '']));
+  const meses = [...new Set((todasLasBases ?? []).map((b) => mesDe.get(b.pack_id) ?? ''))].sort().reverse();
+  const todas = meses.length ? (todasLasBases ?? []).filter((b) => (mesDe.get(b.pack_id) ?? '') === meses[0]) : todasLasBases;
+
   if (!todas?.length) {
     const filtro = [th ? `TH${th}` : null, tipo === 'WB' ? 'de guerra' : tipo === 'HV' ? 'de aldea' : null].filter(Boolean).join(' ');
     return `No tengo ninguna base ${esc(filtro)} en el pack.\nPrueba <code>/base</code> a secas.`;

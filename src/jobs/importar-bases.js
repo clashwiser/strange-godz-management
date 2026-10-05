@@ -28,6 +28,11 @@ import { db, chk, correrJob } from '../lib/db.js';
 
 const ruta = process.argv[2];
 const nombre = process.argv[3] || ruta?.split(/[\\/]/).pop()?.replace(/\.pdf$/i, '');
+const mesArg = process.argv[4];
+if (mesArg && !/^\d{4}-\d{2}$/.test(mesArg)) {
+  console.error(`El mes va como YYYY-MM, no "${mesArg}"`);
+  process.exit(1);
+}
 
 if (!ruta) {
   console.error('Uso: npm run bases:importar <archivo.pdf> [nombre del pack]');
@@ -83,7 +88,7 @@ await correrJob('importar_bases', async () => {
   console.log(`  ${encontradas.length} bases, ${conMini} con miniatura, ${conNota} con nota`);
   if (!conMini) console.log('  (este pack es solo texto, sin imagenes)');
 
-  const mes = new Date().toISOString().slice(0, 7);
+  const mes = mesArg || new Date().toISOString().slice(0, 7);
   const origen = ruta.split(/[\\/]/).pop();
 
   // Reusar el pack si este PDF ya se importo. Sin esto cada re-corrida deja
@@ -98,7 +103,10 @@ await correrJob('importar_bases', async () => {
       await db.from('base_packs').insert({ nombre, mes, origen }).select('id').single(),
       'crear pack'
     );
-  if (previo) console.log(`  el pack ya existia (id ${previo.id}); actualizo`);
+  if (previo) {
+    console.log(`  el pack ya existia (id ${previo.id}); actualizo`);
+    if (mesArg) await db.from('base_packs').update({ mes, nombre }).eq('id', previo.id);
+  }
 
   const filas = encontradas.map((b) => ({
     pack_id: pack.id,
