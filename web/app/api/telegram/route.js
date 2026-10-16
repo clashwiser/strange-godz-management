@@ -21,9 +21,10 @@ import { pensar, thDe } from '../../../lib/pensar';
 import { esPreguntaDelJuego } from '../../../lib/conocimiento';
 import { leccionPara, reglasDelClan, ajusteWeb } from '../../../lib/entrenamiento';
 import { pideLasReglas, mensajeReglas } from '../../../lib/reglas';
-import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje } from '../../../lib/castillos';
+import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastillo, rechazaCastillo, decidirCastillo, recordarMensaje, PUNTOS_CASTILLO } from '../../../lib/castillos';
 import { fotoDe } from '../../../lib/castillo-foto';
-import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
+import { decidirReto, recordarMensajeReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
+import { anotarGuerraLlena, PUNTOS_GUERRA_LLENA } from '../../../lib/guerra-llena';
 import { JUEGOS_BASE, JUEGOS_MAX, PUNTOS_JUEGOS_BASE, PUNTOS_JUEGOS_MAX } from '../../../lib/juegos';
 import { planDelMes } from '../../../lib/plan-premios';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
@@ -243,7 +244,8 @@ async function atenderReaccion(r) {
   if (!(await esAdminDelGrupo(quienId))) return;
 
   const nombre = [r.user.first_name, r.user.last_name].filter(Boolean).join(' ') || r.user.username || 'un líder';
-  const decision = { mensajeBotId, confirmar, lider: esc(nombre) };
+  // liderId: una guerra llena no se la confirma uno mismo (decidirReto).
+  const decision = { mensajeBotId, confirmar, lider: esc(nombre), liderId: quienId };
   const texto = (await decidirCastillo(admin, decision)) ?? (await decidirReto(admin, decision));
   if (texto) await responder(chatId, texto);
 }
@@ -730,11 +732,12 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
         `/base [th] [guerra|cwl] — una base del pack, con su mini (una cada 3 días)\n` +
         `/reporte — último mensaje generado, para pegar en WhatsApp\n` +
         `/juegos — los Juegos del Clan: manda la captura y suma puntos\n` +
+        `/guerrallena — llenaste TÚ SOLO todos los castillos de la guerra: +${PUNTOS_GUERRA_LLENA} cuando un líder lo confirme con 👍 (sin foto)\n` +
         `/idioma — en qué idioma te contesto por privado (ES · EN · FIL)\n` +
         `/puntos — la tabla de puntos del mes\n\n` +
         `<b>Con foto</b> (el comando va en el pie de la captura):\n` +
-        `/castillo + captura del mapa de guerra → +5 si el castillo de abajo está lleno\n` +
-        `/fc + captura del chat con 5 desafíos amistosos de 2⭐ o más → +5, una vez al día\n` +
+        `/castillo + captura del mapa de guerra → +${PUNTOS_CASTILLO} si el castillo de abajo está lleno\n` +
+        `/fc + captura del chat con ${FC_MINIMO} desafíos amistosos de ${FC_ESTRELLAS}⭐ o más → +${PUNTOS_FC}, una vez al día\n` +
         `También vale mencionarme: "@Heraldo ya doné mi castillo", "@Heraldo mis fc"`
       );
 
@@ -758,6 +761,18 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       const r = await anotarCastillo(admin, { tgId: quien.id, nombre: esc(quien.nombre ?? 'socio'), texto: arg });
       const idMensaje = await responder(chatId, r.texto);
       if (!r.existente) await recordarMensaje(admin, r.id, idMensaje);
+      return null;
+    }
+
+    // "Llené TODOS los castillos de la guerra": sin foto, lo confirma un
+    // lider con 👍 al mensaje que sale ahora (ver web/lib/guerra-llena.js).
+    case 'guerrallena':
+    case 'guerracompleta': {
+      // En privado ningun lider puede ponerle el 👍: se pide en el grupo.
+      if (msg && esPrivado(msg)) return `🏰 La guerra llena se pide en el grupo, para que un líder la confirme con 👍. Manda <code>/guerrallena</code> allí.`;
+      const r = await anotarGuerraLlena(admin, { tgId: quien.id, nombre: esc(quien.nombre ?? 'socio') });
+      const idMensaje = await responder(chatId, r.texto);
+      if (r.id && idMensaje) await recordarMensajeReto(admin, r.id, idMensaje);
       return null;
     }
 
@@ -805,10 +820,11 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
       ]);
       const tabla = tablaPuntos([...(castillos ?? []), ...(retos ?? [])]);
       if (!tabla.length) {
-        return `Todavía nadie tiene puntos este mes. Dan puntos el castillo de guerra donado y avisado con la captura (<code>/castillo</code>), el reto de los desafíos amistosos (<code>/fc</code>) y los Juegos del Clan (<code>/juegos</code>).`;
+        return `Todavía nadie tiene puntos este mes. Dan puntos el castillo de guerra donado y avisado con la captura (<code>/castillo</code>), el reto de los desafíos amistosos (<code>/fc</code>), los Juegos del Clan (<code>/juegos</code>) y llenar tú solo toda la guerra (<code>/guerrallena</code>).`;
       }
       const desglose = (p) =>
         [
+          p.guerras ? `${p.guerras} ${p.guerras === 1 ? 'guerra llena' : 'guerras llenas'}` : null,
           p.castillos ? `${p.castillos} ${p.castillos === 1 ? 'castillo' : 'castillos'}` : null,
           p.fc ? `${p.fc} FC` : null,
           p.juegos ? 'juegos del clan' : null,

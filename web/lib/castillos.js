@@ -175,17 +175,19 @@ export function tablaPuntos(filas) {
   for (const f of filas ?? []) {
     if (!f.verificado) continue;
     const k = f.tg_user_id;
-    const p = por.get(k) ?? { nombre: f.nombre, puntos: 0, veces: 0, castillos: 0, fc: 0, juegos: 0 };
+    const p = por.get(k) ?? { nombre: f.nombre, puntos: 0, veces: 0, castillos: 0, fc: 0, juegos: 0, guerras: 0 };
     p.puntos += f.puntos ?? 0;
     p.veces += 1;
     const tipo = f.tipo ?? 'castillo';
     if (tipo === 'castillo') p.castillos += 1;
     else if (tipo === 'fc') p.fc += 1;
     else if (tipo === 'juegos') p.juegos += 1;
+    else if (tipo === 'guerra_llena') p.guerras += 1;
     p.nombre = f.nombre || p.nombre;
     por.set(k, p);
   }
   // Desempate publicado: a igual puntos, gana el que mas castillos dono
-  // (es lo que el clan necesita), y luego el que mas veces sumo.
-  return [...por.values()].sort((a, b) => b.puntos - a.puntos || b.castillos - a.castillos || b.veces - a.veces);
+  // (es lo que el clan necesita), y luego el que mas veces sumo. Una
+  // guerra llena son todos los castillos de una guerra: va por delante.
+  return [...por.values()].sort((a, b) => b.puntos - a.puntos || b.guerras - a.guerras || b.castillos - a.castillos || b.veces - a.veces);
 }

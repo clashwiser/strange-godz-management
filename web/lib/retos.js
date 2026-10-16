@@ -23,7 +23,7 @@
 import { leerImagen } from './vision.js';
 import { pedirPerfil } from './coc-perfil.js';
 import { fotoDe, bajarFoto, parecidos } from './castillo-foto.js';
-import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS, FC_CAPTURAS_DIA } from './retos-reglas.js';
+import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS, FC_CAPTURAS_DIA, PUNTOS_GUERRA_LLENA } from './retos-reglas.js';
 
 // Las reglas viven en retos-reglas.js (el panel las lee de ahi); se
 // re-exportan para que todo lo que ya las pedia aqui siga igual.
@@ -224,9 +224,24 @@ export async function recordarMensajeReto(admin, id, mensajeBotId) {
  * Un lider contesto ✅ o ❌ al mensaje de un reto. ❌ lo quita; ✅ no hace
  * falta (ya estaba verificado). Null si el mensaje no era de un reto.
  */
-export async function decidirReto(admin, { mensajeBotId, confirmar, lider }) {
-  const { data: fila } = await admin.from('retos').select('id, nombre, puntos, tipo').eq('mensaje_bot_id', mensajeBotId).maybeSingle();
+export async function decidirReto(admin, { mensajeBotId, confirmar, lider, liderId = null }) {
+  const { data: fila } = await admin.from('retos').select('id, nombre, puntos, tipo, verificado, tg_user_id').eq('mensaje_bot_id', mensajeBotId).maybeSingle();
   if (!fila) return null;
+  // La guerra llena es la unica que espera a un lider: el FC y los juegos
+  // se verifican solos con la foto. 50 puntos son muchos: no se los
+  // confirma uno mismo, aunque sea lider (Deivis compite).
+  if (fila.tipo === 'guerra_llena' && !fila.verificado) {
+    if (confirmar) {
+      if (liderId != null && Number(liderId) === Number(fila.tg_user_id)) {
+        return `🏰 La guerra llena de ${fila.nombre} la tiene que confirmar otro líder.`;
+      }
+      const { error } = await admin.from('retos').update({ verificado: true, puntos: PUNTOS_GUERRA_LLENA, verificado_por: lider }).eq('id', fila.id);
+      if (error) return `No pude confirmar la guerra llena de ${fila.nombre}. Inténtalo otra vez.`;
+      return `✅ Confirmado por ${lider}: <b>+${PUNTOS_GUERRA_LLENA} puntos</b> para ${fila.nombre} por llenar todos los castillos de la guerra. 🏰`;
+    }
+    await admin.from('retos').delete().eq('id', fila.id);
+    return `❌ ${lider} no da por buena la guerra llena de ${fila.nombre}.`;
+  }
   if (confirmar) return `Ese reto ya estaba verificado (+${fila.puntos} para ${fila.nombre}).`;
   await admin.from('retos').delete().eq('id', fila.id);
   return `❌ ${lider} no da por bueno el reto de ${fila.nombre}. Se quitan esos ${fila.puntos} puntos.`;

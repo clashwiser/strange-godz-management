@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import { tablaPuntos, PUNTOS_CASTILLO } from '../lib/castillos';
-import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../lib/retos-reglas';
+import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS, PUNTOS_GUERRA_LLENA } from '../lib/retos-reglas';
 
 const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
 
@@ -631,6 +631,20 @@ function PuntosCastillo({ d, recargar }) {
     else recargar?.();
   }
 
+  // La guerra llena es el unico reto que espera a un lider (ver
+  // web/lib/guerra-llena.js): aqui, por si nadie le puso el 👍 en Telegram.
+  async function confirmarGuerraLlena(r) {
+    setOcupado(`r${r.id}`);
+    const { data: sesion } = await supabase.auth.getSession();
+    const { error } = await supabase
+      .from('retos')
+      .update({ verificado: true, puntos: PUNTOS_GUERRA_LLENA, verificado_por: sesion?.session?.user?.email ?? 'lider' })
+      .eq('id', r.id);
+    setOcupado(null);
+    if (error) alert(error.message);
+    else recargar?.();
+  }
+
   async function quitarReto(r) {
     if (!confirm(`${t('¿Quitar el reto de')} ${r.nombre} (${r.puntos} pts)?`)) return;
     setOcupado(`r${r.id}`);
@@ -658,6 +672,7 @@ function PuntosCastillo({ d, recargar }) {
               {tabla.slice(0, 20).map((p) => (
                 <li key={p.nombre}>
                   <b>{p.nombre}</b> — {p.puntos} pts
+                  {p.guerras > 0 && <> · {p.guerras} {p.guerras === 1 ? t('guerra llena') : t('guerras llenas')}</>}
                   {p.castillos > 0 && <> · {p.castillos} {p.castillos === 1 ? t('castillo') : t('castillos')}</>}
                   {p.fc > 0 && <> · {p.fc} FC</>}
                 </li>
@@ -700,9 +715,14 @@ function PuntosCastillo({ d, recargar }) {
               {retos.map((r) => (
                 <li key={r.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,.08)' }}>
                   <span style={{ flex: 1 }}>
-                    <b>{r.nombre}</b> — {r.tipo === 'fc' ? t('desafíos amistosos') : r.tipo} · +{r.puntos} <span className="sub">{fmt(r.creado_en)}</span>
+                    <b>{r.nombre}</b> — {r.tipo === 'fc' ? t('desafíos amistosos') : r.tipo === 'guerra_llena' ? t('guerra llena') : r.tipo} · {r.verificado ? `+${r.puntos}` : t('por confirmar')} <span className="sub">{fmt(r.creado_en)}</span>
                     {r.nota && <span className="sub"> · {r.nota}</span>}
                   </span>
+                  {r.tipo === 'guerra_llena' && !r.verificado && (
+                    <button onClick={() => confirmarGuerraLlena(r)} disabled={ocupado === `r${r.id}`}>
+                      {t('Confirmar')} +{PUNTOS_GUERRA_LLENA}
+                    </button>
+                  )}
                   <button className="fantasma" onClick={() => quitarReto(r)} disabled={ocupado === `r${r.id}`} title={t('Quitar')}>
                     ✕
                   </button>

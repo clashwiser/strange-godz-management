@@ -274,16 +274,18 @@ await correrJob('cierre_mensual', async () => {
           console.log(`  ${pr.titulo.padEnd(32)} ${String(TIPOS[pr.tipo] ?? pr.tipo).padStart(6)}   sin puntos este mes`);
           continue;
         }
-        const empatados = puntos.filter((p) => p.puntos === top.puntos && p.castillos === top.castillos);
+        // El desempate publicado: puntos, guerras llenas, castillos (castillos.js).
+        const empatados = puntos.filter((p) => p.puntos === top.puntos && (p.guerras ?? 0) === (top.guerras ?? 0) && p.castillos === top.castillos);
+        const desglose = (p) => `${p.guerras ? `${p.guerras} ${p.guerras === 1 ? 'guerra llena' : 'guerras llenas'}, ` : ''}${p.castillos} castillos, ${p.fc} FC`;
         if (empatados.length > 1) {
           console.log(`  ${pr.titulo.padEnd(32)} ${String(TIPOS[pr.tipo] ?? pr.tipo).padStart(6)}   EMPATE entre ${empatados.length} — decidan ustedes`);
-          for (const e of empatados) console.log(`        ${e.nombre}  ${e.puntos} pts  (${e.castillos} castillos, ${e.fc} FC)`);
+          for (const e of empatados) console.log(`        ${e.nombre}  ${e.puntos} pts  (${desglose(e)})`);
           continue;
         }
         const tag = filasPuntos.find((f) => f.nombre === top.nombre && f.player_tag)?.player_tag;
-        console.log(`  ${pr.titulo.padEnd(32)} ${String(TIPOS[pr.tipo] ?? pr.tipo).padStart(6)}   ${top.nombre}  (${top.puntos} pts: ${top.castillos} castillos, ${top.fc} FC)${tag ? '' : '  SIN /soy: a mano'}`);
+        console.log(`  ${pr.titulo.padEnd(32)} ${String(TIPOS[pr.tipo] ?? pr.tipo).padStart(6)}   ${top.nombre}  (${top.puntos} pts: ${desglose(top)})${tag ? '' : '  SIN /soy: a mano'}`);
         if (tag) {
-          pagos.push({ mes: MES, player_tag: tag, premio: pr.titulo, monto_usd: pr.monto_usd, tipo: pr.tipo, nota: `${top.puntos} puntos: ${top.castillos} castillos, ${top.fc} FC` });
+          pagos.push({ mes: MES, player_tag: tag, premio: pr.titulo, monto_usd: pr.monto_usd, tipo: pr.tipo, nota: `${top.puntos} puntos: ${desglose(top)}` });
         }
         continue;
       }

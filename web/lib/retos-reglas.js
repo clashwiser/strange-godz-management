@@ -10,3 +10,7 @@ export const PUNTOS_FC = 5; // por captura valida
 export const FC_MINIMO = 5; // desafios por captura
 export const FC_ESTRELLAS = 2; // estrellas minimas para que cuente
 export const FC_CAPTURAS_DIA = 1; // capturas validas al dia por persona
+
+// /guerrallena: llenar TODOS los castillos de una guerra uno solo. Lo fijo
+// Cris el 16 oct 2026 (50 = cinco castillos); lo confirma un lider con 👍.
+export const PUNTOS_GUERRA_LLENA = 50;

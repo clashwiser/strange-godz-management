@@ -16,6 +16,7 @@ import { avisaCastillo, anotarCastillo, recordarMensaje } from './castillos.js';
 import { fotoDe, filaParaFoto, verificarCastilloConFoto, leerMapaDePrueba } from './castillo-foto.js';
 import { esFotoDeFC, verificarFCConFoto, recordarMensajeReto, leerChatDePrueba } from './retos.js';
 import { esFotoDeJuegos, verificarJuegosConFoto, leerJuegosDePrueba } from './juegos.js';
+import { anotarGuerraLlena } from './guerra-llena.js';
 import { anotarEnBitacora } from './pensar.js';
 
 const plano = (s) =>
@@ -53,8 +54,8 @@ export function comandoDelPie(pie) {
   const q = plano(pie).trim();
   // /juegos, /juegosdelclan y /juegosdeclan (que es como lo escribio Pepe)
   // son el mismo comando.
-  const m = /(?:^|\s)\/(fc|castillo|prueba|juegos(?:de[l]?clan)?)(?:@\w+)?\b/.exec(q);
-  if (m) return m[1].startsWith('juegos') ? 'juegos' : m[1];
+  const m = /(?:^|\s)\/(fc|castillo|prueba|juegos(?:de[l]?clan)?|guerrallena|guerracompleta)(?:@\w+)?\b/.exec(q);
+  if (m) return m[1].startsWith('juegos') ? 'juegos' : m[1] === 'guerracompleta' ? 'guerrallena' : m[1];
   const solo = /^(fc|castillo|prueba|juegos)( (fc|chat|castillo|mapa|guerra|juegos))?$/.exec(q);
   return solo ? solo[1] : null;
 }
@@ -76,13 +77,16 @@ export function fotoDirigida(pie, { aUnBot = null } = {}) {
  *
  * @param {string} pie
  * @param {{ aUnBot: number|null }} ctx  id del mensaje del bot al que responde, si responde a uno
- * @returns {'prueba_chat'|'prueba_mapa'|'prueba_juegos'|'fc'|'juegos'|'castillo'|'castillo_respuesta'|'duda'|null}
+ * @returns {'prueba_chat'|'prueba_mapa'|'prueba_juegos'|'guerrallena'|'fc'|'juegos'|'castillo'|'castillo_respuesta'|'duda'|null}
  */
 export function modoDeFoto(pie, { aUnBot = null } = {}) {
   if (!fotoDirigida(pie, { aUnBot })) return null;
   const q = plano(pie);
   const comando = comandoDelPie(pie);
   if (comando === 'prueba' || esPruebaDeLectura(pie)) return /juegos/.test(q) ? 'prueba_juegos' : /fc|chat/.test(q) ? 'prueba_chat' : 'prueba_mapa';
+  // La guerra llena no se lee de la foto (no hay foto que la pruebe), pero
+  // si alguien la manda con una, vale igual: queda ahi para el lider.
+  if (comando === 'guerrallena') return 'guerrallena';
   if (comando === 'castillo' || avisaCastillo(pie) || /castillo/.test(q)) return 'castillo';
   if (comando === 'juegos' || esFotoDeJuegos(pie)) return 'juegos';
   if (comando === 'fc' || esFotoDeFC(pie)) return 'fc';
@@ -144,6 +148,10 @@ async function atender(admin, { token, msg, quien, esAdmin, aUnBot, pie, modo })
       const r = await verificarCastilloConFoto(admin, { token, msg, fila, quien: quien.nombre });
       // Sin verificar, un lider confirma contestando ✅ al mensaje que sale ahora.
       return { texto: r.texto, despues: r.verificado ? null : (id) => recordarMensaje(admin, fila.id, id) };
+    }
+    case 'guerrallena': {
+      const r = await anotarGuerraLlena(admin, { tgId: quien.id, nombre: quien.nombre });
+      return { texto: r.texto, despues: r.id ? (id) => recordarMensajeReto(admin, r.id, id) : null };
     }
     case 'duda':
       return { texto: TEXTO_DUDA };
