@@ -1,15 +1,14 @@
 // Leer una imagen con la IA: una captura del juego, y sacar de ella datos.
 //
-// Groq gratis tiene dos modelos que ven imagenes, qwen/qwen3.8-27b y
-// qwen/qwen3.6-27b (console.groq.com/docs/vision, sep 2026): OCR y
-// preguntas sobre la imagen, hasta 3 imagenes de 20 MB por llamada, y cada
-// imagen cuesta 2.048 tokens de entrada. En el plan Free van a 30 llamadas
-// por minuto, 1.000 al dia, 8.000 tokens de entrada por minuto y -el que
-// muerde- 1.000 tokens de SALIDA por minuto y modelo, descontando
-// max_tokens entero al pedir. Con max_tokens en 400 caben dos lecturas por
-// minuto por modelo, cuatro con los dos modelos; para un grupo de sesenta
-// alcanza, y si un dia diez mandan el castillo a la vez, los ultimos
-// esperan unos segundos o vuelven al ✅ de un lider.
+// Groq gratis tenia dos modelos que ven imagenes; desde octubre 2026 queda
+// uno, qwen/qwen3.8-27b (ver MODELOS_VISION): OCR y preguntas sobre la
+// imagen, hasta 3 imagenes de 20 MB por llamada, y cada imagen cuesta
+// 2.048 tokens de entrada. En el plan Free van a 30 llamadas por minuto,
+// 1.000 al dia, 8.000 tokens de entrada por minuto y 1.000 de SALIDA por
+// minuto y modelo, descontando max_tokens entero al pedir. Con un solo
+// modelo caben unas dos lecturas de captura por minuto: la segunda lectura
+// de un castillo puede chocar con el limite, y entonces espera lo que pide
+// Groq ("try again in 8.4s") si le da tiempo a la funcion.
 //
 // La imagen va en base64 dentro de la peticion, no como URL: la URL de un
 // archivo de Telegram lleva el token del bot, y mandarsela a un tercero
@@ -23,8 +22,17 @@ const LLAVE = process.env.IA_LLAVE;
 const URL_BASE = (process.env.IA_URL || '').replace(/\/$/, '');
 const TOPE_DIA = Number(process.env.IA_TOPE_DIA) || 300;
 
-/** Por orden de preferencia; si el primero no existe para la llave, el siguiente. */
-export const MODELOS_VISION = ['qwen/qwen3.8-27b', 'qwen/qwen3.6-27b'];
+/**
+ * Por orden de preferencia; si el primero no existe para la llave, el siguiente.
+ *
+ * Hoy es UNO. qwen/qwen3.6-27b lo retiro Groq: el 16 oct 2026 respondia
+ * 404 y la "segunda opinion con el otro modelo" llevaba dias llamando a un
+ * modelo que no existia. El otro con vision que lista Groq
+ * (meta-models/muse-spark-open) esta en vista previa con acceso a pedir,
+ * razona siempre sin poder apagarlo y no admite reasoning_effort 'none':
+ * no sirve aqui. Si Groq abre otro, va detras del primero.
+ */
+export const MODELOS_VISION = ['qwen/qwen3.8-27b'];
 const descartados = new Set();
 
 export const visionConfigurada = Boolean(LLAVE && URL_BASE);
@@ -91,8 +99,10 @@ export function extraerJson(texto) {
  *   rastro: si se pasa un array, se le apunta por qué falló cada intento
  *   ("qwen3.6: sin JSON (cortado)"). Va a la nota del castillo: los logs de
  *   Vercel no siempre están a mano, y sin esto un "no leyó" no dice nada.
+ *   esperaMax: lo más que se espera tras un 429 (ms). 12 s por defecto;
+ *   más solo si la función que llama tiene tiempo de sobra.
  */
-export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000, modelos = MODELOS_VISION, rastro = null }) {
+export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000, modelos = MODELOS_VISION, rastro = null, esperaMax = 12000 }) {
   const apunta = (s) => {
     if (Array.isArray(rastro)) rastro.push(s);
   };
@@ -160,12 +170,16 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
         apunta(`${modelo.replace(/^.*\//, '')}: límite (429)`);
         if (cola.length) continue;
         const segundos = Number(/try again in ([\d.]+)s/i.exec(detalle)?.[1] ?? NaN);
-        const cabe = Number.isFinite(segundos) && segundos <= 12 && Date.now() - t0 + segundos * 1000 < 18000;
+        const cabe = Number.isFinite(segundos) && segundos * 1000 <= esperaMax && Date.now() - t0 + segundos * 1000 < esperaMax + 6000;
         if (cabe && !esperoYa) {
           esperoYa = true;
-          console.log(`[vision] espero ${segundos}s y repito con ${candidatos[0]}`);
+          // Se repite con EL MISMO modelo que dio el 429. Antes se repetia con
+          // el primero de la lista, que en la segunda lectura era el modelo
+          // retirado (404): la espera no servia de nada.
+          console.log(`[vision] espero ${segundos}s y repito con ${modelo}`);
+          apunta(`espero ${Math.round(segundos)}s`);
           await new Promise((res) => setTimeout(res, segundos * 1000 + 300));
-          cola.push(candidatos[0]);
+          cola.push(modelo);
           continue;
         }
         await contarFallo(admin);

@@ -18,6 +18,12 @@
 // que fue el de arriba, que es su deber; si otro lo lleno por el, los
 // puntos se los lleva igual, y eso lo arregla un ❌ de un lider.
 
+// sharp con import normal: asi el rastreo de Vercel lo ve y lo mete en la
+// funcion. Con el import invisible de antes (webpackIgnore) no lo metia, y
+// el recorte fallo SIEMPRE en produccion con "Cannot find package 'sharp'"
+// (16 oct 2026). Este modulo es solo de servidor: el panel lee las reglas
+// de retos-reglas.js, no de aqui.
+import sharp from 'sharp';
 import { leerImagen, MODELOS_VISION } from './vision.js';
 import { pedirPerfil } from './coc-perfil.js';
 import { PUNTOS_CASTILLO, temporadaDe } from './castillos.js';
@@ -269,10 +275,6 @@ let errorDelRecorte = null;
 async function recortarVentana(base64) {
   errorDelRecorte = null;
   try {
-    // webpackIgnore: este modulo lo importa tambien el panel (por retos.js,
-    // por unas constantes) y webpack intentaria meter sharp en el bundle
-    // del navegador. En el servidor se carga de node_modules tal cual.
-    const sharp = (await import(/* webpackIgnore: true */ 'sharp')).default;
     const img = sharp(Buffer.from(base64, 'base64'));
     const { width, height } = await img.metadata();
     if (!width || !height) return null;
@@ -371,8 +373,11 @@ export async function segundaOpinion(admin, imagen, abajo = null, notas = null) 
     if (Array.isArray(notas)) notas.push(`sin recorte${errorDelRecorte ? ` (${errorDelRecorte})` : ''}, leo la captura entera`);
     recorte = { base64: imagen.base64, mime: imagen.mime, entera: true };
   }
-  // El otro modelo primero; si no devuelve JSON, leerImagen prueba el de
-  // la primera lectura, que con la ventana ampliada sí suele leerla.
+  // El otro modelo primero, si hay otro (hoy Groq deja uno solo: entonces
+  // es el mismo, con la ventana ampliada y unas instrucciones solo para
+  // ella, que es lo que de verdad la lee mejor). Acaba de leer la captura
+  // entera, asi que lo normal es chocar con el limite por minuto: se le
+  // deja esperar hasta 25 s, que caben en los 60 de la funcion de Heraldo.
   const otro = [...MODELOS_VISION].reverse();
   const lectura = await leerImagen(admin, {
     base64: recorte.base64,
@@ -381,6 +386,7 @@ export async function segundaOpinion(admin, imagen, abajo = null, notas = null) 
     max_tokens: TOKENS_VENTANA,
     modelos: otro,
     rastro: notas,
+    esperaMax: 25000,
   });
   const j = lectura?.json;
   if (!j || typeof j !== 'object') return null;

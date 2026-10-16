@@ -23,11 +23,11 @@
 import { leerImagen } from './vision.js';
 import { pedirPerfil } from './coc-perfil.js';
 import { fotoDe, bajarFoto, parecidos } from './castillo-foto.js';
+import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS, FC_CAPTURAS_DIA } from './retos-reglas.js';
 
-export const PUNTOS_FC = 5; // por captura valida
-export const FC_MINIMO = 5; // desafios por captura
-export const FC_ESTRELLAS = 2; // estrellas minimas para que cuente
-export const FC_CAPTURAS_DIA = 1; // capturas validas al dia por persona
+// Las reglas viven en retos-reglas.js (el panel las lee de ahi); se
+// re-exportan para que todo lo que ya las pedia aqui siga igual.
+export { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS, FC_CAPTURAS_DIA };
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const diaCuba = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: 'America/Havana' });

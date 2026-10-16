@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useT } from './idioma';
 import { tablaPuntos, PUNTOS_CASTILLO } from '../lib/castillos';
-import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../lib/retos';
+import { PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../lib/retos-reglas';
 
 const TIPOS = { efectivo: '$', pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
 

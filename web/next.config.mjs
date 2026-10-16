@@ -9,8 +9,9 @@ export default {
   outputFileTracingIncludes: {
     '/api/cartel': ['./app/api/cartel/*.woff', './app/api/cartel/*.jpg'],
     '/api/cartel/route': ['./app/api/cartel/*.woff', './app/api/cartel/*.jpg'],
-    // sharp se importa con webpackIgnore (ver castillo-foto.js), asi que el
-    // rastreo no lo ve: se mete a mano en las funciones que leen fotos.
+    // sharp ya se importa normal en castillo-foto.js y el rastreo lo ve
+    // solo; esto queda de refuerzo. Con el import invisible de antes NO
+    // bastaba: en Vercel faltaba ("Cannot find package 'sharp'", 16 oct 2026).
     '/api/telegram/route': ['./node_modules/sharp/**/*', './node_modules/@img/**/*'],
     '/api/recluta/route': ['./node_modules/sharp/**/*', './node_modules/@img/**/*'],
   },
