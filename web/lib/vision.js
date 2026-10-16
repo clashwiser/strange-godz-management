@@ -85,11 +85,17 @@ export function extraerJson(texto) {
  * si no hay llave, la IA esta apagada, se paso el tope del dia o fallo.
  *
  * @param {object} admin   Supabase con service_role (para el tope)
- * @param {{ base64:string, mime?:string, instrucciones:string, max_tokens?:number, timeout?:number, modelos?:string[] }} p
+ * @param {{ base64:string, mime?:string, instrucciones:string, max_tokens?:number, timeout?:number, modelos?:string[], rastro?:string[] }} p
  *   modelos: el orden de preferencia, si se quiere otro (la segunda
  *   lectura de Valquiria pide el modelo que NO uso Heraldo).
+ *   rastro: si se pasa un array, se le apunta por qué falló cada intento
+ *   ("qwen3.6: sin JSON (cortado)"). Va a la nota del castillo: los logs de
+ *   Vercel no siempre están a mano, y sin esto un "no leyó" no dice nada.
  */
-export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000, modelos = MODELOS_VISION }) {
+export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucciones, max_tokens = 400, timeout = 15000, modelos = MODELOS_VISION, rastro = null }) {
+  const apunta = (s) => {
+    if (Array.isArray(rastro)) rastro.push(s);
+  };
   if (!visionConfigurada || !base64 || !instrucciones) {
     console.error(`[vision] sin leer: ${!visionConfigurada ? 'falta IA_LLAVE o IA_URL' : !base64 ? 'sin imagen' : 'sin instrucciones'}`);
     return null;
@@ -144,12 +150,14 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
       });
       if (r.status === 404) {
         console.error(`[vision] ${modelo} no existe para esta llave; se descarta`);
+        apunta(`${modelo.replace(/^.*\//, '')}: no existe (404)`);
         descartados.add(modelo);
         continue;
       }
       if (r.status === 429) {
         const detalle = (await r.text().catch(() => '')).slice(0, 300);
         console.error(`[vision] ${modelo} respondio 429: ${detalle}`);
+        apunta(`${modelo.replace(/^.*\//, '')}: límite (429)`);
         if (cola.length) continue;
         const segundos = Number(/try again in ([\d.]+)s/i.exec(detalle)?.[1] ?? NaN);
         const cabe = Number.isFinite(segundos) && segundos <= 12 && Date.now() - t0 + segundos * 1000 < 18000;
@@ -166,20 +174,32 @@ export async function leerImagen(admin, { base64, mime = 'image/jpeg', instrucci
       if (!r.ok) {
         const detalle = (await r.text().catch(() => '')).slice(0, 300);
         console.error(`[vision] ${modelo} respondio ${r.status}: ${detalle}`);
+        apunta(`${modelo.replace(/^.*\//, '')}: error ${r.status}`);
         await contarFallo(admin);
         return null;
       }
       const j = await r.json();
       const texto = String(j?.choices?.[0]?.message?.content ?? '').trim();
+      const fin = j?.choices?.[0]?.finish_reason ?? '?';
       // Entero, o casi: es lo que un lider mira cuando una lectura no cuadra.
       console.log(`[vision] ${modelo}: ${texto.slice(0, 1500)}`);
-      if (!texto) {
-        console.error(`[vision] ${modelo} contestó vacío (finish_reason: ${j?.choices?.[0]?.finish_reason ?? '?'})`);
-        return null;
+      const json = extraerJson(texto);
+      // Todas las lecturas piden un JSON. Una respuesta vacia o sin JSON
+      // (cortada por max_tokens, o con una frase en vez del objeto) antes
+      // se daba por buena y el otro modelo ni se probaba: el 16 oct 2026 la
+      // segunda lectura de los castillos "no leyó" tres veces seguidas con
+      // los tres castillos llenos. Ahora pasa al siguiente modelo, si queda.
+      if (!json) {
+        const motivo = `${modelo.replace(/^.*\//, '')}: ${texto ? 'sin JSON' : 'vacío'}${fin === 'length' ? ' (cortado)' : ''}`;
+        console.error(`[vision] ${motivo} (finish_reason: ${fin})`);
+        apunta(motivo);
+        if (cola.length) continue;
+        return texto ? { texto, json: null, modelo } : null;
       }
-      return { texto, json: extraerJson(texto), modelo };
+      return { texto, json, modelo };
     } catch (e) {
       console.error(`[vision] ${modelo} fallo la llamada: ${e?.message ?? e}`);
+      apunta(`${modelo.replace(/^.*\//, '')}: ${/abort|timeout/i.test(String(e?.name ?? e?.message ?? '')) ? 'tardó demasiado' : 'falló la llamada'}`);
       // Un timeout (Groq con cola) se reintenta con el otro modelo si queda
       // tiempo de funcion; la primera prueba real se perdio por uno de 20 s.
       const timeout_ = /abort|timeout/i.test(String(e?.name ?? e?.message ?? ''));

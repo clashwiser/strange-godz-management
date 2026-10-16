@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa, otrasLlenas, barraDelCastillo } from '../web/lib/castillo-foto.js';
+import { fotoDe, castilloDeAbajo, parecidos, juzgar, tropaValida, pareceNombreDeClan, confirmaSegunda, estaLleno, lecturaDudosa, otrasLlenas, barraDelCastillo, esDeLaBase, baseDeLaVentana, iconosDe } from '../web/lib/castillo-foto.js';
 import { extraerJson } from '../web/lib/vision.js';
 
 const guerra = {
@@ -254,4 +254,64 @@ test('barraDelCastillo: un castillo a medias sigue saliendo a medias', () => {
   const foto = { numeros: [{ texto: '0/55', de_que_base: '8. Anabolic' }, { texto: '20/55', junto_a_donar: true }] };
   assert.deepEqual(barraDelCastillo(foto, abajoMatatan), { tropas: 20, capacidad: 55 });
   assert.equal(estaLleno(barraDelCastillo(foto, abajoMatatan)), false);
+});
+
+// ---------- 16 oct 2026: las fotos de Deivis y de Cris ----------
+
+test('juzgar: un 0 en la ventana con tropas dentro es dudoso, nunca "no esta lleno"', () => {
+  // La foto de Deivis: la ventana de "4. Killer" 55/55 junto a "Donar", pero
+  // la etiqueta "0/55" de la base de detras se cuela debajo del pedido y el
+  // modelo la toma por la de la ventana. Con cinco tropas a la vista.
+  const l = lectura({
+    es_mapa_de_guerra: true,
+    clan_enemigo: 'ACTIVE PH',
+    bases: [
+      { posicion: 5, nombre: 'EL MATATAN', tropas: 0, capacidad: 55, ventana: false },
+      { posicion: 4, nombre: '⚡Killer⚡', tropas: 0, capacidad: 55, ventana: true },
+    ],
+    tropas_donadas: [{ tropa: 'Archer', cantidad: 4, nivel: 14 }, { tropa: 'Witch', cantidad: 1, nivel: 8 }, { tropa: 'Ice Golem', cantidad: 1, nivel: 9 }],
+  });
+  const r = juzgar({ lectura: l, abajo: { posicion: 4, nombre: '⚡Killer⚡' }, oponente: 'ACTIVE PH' });
+  assert.equal(r.veredicto, 'dudoso');
+});
+
+test('juzgar: un 0 sin tropas dentro si es "no esta lleno"', () => {
+  const l = lectura({ es_mapa_de_guerra: true, bases: [{ posicion: 4, nombre: 'Killer', tropas: 0, capacidad: 55, ventana: true }], tropas_donadas: [] });
+  assert.equal(juzgar({ lectura: l, abajo: { posicion: 4, nombre: 'Killer' }, oponente: null }).veredicto, 'incompleto');
+});
+
+test('juzgar: el 0 de una etiqueta del mapa no se cruza con las tropas de la ventana de otra base', () => {
+  const l = lectura({
+    es_mapa_de_guerra: true,
+    bases: [
+      { posicion: 4, nombre: 'Killer', tropas: 0, capacidad: 55, ventana: false },
+      { posicion: 9, nombre: 'Otro', tropas: 55, capacidad: 55, ventana: true },
+    ],
+    tropas_donadas: [{ tropa: 'Archer', cantidad: 4, nivel: 14 }],
+  });
+  assert.equal(juzgar({ lectura: l, abajo: { posicion: 4, nombre: 'Killer' }, oponente: null }).veredicto, 'incompleto');
+});
+
+test('iconosDe: cuenta las tropas con nombre o cantidad, no los huecos', () => {
+  assert.equal(iconosDe({ tropas_donadas: [{ tropa: 'Archer', cantidad: 4 }, { tropa: null, cantidad: 2 }, { tropa: null, cantidad: null }, null] }), 2);
+  assert.equal(iconosDe({ tropas_donadas: [{ tropa: 'Royal Giant', cantidad: null }] }), 0); // de Clash Royale: no existe
+  assert.equal(iconosDe({}), 0);
+});
+
+test('esDeLaBase: la ventana de la segunda lectura es la suya por posicion o por nombre', () => {
+  const abajoK = { posicion: 4, nombre: '⚡Killer⚡' };
+  assert.equal(esDeLaBase({ posicion: 4, nombre: null }, abajoK), true);
+  assert.equal(esDeLaBase({ posicion: null, nombre: 'Killer' }, abajoK), true);
+  // La foto de Cris: la ventana era la #20, no la de abajo de sus cuentas.
+  assert.equal(esDeLaBase({ posicion: 20, nombre: 'JTCM VEGITO' }, { posicion: 8, nombre: 'Anabolic Batman' }), false);
+  // Sin posicion ni nombre no vale: podria ser la aldea propia.
+  assert.equal(esDeLaBase({ posicion: null, nombre: null }, abajoK), false);
+  assert.equal(esDeLaBase(null, abajoK), false);
+});
+
+test('baseDeLaVentana: la base de la ventana de abajo, para decir de quien es la foto', () => {
+  const l = lectura({ bases: [{ posicion: 19, nombre: 'Axe', ventana: false }, { posicion: 20, nombre: 'JTCM❌❌VEGITO❌❌', tropas: 55, capacidad: 55, ventana: true }] });
+  assert.deepEqual(baseDeLaVentana(l), { posicion: 20, nombre: 'JTCM❌❌VEGITO❌❌' });
+  assert.equal(baseDeLaVentana(lectura({ bases: [{ posicion: 19, nombre: 'Axe', ventana: false }] })), null);
+  assert.equal(baseDeLaVentana(null), null);
 });

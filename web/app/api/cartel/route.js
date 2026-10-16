@@ -14,6 +14,7 @@ import { ImageResponse } from 'next/og';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { admin } from '../../../lib/supabase-admin';
+import { planDelMes } from '../../../lib/plan-premios';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -277,13 +278,9 @@ export async function GET(request) {
   if (url.searchParams.get('demo')) {
     premios = DEMO;
   } else {
-    const { data } = await admin
-      .from('premios_plan')
-      .select('id, titulo, criterio, monto_usd, tipo')
-      .eq('mes', mes)
-      .eq('activo', true)
-      .order('orden');
-    premios = data ?? [];
+    // Un mes sin plan se dibuja con el del anterior (sin escribir: esto es
+    // un GET). Quien lo guarda de verdad es /premios, antes de pedir el cartel.
+    ({ premios } = await planDelMes(admin, mes));
   }
   const { lilita, open600, open800, fondoUri } = await recursos();
   return new ImageResponse(<Cartel mes={mes} premios={premios} fondoUri={fondoUri} />, {

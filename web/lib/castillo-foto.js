@@ -288,11 +288,20 @@ async function recortarVentana(base64) {
 export async function leerTropasAmpliadas(admin, imagen) {
   const recorte = await recortarVentana(imagen.base64);
   if (!recorte) return { error: 'recorte' };
-  const lectura = await leerImagen(admin, { base64: recorte.base64, mime: recorte.mime, instrucciones: INSTRUCCIONES_TROPAS, max_tokens: 350 });
+  const lectura = await leerImagen(admin, { base64: recorte.base64, mime: recorte.mime, instrucciones: INSTRUCCIONES_TROPAS, max_tokens: TOKENS_VENTANA });
   const j = lectura?.json;
   if (!j || !Array.isArray(j.tropas_donadas) || !j.tropas_donadas.length) return { error: 'lectura' };
   return j;
 }
+
+// Lo que puede escribir el modelo en cada lectura. Con 350 la ventana se
+// quedaba corta: el JSON lleva todos los "N/M" que se cuelan y cada tropa,
+// y nombres como ⚡Killer⚡ o ØVERHAMMER gastan muchos tokens. Pero Groq
+// gratis descuenta max_tokens ENTERO de 1.000 por minuto y modelo, y la
+// segunda lectura puede caer en el mismo modelo que la primera: 450 + 500
+// caben en un minuto; 700 + 700 no.
+const TOKENS_MAPA = 450;
+const TOKENS_VENTANA = 500;
 
 /**
  * De los "N/M" que hay en la imagen, el del castillo de la ventana: el que
@@ -341,16 +350,22 @@ export function barraDelCastillo(j, abajo = null) {
  *
  * Devuelve { tropas, capacidad, donado, nombre, posicion } o null.
  */
-export async function segundaOpinion(admin, imagen, abajo = null) {
+export async function segundaOpinion(admin, imagen, abajo = null, notas = null) {
   const recorte = await recortarVentana(imagen.base64);
-  if (!recorte) return null;
+  if (!recorte) {
+    if (Array.isArray(notas)) notas.push('no se pudo recortar la ventana');
+    return null;
+  }
+  // El otro modelo primero; si no devuelve JSON, leerImagen prueba el de
+  // la primera lectura, que con la ventana ampliada sí suele leerla.
   const otro = [...MODELOS_VISION].reverse();
   const lectura = await leerImagen(admin, {
     base64: recorte.base64,
     mime: recorte.mime,
     instrucciones: INSTRUCCIONES_TROPAS,
-    max_tokens: 350,
+    max_tokens: TOKENS_VENTANA,
     modelos: otro,
+    rastro: notas,
   });
   const j = lectura?.json;
   if (!j || typeof j !== 'object') return null;
@@ -373,13 +388,19 @@ export async function segundaOpinion(admin, imagen, abajo = null) {
  * ampliada no sabe de quien es el mapa, solo lo que dice la ventana.
  */
 export function confirmaSegunda(segunda, abajo) {
-  if (!segunda) return false;
+  return esDeLaBase(segunda, abajo) && estaLleno(segunda);
+}
+
+/**
+ * Si la ventana de la segunda lectura es la de la base de abajo. Hace
+ * falta leer la posicion o el nombre, y que sean los suyos: sin ninguno de
+ * los dos no vale (una captura de la aldea propia con el castillo lleno no
+ * puede colar), y lo que diga de OTRA ventana no dice nada de esta base.
+ */
+export function esDeLaBase(segunda, abajo) {
+  if (!segunda || !abajo) return false;
   const { nombre, posicion } = segunda;
-  // De quien es la ventana: hace falta leer la posicion o el nombre, y que
-  // sean los de la base de abajo. Sin ninguno de los dos no se confirma:
-  // una captura de la aldea propia con el castillo lleno no puede colar.
-  const esSuya = posicion != null ? posicion === abajo.posicion : nombre ? parecidos(nombre, abajo.nombre) : false;
-  return esSuya && estaLleno(segunda);
+  return posicion != null ? posicion === abajo.posicion : nombre ? parecidos(nombre, abajo.nombre) : false;
 }
 
 /**
@@ -425,6 +446,14 @@ export function otrasLlenas(lectura, abajo) {
     .map((b) => ({ posicion: numero(b?.posicion), nombre: b?.nombre == null ? null : String(b.nombre), tropas: numero(b?.tropas), capacidad: numero(b?.capacidad) }))
     .filter((b) => b.tropas != null && b.capacidad > 0 && b.tropas >= b.capacidad)
     .filter((b) => !(b.posicion === abajo.posicion || (b.nombre && parecidos(b.nombre, abajo.nombre))));
+}
+
+/**
+ * Cuantos iconos de tropa vio el modelo en la ventana: los que tienen
+ * nombre o cantidad. Un hueco vacio del castillo no cuenta.
+ */
+export function iconosDe(j) {
+  return (Array.isArray(j?.tropas_donadas) ? j.tropas_donadas : []).filter((t) => t && (tropaValida(t.tropa) || numero(t.cantidad) > 0)).length;
 }
 
 /** "7× Archer n14, 5× Headhunter n4": solo las que reconocio y existen. */
@@ -507,6 +536,16 @@ export function juzgar({ lectura, abajo, oponente, propio = null }) {
   // aporta nada, y si no reconocio ninguna, no se lista nada.
   const donado = textoDonado(j);
   if (tropas >= capacidad) return { veredicto: 'lleno', tropas, capacidad, leido: base.nombre, donado };
+  // Un 0 en la ventana con tropas dentro es imposible: los iconos SON lo
+  // que tiene el castillo. Ese 0 es la etiqueta de la base de detras, que
+  // se cuela dentro de la ventana justo debajo del pedido. Paso con Deivis
+  // el 10 y el 16 oct 2026: dos castillos 55/55 leidos como "0/55" y
+  // contestados con "todavia no esta lleno". Eso no se le dice a nadie con
+  // las tropas a la vista: es dudoso, y lo resuelve la segunda lectura o un
+  // lider.
+  if (tropas === 0 && base.ventana === true && iconosDe(j) > 0) {
+    return { veredicto: 'dudoso', tropas, capacidad, leido: base.nombre, donado };
+  }
   return { veredicto: 'incompleto', tropas, capacidad, leido: base.nombre, donado };
 }
 
@@ -539,6 +578,31 @@ export async function filaParaFoto(admin, { tgId, mensajeBotId = null }) {
 
 // Un lider lo confirma con 👍: sirve la reaccion (Telegram gratis no
 // tiene ✅ entre las reacciones, 👍 si) y sirve contestar al mensaje.
+/**
+ * Las otras cuentas de la persona dueña de estas (players.owner_id), las
+ * activas. Hoy solo los lideres tienen dueño apuntado; para los demas no
+ * devuelve nada y manda lo que ataron con /soy, como siempre.
+ */
+export async function cuentasDelMismoDueno(admin, tags) {
+  if (!tags?.length) return [];
+  const { data: suyas } = await admin.from('players').select('owner_id').in('player_tag', tags).not('owner_id', 'is', null);
+  const duenos = [...new Set((suyas ?? []).map((p) => p.owner_id))];
+  if (!duenos.length) return [];
+  const { data: todas } = await admin.from('players').select('player_tag').in('owner_id', duenos).eq('activo', true);
+  return (todas ?? []).map((p) => p.player_tag);
+}
+
+/**
+ * La base de la ventana de abajo, si el modelo la leyo: la que va con
+ * `ventana: true`. Sirve para decir DE QUIEN es la foto cuando no es de
+ * ningun castillo que le toque, en vez de un "no distingo" que no ayuda.
+ */
+export function baseDeLaVentana(lectura) {
+  const bases = Array.isArray(lectura?.json?.bases) ? lectura.json.bases : [];
+  const v = bases.find((b) => b?.ventana === true && (numero(b.posicion) != null || b.nombre));
+  return v ? { posicion: numero(v.posicion), nombre: v.nombre == null ? null : String(v.nombre) } : null;
+}
+
 const MANUAL = 'Mientras, un líder puede confirmarlo con un 👍 a este mensaje.';
 
 /**
@@ -573,7 +637,13 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     .select('player_tag')
     .eq('tg_user_id', fila.tg_user_id)
     .order('principal', { ascending: false });
-  const todas = [...new Set([fila.player_tag, ...(vinculos ?? []).map((v) => v.player_tag)].filter(Boolean))];
+  const atadas = [fila.player_tag, ...(vinculos ?? []).map((v) => v.player_tag)].filter(Boolean);
+  // Y las demas cuentas de la misma persona (players.owner_id), aunque no
+  // las haya atado con /soy. El 16 oct 2026 Cris lleno el castillo de
+  // abajo de Axe, su cuenta, y como Axe no estaba atada a su Telegram el
+  // bot le contesto "no distingo el castillo" con la foto perfecta.
+  const delMismoDueno = await cuentasDelMismoDueno(admin, atadas);
+  const todas = [...new Set([...atadas, ...delMismoDueno])];
   const tags = todas.filter((t) => !yaConfirmadas.has(t));
   if (todas.length && !tags.length) {
     const puntos = (confirmadosHoy ?? []).reduce((s, c) => s + (c.puntos ?? 0), 0);
@@ -625,10 +695,12 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     return { texto: `📷 No pude bajar la foto (¿muy grande?). Mándala como foto normal, no como archivo. ${MANUAL}`, verificado: false };
   }
 
-  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_MAPA });
+  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_MAPA, max_tokens: TOKENS_MAPA });
   // Se juzga contra el castillo de abajo de cada cuenta y se queda el mejor
   // veredicto: lleno, si no incompleto, si no lo que sea de la principal.
-  const RANGO = { lleno: 3, incompleto: 2 };
+  // 'dudoso' encontro la base que toca (con tropas dentro): vale mas que
+  // un 'no_se_ve' de otra cuenta, que ni la encontro.
+  const RANGO = { lleno: 4, dudoso: 3, incompleto: 2 };
   let mejor = null;
   for (const c of sitios) {
     const f = juzgar({ lectura, abajo: c.sitio.abajo, oponente: c.guerra.opponent?.name, propio: c.guerra.clan?.name });
@@ -663,7 +735,8 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
   // (En 'otra_guerra' no: ahi la captura es de otra guerra y da igual lo
   // llena que salga la ventana.)
   if (fallo.veredicto !== 'lleno' && fallo.veredicto !== 'otra_guerra') {
-    const segunda = await segundaOpinion(admin, imagen, abajo);
+    const porQue = [];
+    const segunda = await segundaOpinion(admin, imagen, abajo, porQue);
     if (confirmaSegunda(segunda, abajo)) {
       await admin
         .from('castillos')
@@ -682,16 +755,26 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     // cual de las dos pasadas falló cuando alguien se queja.
     const dosLecturas =
       `1ª ${fallo.veredicto} ${fallo.tropas ?? '?'}/${fallo.capacidad ?? '?'} · ` +
-      `2ª ${segunda ? `${segunda.tropas ?? '?'}/${segunda.capacidad ?? '?'} barra:${segunda.barraLlena ?? '?'} donar:${segunda.botonDonar ?? '?'} iconos:${segunda.tropasDonadas ?? 0}` : 'no leyó'}`;
-    if (segunda && !lecturaDudosa(segunda)) {
-      // La segunda lectura vio la ventana clara y tampoco esta llena: eso
-      // ya es una respuesta, y mas fiable que "no distingo nada".
+      `2ª ${segunda ? `${segunda.tropas ?? '?'}/${segunda.capacidad ?? '?'} barra:${segunda.barraLlena ?? '?'} donar:${segunda.botonDonar ?? '?'} iconos:${segunda.tropasDonadas ?? 0}` : 'no leyó'}` +
+      // Por que fallo cada intento ("qwen3.6-27b: sin JSON (cortado)"): es
+      // lo unico que dice que paso cuando los logs de Vercel no estan a mano.
+      (porQue.length ? ` (${porQue.join('; ')})` : '');
+    // Lo que vio la segunda solo cuenta si es la ventana de SU base: si es
+    // la de otra (la foto de Cris del 16 oct era del castillo de la #20),
+    // decir "va 55/55: todavia no esta lleno" seria de la base equivocada.
+    // Y como aqui confirmaSegunda ya fallo, la de su base no esta llena.
+    const deSuBase = esDeLaBase(segunda, abajo);
+    if (deSuBase && !lecturaDudosa(segunda)) {
+      // La vio clara y no esta llena: eso ya es una respuesta, y mas
+      // fiable que "no distingo nada".
       fallo = { ...fallo, veredicto: 'incompleto', tropas: segunda.tropas, capacidad: segunda.capacidad, donado: segunda.donado, dosLecturas };
-    } else if (fallo.veredicto === 'incompleto' && segunda && lecturaDudosa(segunda)) {
-      // La ventana tiene varios "N/M" y no se sabe cuál es el suyo: antes
-      // de llamar mentiroso a nadie, que lo confirme un líder.
+    } else if (deSuBase) {
+      // Su ventana, pero con varios "N/M" y sin saber cuál es el suyo, o
+      // un 0 con tropas dentro: antes de llamar mentiroso a nadie, que lo
+      // confirme un líder.
       fallo = { ...fallo, veredicto: 'dudoso', dosLecturas };
     } else {
+      // La segunda no leyó, o leyó otra ventana: queda lo de la primera.
       fallo = { ...fallo, dosLecturas };
     }
   }
@@ -755,12 +838,37 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
         texto: `📷 Eso no parece el mapa de guerra. Abre la guerra, toca la base de ${quienAbajo}, que es la tuya de abajo, y manda la captura donde se vea su castillo. ${MANUAL}`,
         verificado: false,
       };
-    case 'no_se_ve':
+    case 'no_se_ve': {
       await anota(`foto: no se distingue el castillo de ${sitios.map((c) => c.sitio.abajo.nombre).join(' / ')}${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
+      // Si la ventana es de OTRA base, se dice cual y de quien es la de
+      // encima: casi siempre es una cuenta suya que no ato con /soy.
+      const ventana = baseDeLaVentana(lectura);
+      const esDeOtra = ventana && !sitios.some((c) => c.sitio.abajo.posicion === ventana.posicion || (ventana.nombre && parecidos(ventana.nombre, c.sitio.abajo.nombre)));
+      if (esDeOtra) {
+        // La de encima, con la misma vuelta que castilloDeAbajo: a la #1 le
+        // dona la ultima del mapa.
+        const miembros = [...(guerra.clan?.members ?? [])].sort((a, b) => (a.mapPosition ?? 0) - (b.mapPosition ?? 0));
+        const i = ventana.posicion != null ? miembros.findIndex((m) => m.mapPosition === ventana.posicion) : -1;
+        const deArriba = i >= 0 && miembros.length > 1 ? miembros[(i - 1 + miembros.length) % miembros.length] : null;
+        const cual = `<b>${esc(ventana.nombre ?? '?')}</b>${ventana.posicion != null ? ` (#${ventana.posicion})` : ''}`;
+        // Si la de encima ya es suya, es que esa cuenta tiene hoy el
+        // castillo confirmado (por eso no entraba): no se le pide un /soy.
+        const yaEsSuya = deArriba && todas.some((t) => String(t).toUpperCase() === String(deArriba.tag).toUpperCase());
+        const pista = !deArriba
+          ? ''
+          : yaEsSuya
+            ? ` Es el de abajo de <b>${esc(deArriba.name)}</b> (#${deArriba.mapPosition}), que ya tiene confirmado el castillo de hoy.`
+            : ` Si <b>${esc(deArriba.name)}</b> (#${deArriba.mapPosition}) es tuya, átala con <code>/soy ${esc(deArriba.name)}</code> y vuelve a mandar la foto.`;
+        return {
+          texto: `📷 La foto es del castillo de ${cual}, y ese no es el de abajo de ninguna de tus cuentas: a ti te tocan ${losDeAbajo}.${pista} ${MANUAL}`,
+          verificado: false,
+        };
+      }
       return {
         texto: `📷 En la foto no distingo el castillo de ${losDeAbajo}, que es el de abajo de ${quien}. Manda una captura del mapa de guerra donde se lea su nombre y el castillo (N/M). ${MANUAL}`,
         verificado: false,
       };
+    }
     default:
       return { texto: `📷 Ahora mismo no puedo leer la foto, ${quien}. ${MANUAL}`, verificado: false };
   }
@@ -776,7 +884,7 @@ export async function leerMapaDePrueba(admin, { token, msg }) {
   const foto = fotoDe(msg);
   const imagen = foto ? await bajarFoto(token, foto) : null;
   if (!imagen) return '🔍 No pude bajar la captura.';
-  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_MAPA });
+  const lectura = await leerImagen(admin, { base64: imagen.base64, mime: imagen.mime, instrucciones: INSTRUCCIONES_MAPA, max_tokens: TOKENS_MAPA });
   const j = lectura?.json;
   if (!j) return `🔍 No pude leerla (${lectura ? 'no devolvió JSON' : 'la IA no contestó'}).`;
   const bases = (Array.isArray(j.bases) ? j.bases : [])

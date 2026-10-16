@@ -25,6 +25,7 @@ import { avisaCastillo, anotarCastillo, tablaPuntos, temporadaDe, confirmaCastil
 import { fotoDe } from '../../../lib/castillo-foto';
 import { decidirReto, PUNTOS_FC, FC_MINIMO, FC_ESTRELLAS } from '../../../lib/retos';
 import { JUEGOS_BASE, JUEGOS_MAX, PUNTOS_JUEGOS_BASE, PUNTOS_JUEGOS_MAX } from '../../../lib/juegos';
+import { planDelMes } from '../../../lib/plan-premios';
 import { atenderFoto, botNombrado } from '../../../lib/fotos';
 import { esCorreccion, proponerLeccion } from '../../../lib/correcciones';
 import { tagsDe, cuentasDe } from '../../../lib/vinculos';
@@ -855,8 +856,14 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
     case 'bonos': {
       // El cartel (lo dibuja /api/cartel con los premios del mes) y,
       // debajo, la lista en texto. Si la foto no sale, queda la lista.
-      if (chatId) await responder(chatId, { foto: `${SITIO}/api/cartel?mes=${temporadaActual()}`, pie: `🏆 Premios de ${temporadaActual()}` });
-      return await cmdPremios();
+      // Primero se hereda el plan si el mes no tiene (lo guarda), y despues
+      // el cartel: asi la foto y la lista dicen lo mismo. El &v cambia cada
+      // 5 minutos, lo que dura la cache del cartel: si Telegram guardara la
+      // foto por URL, no serviria la vieja.
+      const premiosTexto = await cmdPremios();
+      const v = Math.floor(Date.now() / 300000);
+      if (chatId) await responder(chatId, { foto: `${SITIO}/api/cartel?mes=${temporadaActual()}&v=${v}`, pie: `🏆 Premios de ${temporadaActual()}` });
+      return premiosTexto;
     }
     case 'contacto':
     case 'contactos':
@@ -1134,13 +1141,7 @@ async function cmdEstrellas() {
  */
 async function cmdPremios() {
   const mes = temporadaActual();
-  const [a, m] = mes.split('-').map(Number);
-  const anterior = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`;
   const TIPOS = { efectivo: null, pase_oro: 'Pase de Oro', medallas: 'Medallas', pase_evento: 'Pase de evento' };
-  const leer = async (cual) => {
-    const { data } = await admin.from('premios_plan').select('titulo, criterio, monto_usd, tipo').eq('mes', cual).eq('activo', true).order('orden');
-    return data ?? [];
-  };
   const lista = (premios) =>
     premios
       .map((p) => {
@@ -1149,17 +1150,11 @@ async function cmdPremios() {
       })
       .join('\n');
 
-  const deEsteMes = await leer(mes);
+  // Un mes sin plan hereda el del anterior y lo guarda (ver plan-premios.js),
+  // asi que aqui solo se llega sin premios si tampoco el mes pasado tenia.
+  const { premios: deEsteMes } = await planDelMes(admin, mes, { guardar: true });
   if (deEsteMes.length) {
     return `🏆 <b>PREMIOS DE ${mes}</b> · ${deEsteMes.length}\n\n${lista(deEsteMes)}\n\nSe entregan al cerrar el mes. Cómo vas tú: /cobro.`;
-  }
-  const delPasado = await leer(anterior);
-  if (delPasado.length) {
-    return (
-      `🏆 <b>PREMIOS DE ${anterior}</b> · ${delPasado.length}\n\n${lista(delPasado)}\n\n` +
-      `Esos son los del mes pasado, que son los que se están pagando ahora (se reparten a mediados de ${mes}).\n` +
-      `Los de <b>${mes}</b> todavía están en revisión: los líderes los publican en cuanto estén. Cómo vas tú: /cobro.`
-    );
   }
   return `Los líderes todavía no publicaron los premios de ${mes}.`;
 }
