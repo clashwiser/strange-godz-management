@@ -262,7 +262,12 @@ Las versiones "Super" son raras en un castillo: solo si el icono es claramente e
 El pedido del jugador es una pista fuerte: "HH" es Headhunter, "brujas" es Witch, "arqueras" es Archer, "furnace" u "horno" es Furnace, "IG" es Ice Golem, "edrag" es Electro Dragon, "valks" es Valkyrie. Fíjate bien: Headhunter es una mujer joven de pelo morado con una lanza corta, sobre fondo morado; Witch es una hechicera encapuchada de morado oscuro con bastón y calaveras verdes; Furnace es un horno de piedra con fuego, sin cara.
 ${LISTA_TROPAS}`;
 
+// Por que fallo el ultimo recorte, para la nota del castillo: en Vercel
+// el recorte fallaba siempre y solo se veia en un log que no estaba a mano.
+let errorDelRecorte = null;
+
 async function recortarVentana(base64) {
+  errorDelRecorte = null;
   try {
     // webpackIgnore: este modulo lo importa tambien el panel (por retos.js,
     // por unas constantes) y webpack intentaria meter sharp en el bundle
@@ -279,7 +284,8 @@ async function recortarVentana(base64) {
       .toBuffer();
     return { base64: out.toString('base64'), mime: 'image/jpeg' };
   } catch (e) {
-    console.error(`[castillo] no pude recortar la ventana: ${e?.message ?? e}`);
+    errorDelRecorte = String(e?.message ?? e).slice(0, 160);
+    console.error(`[castillo] no pude recortar la ventana: ${errorDelRecorte}`);
     return null;
   }
 }
@@ -302,6 +308,12 @@ export async function leerTropasAmpliadas(admin, imagen) {
 // caben en un minuto; 700 + 700 no.
 const TOKENS_MAPA = 450;
 const TOKENS_VENTANA = 500;
+
+// Delante de INSTRUCCIONES_TROPAS cuando no se pudo recortar: esas
+// instrucciones hablan de "la parte de abajo, ampliada", y la imagen es
+// la captura entera.
+const AVISO_ENTERA =
+  'OJO: esta vez la imagen NO está recortada: es la captura entera del mapa de guerra. Fíjate SOLO en la ventana de donación que está abierta abajo (la que tiene el número y el nombre de la base, el botón "Donate"/"Donar" y los iconos de tropas) e ignora las etiquetas del resto del mapa.';
 
 /**
  * De los "N/M" que hay en la imagen, el del castillo de la ventana: el que
@@ -351,10 +363,13 @@ export function barraDelCastillo(j, abajo = null) {
  * Devuelve { tropas, capacidad, donado, nombre, posicion } o null.
  */
 export async function segundaOpinion(admin, imagen, abajo = null, notas = null) {
-  const recorte = await recortarVentana(imagen.base64);
+  // Sin recorte (en Vercel fallo siempre hasta el 16 oct 2026 y nadie lo
+  // vio), la captura entera: se pierde el zoom pero no la segunda lectura,
+  // que vale por el otro modelo y por la regla del "N/M" junto a "Donar".
+  let recorte = await recortarVentana(imagen.base64);
   if (!recorte) {
-    if (Array.isArray(notas)) notas.push('no se pudo recortar la ventana');
-    return null;
+    if (Array.isArray(notas)) notas.push(`sin recorte${errorDelRecorte ? ` (${errorDelRecorte})` : ''}, leo la captura entera`);
+    recorte = { base64: imagen.base64, mime: imagen.mime, entera: true };
   }
   // El otro modelo primero; si no devuelve JSON, leerImagen prueba el de
   // la primera lectura, que con la ventana ampliada sí suele leerla.
@@ -362,7 +377,7 @@ export async function segundaOpinion(admin, imagen, abajo = null, notas = null) 
   const lectura = await leerImagen(admin, {
     base64: recorte.base64,
     mime: recorte.mime,
-    instrucciones: INSTRUCCIONES_TROPAS,
+    instrucciones: recorte.entera ? `${AVISO_ENTERA}\n\n${INSTRUCCIONES_TROPAS}` : INSTRUCCIONES_TROPAS,
     max_tokens: TOKENS_VENTANA,
     modelos: otro,
     rastro: notas,
@@ -379,6 +394,9 @@ export async function segundaOpinion(admin, imagen, abajo = null, notas = null) 
     nombre: j.nombre != null ? String(j.nombre) : null,
     posicion: numero(j.posicion),
     tropasDonadas: Array.isArray(j.tropas_donadas) ? j.tropas_donadas.filter((t) => t && tropaValida(t.tropa)).length : 0,
+    // Lo que devolvio el modelo, por si hay que volver a sacar la barra
+    // con otra base (la ventana resulto ser de otra cuenta del jugador).
+    crudo: j,
   };
 }
 
@@ -615,7 +633,8 @@ const MANUAL = 'Mientras, un líder puede confirmarlo con un 👍 a este mensaje
  */
 export async function verificarCastilloConFoto(admin, { token, msg, fila, quien }) {
   const anota = async (nota) => {
-    await admin.from('castillos').update({ nota: String(nota).slice(0, 200) }).eq('id', fila.id);
+    // 400: con el por qué de cada intento de lectura, 200 se quedaba corto.
+    await admin.from('castillos').update({ nota: String(nota).slice(0, 400) }).eq('id', fila.id);
   };
 
   // Las cuentas que YA tienen el castillo de hoy confirmado no cuentan
@@ -707,37 +726,65 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
     const rango = RANGO[f.veredicto] ?? 1;
     if (!mejor || rango > mejor.rango) mejor = { ...c, fallo: f, rango };
   }
-  const { tag, guerra, sitio } = mejor;
-  let { fallo } = mejor;
-  // La fila que se confirma: la del aviso si esta libre. Si esa ya es de
-  // otra cuenta confirmada hoy, para esta cuenta se abre una nueva, pero
-  // solo si la foto vale (lleno): un intento fallido no deja filas sueltas.
-  if (fila.verificado && fallo.veredicto === 'lleno') {
-    const { data: nueva } = await admin
-      .from('castillos')
-      .insert({ temporada: temporadaDe(), tg_user_id: fila.tg_user_id, player_tag: tag, nombre: fila.nombre ?? quien, mensaje: 'foto (otra cuenta)' })
-      .select('id')
-      .single();
-    if (!nueva) return { texto: `📷 No pude anotar el castillo de tu otra cuenta, ${quien}. Díselo a un líder.`, verificado: false };
-    fila = { ...fila, id: nueva.id, player_tag: tag, verificado: false, puntos: 0 };
-  } else if (!fila.verificado && fila.player_tag !== tag) {
-    // La cuenta que dono, por si la fila se anoto con la principal.
-    await admin.from('castillos').update({ player_tag: tag }).eq('id', fila.id);
-  }
-  const { abajo } = sitio;
-  const quienAbajo = `<b>${esc(abajo.nombre)}</b> (#${abajo.posicion})`;
-  // Para el "no lo veo": todos los castillos que valdrian, no solo uno.
-  const losDeAbajo = sitios.map((c) => `<b>${esc(c.sitio.abajo.nombre)}</b> (#${c.sitio.abajo.posicion})`).join(' o ');
 
   // Heraldo no lo dio por bueno: antes de mandar a nadie a esperar a un
   // lider, Valquiria mira la ventana ampliada con el otro modelo. Si ella
   // lo ve lleno y es la base de abajo que toca, vale igual.
   // (En 'otra_guerra' no: ahi la captura es de otra guerra y da igual lo
   // llena que salga la ventana.)
+  //
+  // Y la ventana ampliada es la que dice DE QUIEN es el castillo. En la
+  // captura entera el nombre de la ventana se confunde con las etiquetas
+  // que asoman por debajo: el 16 oct 2026 leyo "#23 PpSilva91" en una
+  // ventana que decia "20. JTCM VEGITO". Si la ventana ampliada es la de
+  // abajo de OTRA de sus cuentas, se juzga esa.
+  const porQue = [];
+  let segunda = null;
+  if (mejor.fallo.veredicto !== 'lleno' && mejor.fallo.veredicto !== 'otra_guerra') {
+    segunda = await segundaOpinion(admin, imagen, mejor.sitio.abajo, porQue);
+    if (segunda && !esDeLaBase(segunda, mejor.sitio.abajo)) {
+      const otra = sitios.find((c) => esDeLaBase(segunda, c.sitio.abajo));
+      if (otra) {
+        const f = juzgar({ lectura, abajo: otra.sitio.abajo, oponente: otra.guerra.opponent?.name, propio: otra.guerra.clan?.name });
+        mejor = { ...otra, fallo: f, rango: RANGO[f.veredicto] ?? 1 };
+        // La barra, otra vez, ahora sabiendo de que base es cada "N/M".
+        segunda = { ...segunda, ...barraDelCastillo(segunda.crudo, otra.sitio.abajo) };
+      }
+    }
+  }
+
+  const { tag, guerra, sitio } = mejor;
+  let { fallo } = mejor;
+  if (!fila.verificado && fila.player_tag !== tag) {
+    // La cuenta que dono, por si la fila se anoto con la principal.
+    await admin.from('castillos').update({ player_tag: tag }).eq('id', fila.id);
+    fila = { ...fila, player_tag: tag };
+  }
+  // La fila que se confirma: la del aviso si esta libre. Si esa ya es de
+  // otra cuenta confirmada hoy, para esta cuenta se abre una nueva, pero
+  // solo cuando la foto vale: un intento fallido no deja filas sueltas.
+  // (Antes solo se hacia con "lleno" a la primera; con la 2ª lectura se
+  // re-confirmaba la fila de la otra cuenta y esta se quedaba sin puntos.)
+  const filaParaPuntos = async () => {
+    if (!fila.verificado) return true;
+    const { data: nueva } = await admin
+      .from('castillos')
+      .insert({ temporada: temporadaDe(), tg_user_id: fila.tg_user_id, player_tag: tag, nombre: fila.nombre ?? quien, mensaje: 'foto (otra cuenta)' })
+      .select('id')
+      .single();
+    if (!nueva) return false;
+    fila = { ...fila, id: nueva.id, player_tag: tag, verificado: false, puntos: 0 };
+    return true;
+  };
+  const sinFila = { texto: `📷 No pude anotar el castillo de tu otra cuenta, ${quien}. Díselo a un líder.`, verificado: false };
+  const { abajo } = sitio;
+  const quienAbajo = `<b>${esc(abajo.nombre)}</b> (#${abajo.posicion})`;
+  // Para el "no lo veo": todos los castillos que valdrian, no solo uno.
+  const losDeAbajo = sitios.map((c) => `<b>${esc(c.sitio.abajo.nombre)}</b> (#${c.sitio.abajo.posicion})`).join(' o ');
+
   if (fallo.veredicto !== 'lleno' && fallo.veredicto !== 'otra_guerra') {
-    const porQue = [];
-    const segunda = await segundaOpinion(admin, imagen, abajo, porQue);
     if (confirmaSegunda(segunda, abajo)) {
+      if (!(await filaParaPuntos())) return sinFila;
       await admin
         .from('castillos')
         .update({ verificado: true, puntos: PUNTOS_CASTILLO, verificado_por: 'Valquiria (2ª lectura)' })
@@ -781,6 +828,7 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
 
   switch (fallo.veredicto) {
     case 'lleno': {
+      if (!(await filaParaPuntos())) return sinFila;
       // Los puntos primero y la nota aparte: la nota es una columna de la
       // migracion 028 y, si faltara, no puede tumbar la confirmacion.
       await admin
@@ -842,7 +890,8 @@ export async function verificarCastilloConFoto(admin, { token, msg, fila, quien 
       await anota(`foto: no se distingue el castillo de ${sitios.map((c) => c.sitio.abajo.nombre).join(' / ')}${fallo.dosLecturas ? ` [${fallo.dosLecturas}]` : ''}`);
       // Si la ventana es de OTRA base, se dice cual y de quien es la de
       // encima: casi siempre es una cuenta suya que no ato con /soy.
-      const ventana = baseDeLaVentana(lectura);
+      // De quien es la ventana: la ampliada lo lee mejor que la captura entera.
+      const ventana = segunda && (segunda.posicion != null || segunda.nombre) ? { posicion: segunda.posicion, nombre: segunda.nombre } : baseDeLaVentana(lectura);
       const esDeOtra = ventana && !sitios.some((c) => c.sitio.abajo.posicion === ventana.posicion || (ventana.nombre && parecidos(ventana.nombre, c.sitio.abajo.nombre)));
       if (esDeOtra) {
         // La de encima, con la misma vuelta que castilloDeAbajo: a la #1 le
