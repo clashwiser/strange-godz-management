@@ -60,7 +60,7 @@ export async function medirSalud(admin) {
     }),
 
     medir(async () => {
-      const { data: c } = await admin.from('clans').select('clan_tag, nombre').order('escuadra').limit(1).maybeSingle();
+      const { data: c } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('escuadra').limit(1).maybeSingle();
       if (!c) return { clan: null, nota: 'sin clanes dados de alta' };
       if (!process.env.COC_TOKEN) throw new Error('COC_TOKEN no está en este entorno');
       const r = await fetch(`${BASE_COC}/clans/${encodeURIComponent(c.clan_tag)}`, {
@@ -97,7 +97,7 @@ export async function medirSalud(admin) {
         admin.from('lecciones').select('bot, activa, propuesta'),
         admin.from('tg_vinculos').select('tg_user_id'),
         admin.from('players').select('*', { count: 'exact', head: true }).eq('activo', true),
-        admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'),
+        admin.from('clans').select('clan_tag, nombre, escuadra').eq('activo', true).order('escuadra'),
         admin.from('castillos').select('verificado').eq('temporada', mes),
         admin.from('retos').select('verificado').eq('temporada', mes),
         admin.from('outbox').select('tipo, estado').eq('estado', 'pendiente'),

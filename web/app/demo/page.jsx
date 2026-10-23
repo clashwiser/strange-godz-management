@@ -28,7 +28,6 @@ const d = {
     { clan_tag: '#2CCJYG2YL', nombre: 'ＳＴＲＡＮＧＥ - ＷＯＲＬＤ', escuadra: 'B', orden: 2, cwl_tamano: 15 },
     { clan_tag: '#228QU9Q8',  nombre: 'Olympus',                  escuadra: 'C', orden: 3, cwl_tamano: 15, proposito: 'trofeos' },
     { clan_tag: '#JUYP2PL',   nombre: 'Cuban Pirates ⚓️',          orden: 4, cwl_tamano: 15, proposito: 'trofeos' },
-    { clan_tag: '#2Q0P0P2JU', nombre: 'Cuba',                     orden: 5, cwl_tamano: 15 },
   ],
   // Quien es quien en Telegram (columna Telegram de Jugadores).
   vinculos: [

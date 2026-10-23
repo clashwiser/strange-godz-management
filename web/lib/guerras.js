@@ -119,7 +119,7 @@ const CACHE_MS = 90_000;
  */
 export async function guerrasDeLaAlianza(admin, guerrasAbiertas) {
   if (cache.guerras && Date.now() < cache.hasta) return cache.guerras;
-  const { data: clans } = await admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra');
+  const { data: clans } = await admin.from('clans').select('clan_tag, nombre, escuadra').eq('activo', true).order('escuadra');
   const guerras = await Promise.all(
     (clans ?? []).map(async (c) => {
       const { abiertas, privado } = await guerrasAbiertas(c.clan_tag);

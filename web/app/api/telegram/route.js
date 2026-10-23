@@ -930,7 +930,7 @@ async function ejecutar(comando, arg, quien = { id: 0, nombre: null }, chatId = 
  * guerras.js). Nada de jobs ni de bandejas: eso es /sistema.
  */
 async function cmdResumen() {
-  const clans = await consultar(() => admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'), 'clanes');
+  const clans = await consultar(() => admin.from('clans').select('clan_tag, nombre, escuadra').eq('activo', true).order('escuadra'), 'clanes');
   if (!clans?.length) return 'No hay clanes cargados en el panel.';
   const [apis, guerras] = await Promise.all([
     Promise.all(clans.map((c) => clanDe(c.clan_tag))),
@@ -945,7 +945,7 @@ async function cmdResumen() {
 
 async function cmdSistema() {
   const [{ data: clans }, { data: snapUlt }, { data: jobs }, { data: pend }] = await Promise.all([
-    admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'),
+    admin.from('clans').select('clan_tag, nombre, escuadra').eq('activo', true).order('escuadra'),
     admin.from('snapshots').select('fecha').order('fecha', { ascending: false }).limit(1),
     admin.from('job_runs').select('job, started_at, ok, filas, error').order('started_at', { ascending: false }).limit(40),
     admin.from('outbox').select('id').eq('estado', 'pendiente'),
@@ -1109,7 +1109,7 @@ async function cmdEstrellas() {
   const [ataques, players, clans] = await Promise.all([
     consultar(() => admin.from('cwl_attacks').select('war_id, player_tag, estrellas, destruccion_pct').in('war_id', wars.map((w) => w.id)), 'ataques'),
     consultar(() => admin.from('players').select('player_tag, nombre_actual'), 'jugadores'),
-    consultar(() => admin.from('clans').select('clan_tag, nombre, escuadra').order('escuadra'), 'clanes'),
+    consultar(() => admin.from('clans').select('clan_tag, nombre, escuadra').eq('activo', true).order('escuadra'), 'clanes'),
   ]);
 
   const nombre = Object.fromEntries((players ?? []).map((p) => [p.player_tag, p.nombre_actual]));

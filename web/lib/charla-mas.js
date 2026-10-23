@@ -553,14 +553,14 @@ export const MAS = [
       'Tráelo, asere. Que le escriba a Valquiria en privado -@Valqui_bot- y ella lo mira.',
       'Amigos que atacan, siempre bienvenidos. Amigos que solo miran, mejor que se queden de espectadores.',
       'Cuantos más seamos, más guerras de 40. Pero que sepan atacar, socio.',
-      'Cada uno que traiga a uno bueno y llenamos los cinco clanes. Así se crece.',
+      'Cada uno que traiga a uno bueno y llenamos los cuatro clanes. Así se crece.',
       'Tu amigo pasa por Valquiria como todos. Sin favoritismos, que después se nota.',
     ],
     [
       'Tráelo, mi cielo. Que me escriba en privado a @Valqui_bot y lo miro.',
       'Amigos que atacan, siempre, mi vida. Amigos que solo miran, mejor de espectadores.',
       'Cuantos más seamos, más guerras grandes, cariño. Pero que sepan atacar.',
-      'Cada uno que traiga a uno bueno y llenamos los cinco clanes, mi corazón.',
+      'Cada uno que traiga a uno bueno y llenamos los cuatro clanes, mi corazón.',
       'Tu amigo pasa por mí como todos, mi cielo. Sin favoritismos, que se nota.',
     ]
   ),

@@ -97,7 +97,7 @@ export function textoDe(n, d) {
     3:
       `⚡ ¿TH18 en Leyenda III o más y sin un clan a tu altura? x300 te busca.\n\n` +
       `Clan OG de 2012 (tag ${TAG}, de los primeros que existieron), nivel ${nivel}, ${liga} en liga de guerra, ${victorias} guerras ganadas y ${rachaES(d.racha)}. Aquí se ataca en serio: los dos ataques, siempre. Adultos y responsables; esto no es farming.\n\n` +
-      `Lo que hay dentro: $80 al mes en varios premios (subir a Leyenda I, primero en la liga, mejor atacante de guerra y más), avisos automáticos por Telegram para que no se te pase ningún ataque, bases top gratis (layouts), y una alianza de cinco clanes con gente de Cuba, de toda Latinoamérica e internacionales.\n\n` +
+      `Lo que hay dentro: $80 al mes en varios premios (subir a Leyenda I, primero en la liga, mejor atacante de guerra y más), avisos automáticos por Telegram para que no se te pase ningún ataque, bases top gratis (layouts), y una alianza de cuatro clanes con gente de Cuba, de toda Latinoamérica e internacionales.\n\n` +
       pie('es'),
     4:
       `🎖 Se busca jugador TH18 · Liga Leyenda III o más\n\n` +
@@ -112,7 +112,7 @@ export function textoDe(n, d) {
       pie('es'),
     6:
       `📜 Un clan con 14 años de historia busca jugadores TH18.\n\n` +
-      `x300, tag ${TAG}, fundado en 2012: de los primeros clanes que hubo en el juego. Hoy: nivel ${nivel}, CWL ${liga}, ${victorias} guerras ganadas, ${rachaES(d.racha)}, guerra siempre. Formamos parte de Strange Godz Alliance, cinco clanes con líderes de la vieja escuela y gente de Cuba, Latinoamérica e internacionales.\n\n` +
+      `x300, tag ${TAG}, fundado en 2012: de los primeros clanes que hubo en el juego. Hoy: nivel ${nivel}, CWL ${liga}, ${victorias} guerras ganadas, ${rachaES(d.racha)}, guerra siempre. Formamos parte de Strange Godz Alliance, cuatro clanes con líderes de la vieja escuela y gente de Cuba, Latinoamérica e internacionales.\n\n` +
       `Buscamos TH18 en Leyenda III o más, adultos, responsables y competitivos: dos ataques por guerra, sin excusas. No es clan de farming.\n` +
       `Ofrecemos $80 al mes en varios premios (Leyenda I, primero en la liga, mejor atacante de guerra y más) y una comunidad en Telegram con avisos y rankings automáticos y bases top gratis (layouts).\n\n` +
       pie('es'),

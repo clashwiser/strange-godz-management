@@ -189,7 +189,7 @@ export async function ordenAsignar(admin, { arg, msg, quien, esc }) {
   texto = texto.replace(/^solo\s+/i, '').trim();
 
   if (!texto) {
-    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
     return { texto: TEXTO.elegirClan(objetivo, esc), botones: botonesClanes(clans ?? [], objetivo.id, lider) };
   }
 
@@ -222,7 +222,7 @@ export async function ordenAsignar(admin, { arg, msg, quien, esc }) {
     return { texto: TEXTO.varios(d.candidatos.length, esc(d.pedida)), botones: botonesCandidatos(d.candidatos, objetivo.id, lider) };
   }
   if (!elegidas.length && noHallados.length && !dudas.length) {
-    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
     return { texto: TEXTO.noEncontrado(esc(noHallados.join(', ')), objetivo, esc), botones: botonesClanes(clans ?? [], objetivo.id, lider) };
   }
 
@@ -269,7 +269,7 @@ export async function atenderBotonAsignar(admin, cq, { tg, esc }) {
     return await editar(t, null);
   }
   if (accion === 'm') {
-    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
     return await editar(TEXTO.elegirClan(objetivo, esc), botonesClanes(clans ?? [], objetivoId, lider));
   }
   if (accion === 'c') {
@@ -278,7 +278,7 @@ export async function atenderBotonAsignar(admin, cq, { tg, esc }) {
     const nombreClan = esc(clan?.nombre ?? clanTag);
     const miembros = await miembrosDelClan(clanTag);
     if (!miembros.length) {
-      const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+      const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
       return await editar(TEXTO.sinMiembros(nombreClan), botonesClanes(clans ?? [], objetivoId, lider));
     }
     return await editar(TEXTO.elegirMiembro(nombreClan, objetivo, esc), botonesMiembros(miembros, objetivoId, lider));

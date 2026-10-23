@@ -163,7 +163,12 @@ export default function Panel() {
       }
 
       setD({
-        clans: clans.data ?? [],
+        // Solo los activos: un clan que salio de la alianza (Cuba, 23 oct
+        // 2026, lo presto Carlos y ya no es nuestro) no sale en ninguna
+        // pestaña. Su historia queda en la base; clansTodos es para el alta,
+        // que no debe dejar meter otra vez uno que ya esta.
+        clans: (clans.data ?? []).filter((c) => c.activo !== false),
+        clansTodos: clans.data ?? [],
         jobs: jobs.data ?? [],
         outbox: outbox.data ?? [],
         wa: wa.data ?? null,

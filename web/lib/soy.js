@@ -151,7 +151,7 @@ export async function ordenSoy(admin, arg, quien, esc) {
 
   // Sin nada: el menu.
   if (!nombre) {
-    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
     return { texto: TEXTO.elegirClan(esc(quien.nombre ?? 'mi hermano')), botones: botonesClanes(clans ?? [], uid) };
   }
 
@@ -167,7 +167,7 @@ export async function ordenSoy(admin, arg, quien, esc) {
   const { exactos, hallados } = buscarPorNombre(jugadores ?? [], nombre);
 
   if (!hallados.length) {
-    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
     return { texto: TEXTO.noEncontrado(esc(nombre)), botones: botonesClanes(clans ?? [], uid) };
   }
 
@@ -273,7 +273,7 @@ export async function atenderBotonSoy(admin, cq, { tg, esc }) {
     return;
   }
   if (accion === 'm') {
-    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
     await editar(TEXTO.elegirClan(nombreVisible), botonesClanes(clans ?? [], uid));
     return;
   }
@@ -282,7 +282,7 @@ export async function atenderBotonSoy(admin, cq, { tg, esc }) {
     const { data: clan } = await admin.from('clans').select('nombre').eq('clan_tag', clanTag).maybeSingle();
     const nombreClan = esc(clan?.nombre ?? clanTag);
     const miembros = await miembrosDelClan(clanTag);
-    if (!miembros.length) return await editar(TEXTO.sinMiembros(nombreClan), botonesClanes((await admin.from('clans').select('clan_tag, nombre').order('orden')).data ?? [], uid));
+    if (!miembros.length) return await editar(TEXTO.sinMiembros(nombreClan), botonesClanes((await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden')).data ?? [], uid));
     await editar(TEXTO.elegirMiembro(nombreClan), botonesMiembros(miembros, uid));
     return;
   }
@@ -306,7 +306,7 @@ export async function atenderBotonSoy(admin, cq, { tg, esc }) {
     if (!atadas.length) return await editar('No tengo nada reciente que deshacer, mi hermano. Si una cuenta no es tuya, dime <code>/soy solo TuNombre</code>.', null);
     const quedan = await desvincular(admin, { tgId: uid, tags: atadas.map((a) => a.tag) });
     await olvidarSoyPendiente(admin, uid);
-    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').order('orden');
+    const { data: clans } = await admin.from('clans').select('clan_tag, nombre').eq('activo', true).order('orden');
     const quitadas = atadas.map((a) => `<b>${esc(a.nombre)}</b>`).join(', ');
     await editar(
       `Sin problema: quité ${quitadas}.${quedan.length ? '' : ' Ya no tienes ninguna cuenta atada.'}\n\n` + TEXTO.elegirClan(nombreVisible),

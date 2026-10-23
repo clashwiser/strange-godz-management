@@ -304,8 +304,11 @@ async function vigilarMiembros(lista) {
   }
 
   // Los que siguen sin respuesta: un recordatorio a las dos horas, y a las 24 se cierra.
+  // Solo de los clanes de la alianza: uno que salio (Cuba, 23 oct 2026) no
+  // sigue preguntando por su gente.
+  const nuestros = new Set(lista.map((c) => c.clan_tag));
   const { data: pendientes } = await db.from('miembros_vistos').select('id, player_tag, nombre, clan_tag, primera_vez, recordado_en, avisos').eq('estado', 'pendiente');
-  for (const p of pendientes ?? []) {
+  for (const p of (pendientes ?? []).filter((x) => nuestros.has(x.clan_tag))) {
     const horas = (Date.now() - new Date(p.primera_vez).getTime()) / 3600000;
     if (horas >= RENDIRSE_H) {
       await db.from('miembros_vistos').update({ estado: 'sin_respuesta' }).eq('id', p.id);

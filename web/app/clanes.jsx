@@ -136,7 +136,7 @@ export default function Clanes({ d, demo = false, recargar }) {
 
   return (
     <>
-      <AltaClan demo={demo} recargar={recargar} yaEstan={d.clans.map((c) => c.clan_tag)} />
+      <AltaClan demo={demo} recargar={recargar} yaEstan={(d.clansTodos ?? d.clans).map((c) => c.clan_tag)} />
 
       <p className="sub pista-arrastre">
         {t('Cambia el orden con')} <b>↑ ↓</b>{t(', o arrastra desde el asa')} <b>⠿</b>{t('. Se guarda solo.')}
