@@ -38,6 +38,22 @@ const TABS = [
 ];
 
 const temporadaActual = () => new Date().toISOString().slice(0, 7);
+
+/**
+ * Una consulta del panel, repetida una vez si falla. El API gratis de
+ * Supabase da a ratos un 504 pasajero, y el panel lanza veinte consultas a
+ * la vez: el 31 oct 2026 la Lista CWL salio sin un solo clan, y antes de
+ * esto el fallo se tragaba en silencio. Volver a esperar la misma consulta
+ * de supabase-js la pide otra vez (comprobado: dos esperas, dos peticiones).
+ */
+async function conReintento(consulta) {
+  let r = await consulta;
+  if (r?.error) {
+    await new Promise((x) => setTimeout(x, 800));
+    r = await consulta;
+  }
+  return r;
+}
 const fmt = (d) => (d ? new Date(d).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
 export default function Panel() {
@@ -63,6 +79,8 @@ export default function Panel() {
 
   const cargar = useCallback(async () => {
     setError('');
+    // Para el aviso de abajo: lo que no se pudo cargar en esta vuelta.
+    let fallos = [];
     try {
       const temporada = temporadaActual();
 
@@ -111,26 +129,35 @@ export default function Panel() {
         supabase.from('fb_posts').select('*').order('fecha', { ascending: false }).limit(60),
         supabase.from('fb_mensajes').select('*').order('recibido_en', { ascending: false }).limit(60),
         supabase.from('fb_candidatos').select('*').order('fecha', { ascending: false }).limit(80),
-      ]);
+      ].map(conReintento));
+
+      // Lo que no llego ni a la segunda se dice arriba, con nombre, en vez
+      // de pintar una lista vacia como si fuera la verdad: sin clanes la
+      // Lista CWL sale sin columnas, y sin alineaciones sale todo el mundo
+      // "sin asignar".
+      fallos = Object.entries({ clanes: clans, alineaciones: alin, premios: plan, config: conf, castillos: cast, retos: ret })
+        .filter(([, r]) => r?.error)
+        .map(([n, r]) => `${n} (${r.error.message ?? r.error.code ?? 'error'})`);
+      if (!clans.error && !(clans.data ?? []).length) fallos.push('clanes (llegaron 0)');
 
       // Ultimo snapshot disponible; de ahi sale la foto de cada jugador.
-      const { data: ultimo } = await supabase
-        .from('snapshots')
-        .select('fecha')
-        .order('fecha', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: ultimo } = await conReintento(
+        supabase.from('snapshots').select('fecha').order('fecha', { ascending: false }).limit(1).maybeSingle()
+      );
 
       let snaps = [];
       if (ultimo?.fecha) {
-        const r = await supabase
-          .from('snapshots')
-          .select('player_tag, clan_tag, th_level, trofeos, liga, war_stars, donaciones, donaciones_recibidas, fecha')
-          .eq('fecha', ultimo.fecha);
+        const r = await conReintento(
+          supabase
+            .from('snapshots')
+            .select('player_tag, clan_tag, th_level, trofeos, liga, war_stars, donaciones, donaciones_recibidas, fecha')
+            .eq('fecha', ultimo.fecha)
+        );
+        if (r.error) fallos.push(`jugadores del último snapshot (${r.error.message ?? 'error'})`);
         snaps = r.data ?? [];
       }
 
-      const { data: players } = await supabase.from('players').select('player_tag, nombre_actual, elegible_premios');
+      const { data: players } = await conReintento(supabase.from('players').select('player_tag, nombre_actual, elegible_premios'));
 
       const ids = (seasons.data ?? []).map((s) => s.id);
       let wars = [];
@@ -201,6 +228,7 @@ export default function Panel() {
         tgUsuarios: tgu.data ?? [],
         fechaSnap: ultimo?.fecha ?? null,
       });
+      if (fallos.length) setError(`No pude cargar ${fallos.join(', ')}. Dale a Actualizar.`);
     } catch (e) {
       setError(e.message ?? String(e));
     }
