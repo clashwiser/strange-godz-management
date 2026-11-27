@@ -58,6 +58,58 @@ const mismoNivel = (a, b) =>
   Number(a.orden_prom ?? 0) === Number(b.orden_prom ?? 0);
 
 /**
+ * Las estrellas de guerra normal del mes por cuenta, de mas a menos. Solo
+ * las cuentas que compiten. Desempate: mas ataques usados, luego mas
+ * destruccion media; si sigue igual, deciden los lideres.
+ *
+ * La misma guerra a veces queda guardada dos veces (la API mueve la hora
+ * de inicio entre preparacion y batalla): misma guerra = mismo clan y
+ * mismo rival a menos de 72 h, y se queda la fila con mas ataques. Las
+ * estrellas son las de cada ataque, no las "nuevas" para el marcador:
+ * rematar una base que ya estaba a 3 tambien es atacar.
+ */
+async function estrellasEnGuerraNormal(desde, hasta, elegible) {
+  const guerras = chk(
+    await db.from('wars').select('id, clan_tag, fecha_inicio, clan_rival_tag, clan_rival_nombre').gte('fecha_inicio', desde).lt('fecha_inicio', hasta),
+    'guerras normales'
+  );
+  const conDatos = [];
+  for (const g of guerras) {
+    // Una por una: con 50 por bando, un .in() de todo el mes pasa del tope
+    // de 1.000 filas de la API y cortaria ataques sin avisar.
+    const [ro, at] = await Promise.all([
+      db.from('war_roster').select('player_tag, ataques_disponibles').eq('war_id', g.id),
+      db.from('war_attacks').select('player_tag, estrellas, destruccion_pct').eq('war_id', g.id),
+    ]);
+    conDatos.push({ ...g, roster: chk(ro, 'roster de guerra'), ataques: chk(at, 'ataques de guerra') });
+  }
+  const repetida = new Set();
+  for (const a of conDatos) {
+    for (const b of conDatos) {
+      if (a.id >= b.id || a.clan_tag !== b.clan_tag) continue;
+      const mismoRival = (a.clan_rival_tag && a.clan_rival_tag === b.clan_rival_tag) || a.clan_rival_nombre === b.clan_rival_nombre;
+      const horas = Math.abs(new Date(a.fecha_inicio) - new Date(b.fecha_inicio)) / 3.6e6;
+      if (mismoRival && horas < 72) repetida.add(a.ataques.length >= b.ataques.length ? b.id : a.id);
+    }
+  }
+  const por = new Map();
+  const fila = (tag) => por.get(tag) ?? por.set(tag, { tag, estrellas: 0, usados: 0, disponibles: 0, pcts: [] }).get(tag);
+  for (const g of conDatos.filter((x) => !repetida.has(x.id))) {
+    for (const r of g.roster) fila(r.player_tag).disponibles += r.ataques_disponibles ?? 2;
+    for (const a of g.ataques) {
+      const x = fila(a.player_tag);
+      x.estrellas += a.estrellas ?? 0;
+      x.usados += 1;
+      if (a.destruccion_pct != null) x.pcts.push(Number(a.destruccion_pct));
+    }
+  }
+  return [...por.values()]
+    .filter((x) => elegible[x.tag] !== false && x.usados > 0)
+    .map((x) => ({ ...x, pct: x.pcts.length ? Number((x.pcts.reduce((s, n) => s + n, 0) / x.pcts.length).toFixed(1)) : 0 }))
+    .sort((a, b) => b.estrellas - a.estrellas || b.usados - a.usados || b.pct - a.pct);
+}
+
+/**
  * Raiz de un nombre para detectar la misma persona con varias cuentas.
  *
  * Quita adornos -emoji, simbolos, variantes de ancho- y sufijos tipo "Jr",
@@ -290,9 +342,30 @@ await correrJob('cierre_mensual', async () => {
         continue;
       }
 
+      // Mejor en guerra normal: el que mas estrellas saca en el mes. Lo fijo
+      // Cris el 27 nov 2026 ("el que mas estrellas hace es el que nunca deja
+      // de atacar"); antes decia "mas ataques usados" y se calculaba a mano.
+      if (/guerra normal/i.test(pr.titulo)) {
+        const tabla = await estrellasEnGuerraNormal(desde, siguiente, elegible);
+        const top = tabla[0];
+        if (!top) {
+          console.log(`  ${pr.titulo.padEnd(32)} $${String(pr.monto_usd).padStart(5)}   sin guerras normales este mes`);
+          continue;
+        }
+        const empatados = tabla.filter((x) => x.estrellas === top.estrellas && x.usados === top.usados && x.pct === top.pct);
+        if (empatados.length > 1) {
+          console.log(`  ${pr.titulo.padEnd(32)} $${String(pr.monto_usd).padStart(5)}   EMPATE entre ${empatados.length} — decidan ustedes`);
+          for (const e of empatados) console.log(`        ${nombre[e.tag] ?? e.tag}  ${e.estrellas}★  ${e.usados}/${e.disponibles} ataques`);
+          continue;
+        }
+        console.log(`  ${pr.titulo.padEnd(32)} $${String(pr.monto_usd).padStart(5)}   ${nombre[top.tag] ?? top.tag}  (${top.estrellas}★ en ${top.usados}/${top.disponibles} ataques)`);
+        pagos.push({ mes: MES, player_tag: top.tag, premio: pr.titulo, monto_usd: pr.monto_usd, tipo: pr.tipo, nota: `${top.estrellas} estrellas en ${top.usados}/${top.disponibles} ataques de guerra normal` });
+        continue;
+      }
+
       // Solo se resuelven solos los premios de puesto en un clan concreto.
-      // Los de guerra normal y el de Leyenda necesitan datos que todavia no
-      // se recogen; se listan como pendientes en vez de inventarlos.
+      // El de Leyenda necesita datos que todavia no se cruzan aqui; se
+      // lista como pendiente en vez de inventarlo.
       const m = /(\d)\w*\s*(?:lugar|º)/i.exec(pr.titulo) || /·\s*(\d)/.exec(pr.titulo);
       const puesto = m ? Number(m[1]) : null;
       const tabla = pr.clan_tag ? porClan[pr.clan_tag] && ganadores.find((g) => g.clan === pr.clan_tag)?.tabla : null;

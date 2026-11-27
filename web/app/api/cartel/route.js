@@ -264,7 +264,7 @@ const DEMO = [
   { titulo: 'STRANGE-WORLD · 1er lugar', criterio: 'Primero en estrellas de CWL en STRANGE-WORLD', monto_usd: 7, tipo: 'pase_oro' },
   { titulo: 'Cuba · 1er lugar', criterio: 'Más estrellas de CWL en Cuba', monto_usd: 7, tipo: 'pase_oro' },
   { titulo: 'Cuba · 2do lugar', criterio: 'Segundo en estrellas de CWL en Cuba', monto_usd: 7, tipo: 'pase_oro' },
-  { titulo: 'Mejor en guerra normal', criterio: 'Más ataques USADOS del mes. Participación, no estrellas.', monto_usd: 7, tipo: 'pase_oro' },
+  { titulo: 'Mejor en guerra normal', criterio: 'El que más estrellas saque en las guerras del mes.', monto_usd: 7, tipo: 'pase_oro' },
   { titulo: 'Primero en llegar a Leyenda 1', criterio: 'El primero del mes que llegue a Liga Leyenda', monto_usd: 10, tipo: 'efectivo' },
   { titulo: 'Segundo de llegar a Leyenda 1', criterio: 'El segundo del mes que llegue a Liga Leyenda', monto_usd: 7, tipo: 'pase_oro' },
   { titulo: 'Tercero de llegar a Leyenda 1', criterio: 'El tercero del mes que llegue a Liga Leyenda', monto_usd: 7, tipo: 'pase_oro' },
